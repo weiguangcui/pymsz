@@ -29,7 +29,7 @@ class load_data(object):
     Need to take more care about the units!!! Currently only assume simulation units.
     kpc/h and 10^10 M_sun
     Raw data set needs to provide the cosmology ...
-
+    center and radius need to set both!
     Example
     -------
     simd = load_data(snapfilename="/home/weiguang/Downloads/snap_127",
@@ -78,11 +78,13 @@ class load_data(object):
             ids = r <= rr
             self.pos = spos[ids] - cc
         else:
-            ids = np.ones(head[0][4], dtype=bool)
+            ids = np.ones(head[0][0], dtype=bool)
             self.pos = spos - np.mean(spos, axis=0)
 
         # Electron fraction
         self.NE = readsnapsgl(filename, "NE  ", quiet=True)
+        if self.NE != 0:
+            self.NE = self.NE[ids]
 
         # Temperature
         self.temp = readsnapsgl(filename, "TEMP", quiet=True)
@@ -100,16 +102,22 @@ class load_data(object):
 
         # smoothing length
         self.hsml = readsnapsgl(filename, "HSML", quiet=True)
+        if self.hsml != 0:
+            self.hsml = self.hsml[ids]
 
         # mass only gas
-        self.mass = readsnapsgl(filename, "MASS", ptype=0, quiet=True)[ids]
+        self.mass = readsnapsgl(filename, "MASS", ptype=0, quiet=True)
+        if self.mass != 0:
+            self.mass = self.mass[ids]
+        else:
+            raise ValueError("Can't get gas mass, which is required")
 
         # gas metal if there are
         self.metal = readsnapsgl(filename, "Z   ", ptype=0, quiet=True)
         if self.metal != 0:
             self.metal = self.metal[ids]
 
-        # we need to remove some spurious particles.... if there is a MHI block
+        # we need to remove some spurious particles.... if there is a MHI or SRF block
         mhi = readsnapsgl(filename, "MHI ", quiet=True)
         if mhi == 0:
             # try exclude sfr gas particles
@@ -120,12 +128,20 @@ class load_data(object):
             else:
                 ids_ex = None
         else:
-            mhi = mhi[ids]/0.76/self.mass
-            ids_ex = (self.temp < 3.0e4) & (self.rho >)
+            mhi = mhi[ids] / 0.76 / self.mass
+            ids_ex = (self.temp < 3.0e4) & (self.rho > 6.e-7)
             ids_ex = (mhi < 0.1) & (~ids_ex)
         if ids_ex is not None:
+            self.temp = self.temp[ids_ex]
             self.mass = self.mass[ids_ex]
-
+            self.pos = self.pos[ids_ex]
+            self.rho = self.rho[ids_ex]
+            if self.metal != 0:
+                self.metal = self.metal[ids_ex]
+            if self.NE != 0:
+                self.NE = self.NE[ids_ex]
+            if self.hsml != 0:
+                self.hsml = self.hsml[ids_ex]
 
     def _load_yt(self, filename, cc, rr):
         import yt
