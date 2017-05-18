@@ -1,3 +1,8 @@
 build
+*.egg*
 *.o
+pymsz/SZpack.v1.1.1/*.o
+pymsz/SZpack.v1.1.1/*/*.o
+pymsz/SZpack.v1.1.1/*/*/*.o
+pymsz/*.pyc
 *.pyc
