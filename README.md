@@ -30,4 +30,4 @@ This README would normally document whatever steps are necessary to get your app
 ### acknowledgement
 
 -   Please cite the relative papers when you use the code.
--   The author owe a great debt to John ZoHone, who write the model for integrating SZpack to yt-project. I shamelessly stole his code to make this package. Please also give your thanks to him.
+-   The author owe a great debt to John ZoHone, who write the model for integrating SZpack to [yt-project](http://yt-project.org/). I shamelessly stole his code to make this package. Please also give your thanks to him.
