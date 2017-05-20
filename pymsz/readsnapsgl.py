@@ -65,26 +65,28 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
     if nmets != nmet:
         nmets = nmet
 
+    # read header
+    npf = open(filename, 'rb')
+    if fmt != 0:
+        bname, bsize = read_bhead(npf)
+    bs1 = npf.read(4)  # size of header
+    npart = np.zeros(6, dtype='int32')
+    npart[:] = unpack(endian + 'i i i i i i', npf.read(4 * 6))
+    masstbl = np.zeros(6, dtype='float64')
+    masstbl[:] = unpack(endian + 'd d d d d d', npf.read(8 * 6))
+    time, red = unpack(endian + 'd d', npf.read(2 * 8))
+    F_sfr, F_fb = unpack(endian + 'i i', npf.read(2 * 4))
+    Totnum = np.zeros(6, dtype='int64')
+    Totnum[:] = unpack(endian + 'i i i i i i', npf.read(6 * 4))
+    F_cool, Numfiles = unpack(endian + 'i i', npf.read(2 * 4))
+    Boxsize, Omega0, OmegaLambda, Hubbleparam = unpack(endian + 'd d d d', npf.read(4 * 8))
+    F_agn, F_metal = unpack(endian + 'i i', npf.read(2 * 4))
+    NallHW = np.zeros(6, dtype='int32')
+    NallHW[:] = unpack(endian + 'i i i i i i', npf.read(6 * 4))
+    F_entr_ics = unpack(endian + 'i', npf.read(4))[0]
+    npf.close()
+
     if block == 'HEAD':
-        npf = open(filename, 'rb')
-        if fmt != 0:
-            bname, bsize = read_bhead(npf)
-        bs1 = npf.read(4)  # size of header
-        npart = np.zeros(6, dtype='int32')
-        npart[:] = unpack(endian + 'i i i i i i', npf.read(4 * 6))
-        masstbl = np.zeros(6, dtype='float64')
-        masstbl[:] = unpack(endian + 'd d d d d d', npf.read(8 * 6))
-        time, red = unpack(endian + 'd d', npf.read(2 * 8))
-        F_sfr, F_fb = unpack(endian + 'i i', npf.read(2 * 4))
-        Totnum = np.zeros(6, dtype='int64')
-        Totnum[:] = unpack(endian + 'i i i i i i', npf.read(6 * 4))
-        F_cool, Numfiles = unpack(endian + 'i i', npf.read(2 * 4))
-        Boxsize, Omega0, OmegaLambda, Hubbleparam = unpack(endian + 'd d d d', npf.read(4 * 8))
-        F_agn, F_metal = unpack(endian + 'i i', npf.read(2 * 4))
-        NallHW = np.zeros(6, dtype='int32')
-        NallHW[:] = unpack(endian + 'i i i i i i', npf.read(6 * 4))
-        F_entr_ics = unpack(endian + 'i', npf.read(4))[0]
-        npf.close()
         if rhb:
             return(npart, masstbl, time, red, Totnum, Boxsize, Omega0, OmegaLambda, Hubbleparam)
         else:
@@ -92,14 +94,6 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                    Omega0, OmegaLambda, Hubbleparam, F_agn, F_metal, NallHW, F_entr_ics)
 
     if block == 'IDTP':  # Particle type
-        npf = open(filename, 'rb')
-        if fmt != 0:
-            bname, bsize = read_bhead(npf)
-        bs1 = npf.read(4)  # size of header
-        npart = np.zeros(6, dtype='int32')
-        npart[:] = unpack(endian + 'i i i i i i', npf.read(4 * 6))
-        npf.close()
-
         idtype = np.zeros(npart.sum(), dtype=np.int32)
         nn = 0
         for i, j in enumerate(npart):
@@ -109,13 +103,6 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
         return(idtype)
     else:
         if fmt >= 0:
-            npf = open(filename, 'rb')
-            if fmt == 1:
-                bname, bsize = read_bhead(npf)
-            bs1 = npf.read(4)
-            npart = np.zeros(6, dtype='int32')
-            npart[:] = unpack(endian + 'i i i i i i', npf.read(4 * 6))
-
             if ptype is not None:
                 if ptype == 0:
                     pty = [0, npart[0]]
@@ -132,10 +119,8 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                 else:
                     raise ValueError("Don't accept ptype value %d" % ptype)
             else:
-                pty = [0, np.sum(npart)]  # None  # the same as ptype
+                pty = None  # the same as ptype
 
-            masstbl = np.zeros(6, dtype='float64')
-            masstbl[:] = unpack(endian + 'd d d d d d', npf.read(8 * 6))
             if block == "MASS":
                 idg0 = (npart > 0) & (masstbl <= 0)
                 if (len(npart[idg0]) == 0) and (fullmass):  # No Mass block!
@@ -153,7 +138,6 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                     if ptype is not None:
                         if masstbl[ptype] > 0:
                             return(masstbl[ptype])
-            npf.close()
 
         npf = open(filename, 'rb')
         subdata = read_block(npf, block, endian, quiet, longid, fmt, pty, rawdata)
@@ -192,7 +176,7 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                             return(subdata[startc:endc])
                     return subdata
             elif ((block == "Z   ") or (block == "ZTOT")) and (subdata is None):
-                # if no "Z   " in the data, need to calculate it from "Zs  " block
+                # no "Z   " in the data, which needs to calculate it from "Zs  " block
                 subdata = read_block(npf, "Zs  ", endian, True, longid, fmt, pty, rawdata)
                 if subdata is None:
                     raise ValueError("Can't find the 'Zs  ' block for calculate metallicity!")
@@ -228,8 +212,7 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                     zs[0:npart[0]] = np.sum(subdata[0:npart[0], 1:], axis=1) / mass
 
                     im = read_block(npf, "iM  ", endian, True, longid, fmt, pty, rawdata)
-                    # zs[npart[0]:] = np.sum(subdata[npart[0]:,1:],axis=1)
-                    # /(im-np.sum(subdata[npart[0]:,:],axis=1))
+                    # zs[npart[0]:]=np.sum(subdata[npart[0]:,1:],axis=1)/(im-np.sum(subdata[npart[0]:,:],axis=1))
                     zs[npart[0]:] = np.sum(subdata[npart[0]:, 1:], axis=1) / im
                     mass, im, subdata = 0, 0, 0
                     npf.close()
@@ -260,13 +243,13 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                         mean_mol_weight = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)
                     else:
                         mean_mol_weight = (1. + 4. * yhelium) / (1. + yhelium + NE)
-                    v_unit = 1.0e5       # (e.g. 1.0 km/sec)
-                    prtn = 1.672623e-24  # (proton mass in g)
-                    bk = 1.380658e-16    # (Boltzman constant in CGS)
+                    v_unit = 1.0e5 * np.sqrt(time)       # (e.g. 1.0 km/sec)
+                    prtn = 1.67373522381e-24  # (proton mass in g)
+                    bk = 1.3806488e-16    # (Boltzman constant in CGS)
                     npf.close()
                     return(temp * (5. / 3 - 1) * v_unit**2 * prtn * mean_mol_weight / bk)
-
-            print("No such blocks!!! or Not add in this reading!!!", block)
+            if not quiet:
+                print("No such blocks!!! or Not add in this reading!!!", block)
             npf.close()
             return(0)
 
