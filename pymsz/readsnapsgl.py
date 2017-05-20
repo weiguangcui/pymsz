@@ -19,11 +19,10 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
         nmet: Specify how many different matels are produced in the simulation, default: 11
         fullmass: return all mass of particles inorder of saved particle position
                   False(default): return only mass block
-        rhb: short for return head brief. True(deflaut): only return useful head information, else: all
-        fmt: default or 1: G3 format with blocks; 0: G2 format for snap shot
-             -1: new subfind results.
+        rhb: return header brief. True(default): only return useful head information, else: all
+        fmt: default or 1: G3 format with blocks; 0: G2 format; -1: new subfind results.
         ptype: read only specified particle type: 0: gas, 1: DM, 2: , 3: , 4: star, 5: bh
-        rawdata: default false. If True, will retrun the read binary data in str. You need unpack yourself.
+        rawdata: default False. If True, retrun the binary data in str, which need unpack yourself.
 
     Notes:
     ------------
@@ -169,7 +168,8 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                     for k in np.arange(6):
                         if npart[k] > 0:
                             if(masstbl[k] > 0):
-                                totmass[bgc:bgc + npart[k]] = np.zeros(npart[k], dtype='float32') + masstbl[k]
+                                totmass[bgc:bgc + npart[k]
+                                        ] = np.zeros(npart[k], dtype='float32') + masstbl[k]
                             else:
                                 totmass[bgc:bgc + npart[k]] = subdata[subc:subc + npart[k]]
                                 subc += npart[k]
@@ -191,8 +191,8 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                                     endc += npart[ii]
                             return(subdata[startc:endc])
                     return subdata
-            elif ((block == "Z   ") or (block == "ZTOT")) and (subdata is None):  # no "Z   " in the data
-                # need to calculate it from "Zs  " block
+            elif ((block == "Z   ") or (block == "ZTOT")) and (subdata is None):
+                # if no "Z   " in the data, need to calculate it from "Zs  " block
                 subdata = read_block(npf, "Zs  ", endian, True, longid, fmt, pty, rawdata)
                 if subdata is None:
                     raise ValueError("Can't find the 'Zs  ' block for calculate metallicity!")
@@ -228,18 +228,21 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                     zs[0:npart[0]] = np.sum(subdata[0:npart[0], 1:], axis=1) / mass
 
                     im = read_block(npf, "iM  ", endian, True, longid, fmt, pty, rawdata)
-                    # zs[npart[0]:] =np.sum(subdata[npart[0]:,1:],axis=1)/(im-np.sum(subdata[npart[0]:,:],axis=1))
+                    # zs[npart[0]:] = np.sum(subdata[npart[0]:,1:],axis=1)
+                    # /(im-np.sum(subdata[npart[0]:,:],axis=1))
                     zs[npart[0]:] = np.sum(subdata[npart[0]:, 1:], axis=1) / im
                     mass, im, subdata = 0, 0, 0
                     npf.close()
                     return zs
-            elif ((block == "Z   ") or (block == "ZTOT")) and (subdata is not None) and (ptype is not None):
+            elif ((block == "Z   ") or (block == "ZTOT")) and (subdata is not None) \
+                    and (ptype is not None):
                 if ptype == 0:
                     return subdata[:npart[0]]
                 elif ptype == 4:
                     return subdata[npart[0]:]
                 else:
-                    raise ValueError("The given ptype %d is not accepted for metallicity block 'Z   '.", ptype)
+                    raise ValueError(
+                        "The given ptype %d is not accepted for metallicity block 'Z   '. ", ptype)
             else:
                 npf.close()
                 return subdata
@@ -247,12 +250,13 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
             if block == 'TEMP':  # No temperature block. Try to calculate the temperature from U
                 temp = read_block(npf, "U   ", endian, 1, longid, fmt, pty, rawdata)
                 if temp is None:
-                    print("Can not read both gas Temperature (TEMP block) and internal energy (U block)!!")
+                    print("Can't read gas Temperature (\"TEMP\") and internal energy (\"U   \")!!")
                 else:
                     xH = 0.76  # hydrogen mass-fraction
                     yhelium = (1. - xH) / (4 * xH)
                     NE = read_block(npf, "NE  ", endian, 1, longid, fmt, pty, rawdata)
-                    if NE is None:  # we assume it is non-radiative run with full ionized gas n_e/nH = 1 + 2*nHe/nH
+                    if NE is None:
+                        # we assume it is NR run with full ionized gas n_e/nH = 1 + 2*nHe/nH
                         mean_mol_weight = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)
                     else:
                         mean_mol_weight = (1. + 4. * yhelium) / (1. + yhelium + NE)
@@ -470,8 +474,9 @@ def read_block(npf, block, endian, quiet, longid, fmt, pty, rawdata):
                 return read_bdata(npf, 1, np.dtype('uint32'), endian)
 
         # For reading my PIAO outputs ###
-        elif (bname == block == 'GOFF') or (bname == block == 'GHED') or (bname == block == 'GSBL') \
-                or (bname == block == 'GSBO') or (bname == block == 'SBLN') or (bname == block == 'SBOF'):
+        elif (bname == block == 'GOFF') or (bname == block == 'GHED') or \
+            (bname == block == 'GSBL') or (bname == block == 'GSBO') or \
+                (bname == block == 'SBLN') or (bname == block == 'SBOF'):
             return read_bdata(npf, 1, np.dtype('int32'), endian)
         elif (bname == block == 'GMAS') or (bname == block == 'GRAD') or (bname == block == 'SBMS'):
             return read_bdata(npf, 1, np.dtype('float32'), endian)
