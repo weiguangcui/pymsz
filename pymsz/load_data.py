@@ -147,6 +147,8 @@ class load_data(object):
         import yt
         ds = yt.load(filename)
         sp = yt.sperical(ds)
+        if ('Gas', 'StarFomationRate') in ds.field_info.keys():
+            sp = sp.cut_region(["obj[('Gas', 'StarFomationRate')] < 0.1"])
         return(sp)
 
     def _load_raw(self, datafile, cc, rr):
@@ -203,15 +205,15 @@ class load_data(object):
         # Now grid the data
         # pmax, pmin = np.max(self.pos, axis=0), np.min(self.pos, axis=0)
         # grid_x, grid_y = np.mgrid[pmin[0]:pmax[0]:nx, pmin[1]:pmax[1]:nx]
-        self.grid_mass = np.histogram2d(self.pos[:, 0], self.pos[:, 1], bins=[
-                                        nx, nx], weights=self.mass)[0]
-        ids = self.grid_mass > 0
-        self.grid_age = np.histogram2d(self.pos[:, 0], self.pos[:, 1], bins=[
-                                       nx, nx], weights=self.temp * self.mass)[0]
-        self.grid_age[ids] /= self.grid_mass[ids]  # mass weighted age
-        self.grid_metal = np.histogram2d(self.pos[:, 0], self.pos[:, 1], bins=[
-                                         nx, nx], weights=self.metal * self.mass)[0]
-        self.grid_metal[ids] /= self.grid_mass[ids]  # mass weighted metal
+        # self.grid_mass = np.histogram2d(self.pos[:, 0], self.pos[:, 1], bins=[
+        #                                 nx, nx], weights=self.mass)[0]
+        # ids = self.grid_mass > 0
+        # self.grid_age = np.histogram2d(self.pos[:, 0], self.pos[:, 1], bins=[
+        #                                nx, nx], weights=self.temp * self.mass)[0]
+        # self.grid_age[ids] /= self.grid_mass[ids]  # mass weighted age
+        # self.grid_metal = np.histogram2d(self.pos[:, 0], self.pos[:, 1], bins=[
+        #                                  nx, nx], weights=self.metal * self.mass)[0]
+        # self.grid_metal[ids] /= self.grid_mass[ids]  # mass weighted metal
         # dx = (pmax[0] - pmin[0] + pmax[0] * 0.001) / nx
         # dy = (pmax[1] - pmin[1] + pmax[1] * 0.001) / nx
         # self.grids = np.int32(
