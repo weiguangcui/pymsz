@@ -1,6 +1,6 @@
 import numpy as np
 from pymsz.readsnapsgl import readsnapsgl
-from astropy.cosmology import FlatLambdaCDM
+# from astropy.cosmology import FlatLambdaCDM
 
 
 class load_data(object):
@@ -31,7 +31,7 @@ class load_data(object):
     -----
     Need to take more care about the units!!! Currently only assume simulation units.
     kpc/h and 10^10 M_sun
-    Raw data set needs to provide the cosmology ...
+    Raw data set needs to provide the cosmology, Otherwise WMAP7 is used...
     center and radius need to set both!
     Example
     -------
@@ -49,32 +49,34 @@ class load_data(object):
         self.mass = np.array([])
         self.pos = np.array([])
         self.rho = np.array([])
-        self.NE = 0
+        self.ne = 0
         self.hsml = 0
-        self.cosmology = None  # default wmap7
-        self.currenta = 1.0  # z = 0
-        self.z = 0.0
-        self.Uage = 0.0  # university age in Gyrs
-        self.nx = self.grid_mass = self.grid_age = self.grid_metal = None
+        self.cosmology = {}  # default wmap7
+        # self.currenta = 1.0  # z = 0
+        # self.z = 0.0
+        # self.Uage = 0.0  # university age in Gyrs
+        # self.nx = self.grid_mass = self.grid_age = self.grid_metal = None
 
         if snapshot:
-            self.datatype = "snapshot"
             self._load_snap(filename, center, radius)
         elif yt_load:
-            self.datatype = "yt"
             self._load_yt(filename, center, radius, specified_field)
         elif datafile:
-            self.datatype = "rawdata"
             self._load_raw(datafile, center, radius)
         else:
             raise ValueError("Please sepecify the simulation data type. ")
 
     def _load_snap(self, filename, cc, rr):
         head = readsnapsgl(filename, "HEAD", quiet=True)
-        self.cosmology = FlatLambdaCDM(head[-1] * 100, head[-3])
-        self.currenta = head[2]
-        self.Uage = self.cosmology.age(1. / self.currenta - 1)
-        self.z = head[3] if head[3] > 0 else 0.0
+        self.cosmology["z"] = head[3] if head[3] > 0 else 0.0
+        self.cosmology["a"] = head[2]
+        self.cosmology["omega_matter"] = head[-3]
+        self.cosmology["omega_lambda"] = head[-2]
+        self.cosmology["h"] = head[-1]
+        # self.cosmology = FlatLambdaCDM(head[-1] * 100, head[-3])
+        # self.currenta = head[2]
+        # self.Uage = self.cosmology.age(1. / self.currenta - 1)
+        # self.z = head[3] if head[3] > 0 else 0.0
 
         # positions # only gas particles
         spos = readsnapsgl(filename, "POS ", ptype=0, quiet=True)
@@ -87,9 +89,9 @@ class load_data(object):
             self.pos = spos - np.mean(spos, axis=0)
 
         # Electron fraction
-        self.NE = readsnapsgl(filename, "NE  ", quiet=True)
-        if self.NE != 0:
-            self.NE = self.NE[ids]
+        self.ne = readsnapsgl(filename, "NE  ", quiet=True)
+        if self.ne != 0:
+            self.ne = self.ne[ids]
 
         # Temperature
         self.temp = readsnapsgl(filename, "TEMP", quiet=True)
@@ -144,8 +146,8 @@ class load_data(object):
             self.rho = self.rho[ids_ex]
             if self.metal != 0:
                 self.metal = self.metal[ids_ex]
-            if self.NE != 0:
-                self.NE = self.NE[ids_ex]
+            if self.ne != 0:
+                self.ne = self.ne[ids_ex]
             if self.hsml != 0:
                 self.hsml = self.hsml[ids_ex]
 
@@ -161,6 +163,12 @@ class load_data(object):
             ds = yt.load(filename, field_spec="my_def")
         else:
             ds = yt.load(filename)
+
+        self.cosmology["z"] = ds.current_redshift if ds.current_redshift > 0 else 0.0
+        self.cosmology["a"] = ds.scale_factor if ds.scale_factor <= 1.0 else 1.0
+        self.cosmology["omega_matter"] = ds.omega_matter
+        self.cosmology["omega_lambda"] = ds.omega_lambda
+        self.cosmology["h"] = ds.hubble_constant
 
         if (cc is not None) and (rr is not None):
             sp = ds.sphere(center=cc, radius=(rr, "kpc/h"))
@@ -189,7 +197,7 @@ class load_data(object):
         if ('Gas', 'Z') in sp.ds.field_info.keys():
             self.metal = sp[('Gas', 'Z')].v
         if ('Gas', 'ElectronAbundance') in sp.ds.field_info.keys():
-            self.NE = sp[('Gas', 'ElectronAbundance')].v
+            self.ne = sp[('Gas', 'ElectronAbundance')].v
         if ('Gas', 'SmoothingLength') in sp.ds.field_info.keys():
             self.hsml = sp[('Gas', 'SmoothingLength')].v
 
