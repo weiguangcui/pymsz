@@ -5,6 +5,7 @@ This README would normally document whatever steps are necessary to get your app
 ### What is this repository for?
 
 -   This package provides theoretical views of SZ y map and temperatures Tsz ([please cite Sembolini et al. 2013, MNRAS, 429, 323S](http://adsabs.harvard.edu/abs/2013MNRAS.429..323S)). This package also uses the SZpack ([please cite Chluba et al. 2012](http://adsabs.harvard.edu/abs/2012MNRAS.426..510C) & [2013](http://adsabs.harvard.edu/abs/2013MNRAS.430.3054C)) to generate observed SZ signals in any frequency from hydro-dynamical simulations.
+-   It requires yt installed if you want to use yt to load and analysis the data.
 -   version beta
 
 ### How do I get set up?
