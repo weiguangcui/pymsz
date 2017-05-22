@@ -22,4 +22,4 @@
 
 ## Feature Ideas
 
-    * [And probably more...]
+    * And probably more other things...
