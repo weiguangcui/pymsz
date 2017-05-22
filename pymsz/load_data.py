@@ -12,6 +12,9 @@ class load_data(object):
     ----------
     filename    : The filename of simulation snapshot, or data. Default : ''
     snapshot    : Is loading snapshot or not? Default : True
+    metal       : Gas metallicity. Default: None, will try to read from simulation.
+                  Otherwise, will use this give metallicity, which can be float,
+                  or array (Must be the same number of gas particles)
 
     yt_load     : Do you want to use yt to load the data? Default : False. Requries yt modelds.
 
@@ -41,27 +44,35 @@ class load_data(object):
 
     """
 
-    def __init__(self, filename='', snapshot=True, yt_load=False, specified_field=None,
-                 datafile=False, center=None, radius=None):
-
-        self.temp = np.array([])
-        self.metal = 0
-        self.mass = np.array([])
-        self.pos = np.array([])
-        self.rho = np.array([])
-        self.ne = 0
-        self.hsml = 0
-        self.cosmology = {}  # default wmap7
-        # self.currenta = 1.0  # z = 0
-        # self.z = 0.0
-        # self.Uage = 0.0  # university age in Gyrs
-        # self.nx = self.grid_mass = self.grid_age = self.grid_metal = None
+    def __init__(self, filename='', snapshot=True, metal=None, yt_load=False,
+                 specified_field=None, datafile=False, center=None, radius=None):
 
         if snapshot:
+            self.data_type = "snapshot"
+            self.temp = np.array([])
+            if metal is None:
+                self.metal = 0
+            elif isinstance(metal, type(0.1)) or isinstance(metal, type(np.ones(1))):
+                self.metal = metal
+            else:
+                raise ValueError("Do not accept this metal %f." % metal)
+            self.mass = np.array([])
+            self.pos = np.array([])
+            self.rho = np.array([])
+            self.ne = 0
+            self.hsml = 0
+            self.cosmology = {}  # default wmap7
+            # self.currenta = 1.0  # z = 0
+            # self.z = 0.0
+            # self.Uage = 0.0  # university age in Gyrs
+            # self.nx = self.grid_mass = self.grid_age = self.grid_metal = None
+
             self._load_snap(filename, center, radius)
         elif yt_load:
-            self._load_yt(filename, center, radius, specified_field)
+            self.data_type = "yt_data"
+            self.data = self._load_yt(filename, center, radius, specified_field)
         elif datafile:
+            self.data_type = "snapshot"
             self._load_raw(datafile, center, radius)
         else:
             raise ValueError("Please sepecify the simulation data type. ")
@@ -120,9 +131,10 @@ class load_data(object):
             raise ValueError("Can't get gas mass, which is required")
 
         # gas metal if there are
-        self.metal = readsnapsgl(filename, "Z   ", ptype=0, quiet=True)
-        if self.metal != 0:
-            self.metal = self.metal[ids]
+        if self.metal == 0:
+            self.metal = readsnapsgl(filename, "Z   ", ptype=0, quiet=True)  # auto calculate Z
+            if self.metal != 0:
+                self.metal = self.metal[ids]
 
         # we need to remove some spurious particles.... if there is a MHI or SRF block
         # see Klaus's doc or Borgani et al. 2003 for detials.
@@ -139,15 +151,27 @@ class load_data(object):
             mhi = mhi[ids] / 0.76 / self.mass
             ids_ex = (self.temp < 3.0e4) & (self.rho > 6.e-7)
             ids_ex = (mhi < 0.1) & (~ids_ex)
+            self.rho *= (1 - mhi)  # correct multi-phase baryon model by removing cold gas
+
+        # Change NE (electron fraction to number density in simulation code/mp)
+        Zs = readsnapsgl(filename, "Zs  ", quiet=True)
+        if Zs != 0:
+            self.ne *= self.rho * (1 - self.metal - Zs[:, 0])
+        else:
+            if self.ne != 0:
+                self.ne *= self.rho * (1 - self.metal - 0.24)  # assume constant Y = 0.24
+            else:
+                # full ionized without taking metal into account
+                self.ne = 1.315789474 * self.rho * (1 - self.metal - 0.24)
+
         if ids_ex is not None:
-            self.temp = self.temp[ids_ex]
+            self.temp = self.temp[ids_ex]     # cgs
             self.mass = self.mass[ids_ex]
             self.pos = self.pos[ids_ex]
             self.rho = self.rho[ids_ex]
+            self.ne = self.ne[ids_ex]         # cgs
             if self.metal != 0:
                 self.metal = self.metal[ids_ex]
-            if self.ne != 0:
-                self.ne = self.ne[ids_ex]
             if self.hsml != 0:
                 self.hsml = self.hsml[ids_ex]
 
@@ -164,12 +188,6 @@ class load_data(object):
         else:
             ds = yt.load(filename)
 
-        self.cosmology["z"] = ds.current_redshift if ds.current_redshift > 0 else 0.0
-        self.cosmology["a"] = ds.scale_factor if ds.scale_factor <= 1.0 else 1.0
-        self.cosmology["omega_matter"] = ds.omega_matter
-        self.cosmology["omega_lambda"] = ds.omega_lambda
-        self.cosmology["h"] = ds.hubble_constant
-
         if (cc is not None) and (rr is not None):
             sp = ds.sphere(center=cc, radius=(rr, "kpc/h"))
         else:
@@ -178,28 +196,31 @@ class load_data(object):
         if ('Gas', 'StarFomationRate') in ds.field_info.keys():
             sp = sp.cut_region(["obj[('Gas', 'StarFomationRate')] < 0.1"])
 
-        if ('Gas', 'Temperature') in sp.ds.field_info.keys():
-            self.temp = sp[('Gas', 'Temperature')].v
-        else:
-            raise ValueError("Can't get gas temperature, which is required for this code.")
-        if ('Gas', 'Mass') in sp.ds.field_info.keys():
-            self.mass = sp[('Gas', 'Mass')].v
-        else:
-            raise ValueError("Can't get gas mass, which is required for this code.")
-        if ('Gas', 'Coordinates') in sp.ds.field_info.keys():
-            self.pos = sp[('Gas', 'Coordinates')].v
-        else:
-            raise ValueError("Can't get gas positions, which is required for this code.")
-        if ('Gas', 'Density') in sp.ds.field_info.keys():
-            self.rho = sp[('Gas', 'Density')].v
-        else:
-            raise ValueError("Can't get gas density, which is required for this code.")
-        if ('Gas', 'Z') in sp.ds.field_info.keys():
-            self.metal = sp[('Gas', 'Z')].v
-        if ('Gas', 'ElectronAbundance') in sp.ds.field_info.keys():
-            self.ne = sp[('Gas', 'ElectronAbundance')].v
-        if ('Gas', 'SmoothingLength') in sp.ds.field_info.keys():
-            self.hsml = sp[('Gas', 'SmoothingLength')].v
+        return sp
+
+        # if ('Gas', 'Temperature') in sp.ds.field_info.keys():
+        #     self.temp = sp[('Gas', 'Temperature')].v
+        # else:
+        #     raise ValueError("Can't get gas temperature, which is required for this code.")
+        # if ('Gas', 'Mass') in sp.ds.field_info.keys():
+        #     self.mass = sp[('Gas', 'Mass')].v
+        # else:
+        #     raise ValueError("Can't get gas mass, which is required for this code.")
+        # if ('Gas', 'Coordinates') in sp.ds.field_info.keys():
+        #     self.pos = sp[('Gas', 'Coordinates')].v
+        # else:
+        #     raise ValueError("Can't get gas positions, which is required for this code.")
+        # if ('Gas', 'Density') in sp.ds.field_info.keys():
+        #     self.rho = sp[('Gas', 'Density')].v
+        # else:
+        #     raise ValueError("Can't get gas density, which is required for this code.")
+        # if self.metal == 0:
+        #     if ('Gas', 'Z') in sp.ds.field_info.keys():
+        #         self.metal = sp[('Gas', 'Z')].v
+        # if ('Gas', 'ElectronAbundance') in sp.ds.field_info.keys():
+        #     self.ne = sp[('Gas', 'ElectronAbundance')].v
+        # if ('Gas', 'SmoothingLength') in sp.ds.field_info.keys():
+        #     self.hsml = sp[('Gas', 'SmoothingLength')].v
 
     def _load_raw(self, datafile, cc, rr):
         if (cc is not None) and (rr is not None):
