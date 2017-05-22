@@ -1,5 +1,5 @@
 import numpy as np
-from pymgal.readsnapsgl import readsnapsgl
+from pymsz.readsnapsgl import readsnapsgl
 from astropy.cosmology import FlatLambdaCDM
 
 
@@ -13,7 +13,10 @@ class load_data(object):
     filename    : The filename of simulation snapshot, or data. Default : ''
     snapshot    : Is loading snapshot or not? Default : True
 
-    yt_data     : Is it yt data? Default : False
+    yt_load     : Do you want to use yt to load the data? Default : False. Requries yt modelds.
+
+    specified_field: If you want to specify the data fields for yt.load. Default: None.
+                    Only works with yt_load = True.
 
     rawdata     : Is it raw data? Default : False
                   Please look at (or change) the reading function in this file to load the raw data.
@@ -38,7 +41,7 @@ class load_data(object):
 
     """
 
-    def __init__(self, filename='', snapshot=True, yt_data=False,
+    def __init__(self, filename='', snapshot=True, yt_load=False, specified_field=None,
                  datafile=False, center=None, radius=None):
 
         self.temp = np.array([])
@@ -57,12 +60,14 @@ class load_data(object):
         if snapshot:
             self.datatype = "snapshot"
             self._load_snap(filename, center, radius)
-        elif yt_data:
+        elif yt_load:
             self.datatype = "yt"
-            self._load_yt(filename, center, radius)
+            self._load_yt(filename, center, radius, specified_field)
         elif datafile:
             self.datatype = "rawdata"
             self._load_raw(datafile, center, radius)
+        else:
+            raise ValueError("Please sepecify the simulation data type. ")
 
     def _load_snap(self, filename, cc, rr):
         head = readsnapsgl(filename, "HEAD", quiet=True)
@@ -118,6 +123,7 @@ class load_data(object):
             self.metal = self.metal[ids]
 
         # we need to remove some spurious particles.... if there is a MHI or SRF block
+        # see Klaus's doc or Borgani et al. 2003 for detials.
         mhi = readsnapsgl(filename, "MHI ", quiet=True)
         if mhi == 0:
             # try exclude sfr gas particles
@@ -143,13 +149,49 @@ class load_data(object):
             if self.hsml != 0:
                 self.hsml = self.hsml[ids_ex]
 
-    def _load_yt(self, filename, cc, rr):
-        import yt
-        ds = yt.load(filename)
-        sp = yt.sperical(ds)
+    def _load_yt(self, filename, cc, rr, specified_field):
+        try:
+            import yt
+        except ImportError:
+            raise ImportError("Can not find yt package, which is required to use this function!")
+
+        if specified_field is not None:
+            from yt.frontends.gadget.definitions import gadget_field_specs
+            gadget_field_specs["my_def"] = specified_field
+            ds = yt.load(filename, field_spec="my_def")
+        else:
+            ds = yt.load(filename)
+
+        if (cc is not None) and (rr is not None):
+            sp = ds.sphere(center=cc, radius=(rr, "kpc/h"))
+        else:
+            sp = ds.all_data()
+
         if ('Gas', 'StarFomationRate') in ds.field_info.keys():
             sp = sp.cut_region(["obj[('Gas', 'StarFomationRate')] < 0.1"])
-        return(sp)
+
+        if ('Gas', 'Temperature') in sp.ds.field_info.keys():
+            self.temp = sp[('Gas', 'Temperature')].v
+        else:
+            raise ValueError("Can't get gas temperature, which is required for this code.")
+        if ('Gas', 'Mass') in sp.ds.field_info.keys():
+            self.mass = sp[('Gas', 'Mass')].v
+        else:
+            raise ValueError("Can't get gas mass, which is required for this code.")
+        if ('Gas', 'Coordinates') in sp.ds.field_info.keys():
+            self.pos = sp[('Gas', 'Coordinates')].v
+        else:
+            raise ValueError("Can't get gas positions, which is required for this code.")
+        if ('Gas', 'Density') in sp.ds.field_info.keys():
+            self.rho = sp[('Gas', 'Density')].v
+        else:
+            raise ValueError("Can't get gas density, which is required for this code.")
+        if ('Gas', 'Z') in sp.ds.field_info.keys():
+            self.metal = sp[('Gas', 'Z')].v
+        if ('Gas', 'ElectronAbundance') in sp.ds.field_info.keys():
+            self.NE = sp[('Gas', 'ElectronAbundance')].v
+        if ('Gas', 'SmoothingLength') in sp.ds.field_info.keys():
+            self.hsml = sp[('Gas', 'SmoothingLength')].v
 
     def _load_raw(self, datafile, cc, rr):
         if (cc is not None) and (rr is not None):
@@ -170,6 +212,10 @@ class load_data(object):
                   which will rotate the data points by $\alpha$ around the x-axis,
                   $\beta$ around the y-axis, and $\gamma$ around the z-axis
         nx      : The pixel size of the grid. A nx x nx image can be produced later.
+
+        Notes:
+        --------
+        This function does not work with yt data currrently.
         """
         self.nx = nx
         # ratation data points first
