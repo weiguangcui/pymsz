@@ -103,9 +103,9 @@ class TH_model(object):
             ids = mtree.query_ball_point(simudata.pos[i, :2], simudata.hsml[i])
             if isinstance(ids, type(0)):  # int object
                 ids = np.array([ids])
-            dist = np.sqrt((simudata.pos[i, 0] - x[ids])**2 + (simudata.pos[i, 1] - y[ids])**2)
-            xx = np.int((x[ids]-simudata.pos[:, 0].min())/self.pixelsize)
-            yy = np.int((y[ids]-simudata.pos[:, 1].min())/self.pixelsize)
+            dist = np.sqrt((simudata.pos[i, 0] - x[ids, 0])**2 + (simudata.pos[i, 1] - y[ids, 0])**2)
+            xx = np.int32((x[ids, 0]-simudata.pos[:, 0].min())/self.pixelsize)
+            yy = np.int32((y[ids, 0]-simudata.pos[:, 1].min())/self.pixelsize)
             wsph = SPH(dist/simudata.hsml[i], simudata.hsml[i])
             self.ydata[xx, yy] += self.Tszdata[i] * wsph / wsph.sum()
 
