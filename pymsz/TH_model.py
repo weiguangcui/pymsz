@@ -35,7 +35,7 @@ def SPH(x, h):
         return 0
 
 
-class TH_models(object):
+class TH_model(object):
     r""" Theoretical calculation of y and T_sz -map for the thermal SZ effect.
     model = TH_model(model_file, npixel, axis)
 
