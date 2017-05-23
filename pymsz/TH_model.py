@@ -66,13 +66,14 @@ class TH_model(object):
         self.Tszdata = np.array([])
         self.ned = np.array([])        # electron number density
         self.np = npixel
-        self.ydata = np.zeros((self.np, self.np), dtype=np.float32)
+        self.ydata = np.array([])
 
         if simudata.data_type == "snapshot":
             simudata.pos = rotate_data(simudata.pos, axis)
             self.pixelsize = np.min(np.max(simudata.pos[:, :2], axis=0) - np.min(simudata.pos[:, :2], axis=0))/self.np
             self.nx = np.int32((simudata.pos[:, 0].max() - simudata.pos[:, 0].min())/self.pixelsize+1)
             self.ny = np.int32((simudata.pos[:, 1].max() - simudata.pos[:, 1].min())/self.pixelsize+1)
+            self.ydata = np.zeros((self.nx, self.ny), dtype=np.float32)
             self._ymap_snap(simudata)
         elif simudata.data_type == "yt_data":
             self._ymap_yt(simudata)
@@ -85,8 +86,8 @@ class TH_model(object):
         self.Tszdata = self.ned*kb*simudata.temp*cs/me/c**2
         # smearing the data using SPH with respected to the smoothing length
         from scipy.spatial import cKDTree
-        x = np.linspace(simudata.pos[:, 0].min(), simudata.pos[:, 0].max(), self.nx)
-        y = np.linspace(simudata.pos[:, 1].min(), simudata.pos[:, 1].max(), self.ny)
+        x = np.linspace(simudata.pos[:, 0].min(), simudata.pos[:, 0].max(), self.nx-1)
+        y = np.linspace(simudata.pos[:, 1].min(), simudata.pos[:, 1].max(), self.ny-1)
         x, y = np.meshgrid(x, y)
         x = x.reshape(x.size, 1)
         y = y.reshape(y.size, 1)
