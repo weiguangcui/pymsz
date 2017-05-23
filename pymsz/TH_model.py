@@ -79,8 +79,8 @@ class TH_model(object):
             simudata.pos = rotate_data(simudata.pos, axis)
             self.pixelsize = np.min(np.max(simudata.pos[:, :2], axis=0) - np.min(simudata.pos[:, :2], axis=0))/self.np
             self.pixelsize *= (1+1.0e-6)
-            self.nx = np.int32((simudata.pos[:, 0].max() - simudata.pos[:, 0].min())/self.pixelsize)
-            self.ny = np.int32((simudata.pos[:, 1].max() - simudata.pos[:, 1].min())/self.pixelsize)
+            self.nx = np.int32((simudata.pos[:, 0].max() - simudata.pos[:, 0].min())/self.pixelsize) + 1
+            self.ny = np.int32((simudata.pos[:, 1].max() - simudata.pos[:, 1].min())/self.pixelsize) + 1
             self.ydata = np.zeros((self.nx, self.ny), dtype=np.float32)
             self._ymap_snap(simudata)
         elif simudata.data_type == "yt_data":
