@@ -78,8 +78,9 @@ class TH_model(object):
         if simudata.data_type == "snapshot":
             simudata.pos = rotate_data(simudata.pos, axis)
             self.pixelsize = np.min(np.max(simudata.pos[:, :2], axis=0) - np.min(simudata.pos[:, :2], axis=0))/self.np
-            self.nx = np.int32((simudata.pos[:, 0].max() - simudata.pos[:, 0].min())/self.pixelsize+1)
-            self.ny = np.int32((simudata.pos[:, 1].max() - simudata.pos[:, 1].min())/self.pixelsize+1)
+            self.pixelsize *= (1+1.0e-6)
+            self.nx = np.int32((simudata.pos[:, 0].max() - simudata.pos[:, 0].min())/self.pixelsize)
+            self.ny = np.int32((simudata.pos[:, 1].max() - simudata.pos[:, 1].min())/self.pixelsize)
             self.ydata = np.zeros((self.nx, self.ny), dtype=np.float32)
             self._ymap_snap(simudata)
         elif simudata.data_type == "yt_data":
@@ -93,8 +94,8 @@ class TH_model(object):
         self.Tszdata = self.ned*kb*simudata.temp*cs/me/c**2
         # smearing the data using SPH with respected to the smoothing length
         from scipy.spatial import cKDTree
-        x = np.linspace(simudata.pos[:, 0].min(), simudata.pos[:, 0].max(), self.nx-1)
-        y = np.linspace(simudata.pos[:, 1].min(), simudata.pos[:, 1].max(), self.ny-1)
+        x = np.arange(simudata.pos[:, 0].min(), simudata.pos[:, 0].max(), self.pixelsize)
+        y = np.arange(simudata.pos[:, 1].min(), simudata.pos[:, 1].max(), self.pixelsize)
         x, y = np.meshgrid(x, y)
         mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
         for i in np.arange(self.Tszdata.size):
