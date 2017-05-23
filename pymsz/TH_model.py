@@ -25,13 +25,20 @@ else:
     from yt.utilities.physical_ratios import cm_per_kpc as Kpc
 
 
-def SPH(x, h):
+def SPH(x, h):  # 3D
     if (x > 0) and (x <= 0.5):
         return 8*(1 - 6*x**2 + 6*x**3)/np.pi/h**3
     elif (x > 0.5) and (x <= 1):
         return 16*(1 - x)**3/np.pi/h**3
     else:
         return 0
+# def SPH(x, h):  # 2D
+#     if (x > 0) and (x <= 0.5):
+#         return 10*(1 - 3*x**2/2. + 3*x**3/4.)/7./np.pi/h**2
+#     elif (x > 1) and (x <= 2):
+#         return 10*(2 - x)**3/4./7./np.pi/h**2
+#     else:
+#         return 0
 
 
 class TH_model(object):
@@ -93,15 +100,16 @@ class TH_model(object):
         y = y.reshape(y.size, 1)
         mtree = cKDTree(np.append(x, y, axis=1))
         for i in np.arange(self.Tszdata.size):
-            dist, ids = mtree.query(simudata.pos[i, :2], simudata.hsml[i])
+            ids = mtree.query_ball_point(simudata.pos[i, :2], simudata.hsml[i])
             if isinstance(ids, type(0)):  # int object
+                dist = np.sqrt((simudata.pos[i, 0] - x[ids])**2 + (simudata.pos[i, 1] - y[ids])**2)
                 self.ydata[ids % self.nx, ids/self.nx] += self.Tszdata[i] * \
                     SPH(dist/simudata.hsml[i], simudata.hsml[i])
             else:
-                for j, n in enumerate(ids):
-                    # d = np.sqrt((simudata.pos[i, 0] - x[j])**2 + (simudata.pos[i, 1] - y[j])**2)
+                for n in ids:
+                    dist = np.sqrt((simudata.pos[i, 0] - x[n])**2 + (simudata.pos[i, 1] - y[n])**2)
                     self.ydata[n % self.nx, n/self.nx] += self.Tszdata[i] * \
-                            SPH(dist[j]/simudata.hsml[i], simudata.hsml[i])
+                        SPH(dist/simudata.hsml[i], simudata.hsml[i])
 
     def _ymap_yt(self, simudata):
         self.ned = simudata[("Gas", "NE")]
