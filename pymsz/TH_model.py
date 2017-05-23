@@ -95,11 +95,13 @@ class TH_model(object):
         for i in np.arange(self.Tszdata.size):
             dist, ids = mtree.query(simudata.pos[i, :2], simudata.hsml[i])
             if isinstance(ids, type(0)):  # int object
-                self.ydata[ids % self.nx, ids/self.nx] += self.Tszdata[i]*SPH(dist, simudata.hsml[i])
+                self.ydata[ids % self.nx, ids/self.nx] += self.Tszdata[i] * \
+                    SPH(dist/simudata.hsml[i], simudata.hsml[i])
             else:
                 for j, n in enumerate(ids):
                     # d = np.sqrt((simudata.pos[i, 0] - x[j])**2 + (simudata.pos[i, 1] - y[j])**2)
-                    self.ydata[n % self.nx, n/self.nx] += self.Tszdata[i]*SPH(dist[j], simudata.hsml[i])
+                    self.ydata[n % self.nx, n/self.nx] += self.Tszdata[i] * \
+                            SPH(dist[j]/simudata.hsml[i], simudata.hsml[i])
 
     def _ymap_yt(self, simudata):
         self.ned = simudata[("Gas", "NE")]
