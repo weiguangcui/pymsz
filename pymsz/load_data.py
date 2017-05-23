@@ -131,7 +131,7 @@ class load_data(object):
             raise ValueError("Can't get gas mass, which is required")
 
         # gas metal if there are
-        if self.metal == 0:
+        if self.metal is 0:
             self.metal = readsnapsgl(filename, "Z   ", ptype=0, quiet=True)  # auto calculate Z
             if self.metal is not 0:
                 self.metal = self.metal[ids]
@@ -142,7 +142,7 @@ class load_data(object):
         if mhi is 0:
             # try exclude sfr gas particles
             sfr = readsnapsgl(filename, "SFR ", quiet=True)
-            if sfr != 0:
+            if sfr is not 0:
                 sfr = sfr[ids]
                 ids_ex = sfr < 0.1
             else:
