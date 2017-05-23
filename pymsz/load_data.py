@@ -101,31 +101,31 @@ class load_data(object):
 
         # Electron fraction
         self.ne = readsnapsgl(filename, "NE  ", quiet=True)
-        if self.ne != 0:
+        if self.ne is not 0:
             self.ne = self.ne[ids]
 
         # Temperature
         self.temp = readsnapsgl(filename, "TEMP", quiet=True)
-        if self.temp != 0:
+        if self.temp is not 0:
             self.temp = self.temp[ids]
         else:
             raise ValueError("Can't get gas temperature, which is required for this code.")
 
         # density
         self.rho = readsnapsgl(filename, "RHO ", quiet=True)
-        if self.rho != 0:
+        if self.rho is not 0:
             self.rho = self.rho[ids]
         else:
             raise ValueError("Can't get gas density, which is required")
 
         # smoothing length
         self.hsml = readsnapsgl(filename, "HSML", quiet=True)
-        if self.hsml != 0:
+        if self.hsml is not 0:
             self.hsml = self.hsml[ids]
 
         # mass only gas
         self.mass = readsnapsgl(filename, "MASS", ptype=0, quiet=True)
-        if self.mass != 0:
+        if self.mass is not 0:
             self.mass = self.mass[ids]
         else:
             raise ValueError("Can't get gas mass, which is required")
@@ -133,13 +133,13 @@ class load_data(object):
         # gas metal if there are
         if self.metal == 0:
             self.metal = readsnapsgl(filename, "Z   ", ptype=0, quiet=True)  # auto calculate Z
-            if self.metal != 0:
+            if self.metal is not 0:
                 self.metal = self.metal[ids]
 
         # we need to remove some spurious particles.... if there is a MHI or SRF block
         # see Klaus's doc or Borgani et al. 2003 for detials.
         mhi = readsnapsgl(filename, "MHI ", quiet=True)
-        if mhi == 0:
+        if mhi is 0:
             # try exclude sfr gas particles
             sfr = readsnapsgl(filename, "SFR ", quiet=True)
             if sfr != 0:
@@ -155,10 +155,10 @@ class load_data(object):
 
         # Change NE (electron fraction to number density in simulation code/mp)
         Zs = readsnapsgl(filename, "Zs  ", quiet=True)
-        if Zs != 0:
+        if Zs is not 0:
             self.ne *= self.rho * (1 - self.metal - Zs[:, 0])
         else:
-            if self.ne != 0:
+            if self.ne is not 0:
                 self.ne *= self.rho * (1 - self.metal - 0.24)  # assume constant Y = 0.24
             else:
                 # full ionized without taking metal into account
@@ -170,9 +170,9 @@ class load_data(object):
             self.pos = self.pos[ids_ex]
             self.rho = self.rho[ids_ex]
             self.ne = self.ne[ids_ex]         # cgs
-            if self.metal != 0:
+            if self.metal is not 0:
                 self.metal = self.metal[ids_ex]
-            if self.hsml != 0:
+            if self.hsml is not 0:
                 self.hsml = self.hsml[ids_ex]
             else:
                 self.hsml = (3*self.mass/self.pos/4/np.pi)**(1./3.)  # approximate
