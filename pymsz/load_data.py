@@ -174,6 +174,8 @@ class load_data(object):
                 self.metal = self.metal[ids_ex]
             if self.hsml != 0:
                 self.hsml = self.hsml[ids_ex]
+            else:
+                self.hsml = (3*self.mass/self.pos/4/np.pi)**(1./3.)  # approximate
 
     def _load_yt(self, filename, cc, rr, specified_field):
         try:
