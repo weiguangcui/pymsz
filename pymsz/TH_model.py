@@ -70,6 +70,9 @@ class TH_model(object):
 
         if simudata.data_type == "snapshot":
             simudata.pos = rotate_data(simudata.pos, axis)
+            self.pixelsize = np.min(np.max(simudata.pos[:, :2], axis=0) - np.min(simudata.pos[:, :2], axis=0))/self.np
+            self.nx = np.int32((simudata.pos[:, 0].max() - simudata.pos[:, 0].min())/self.pixelsize+1)
+            self.ny = np.int32((simudata.pos[:, 1].max() - simudata.pos[:, 1].min())/self.pixelsize+1)
             self._ymap_snap(simudata)
         elif simudata.data_type == "yt_data":
             self._ymap_yt(simudata)
@@ -82,11 +85,8 @@ class TH_model(object):
         self.Tszdata = self.ned*kb*simudata.temp*cs/me/c**2
         # smearing the data using SPH with respected to the smoothing length
         from scipy.spatial import cKDTree
-        pixelsize = np.min(np.max(simudata.pos[:, :2], axis=1) - np.min(simudata.pos[:, :2], axis=1))/self.np
-        nx = np.int32((simudata.pos[:, 0].max() - simudata.pos[:, 0].min())/pixelsize+1)
-        ny = np.int32((simudata.pos[:, 1].max() - simudata.pos[:, 1].min())/pixelsize+1)
-        x = np.linspace(simudata.pos[:, 0].min(), simudata.pos[:, 0].max(), nx)
-        y = np.linspace(simudata.pos[:, 1].min(), simudata.pos[:, 1].max(), ny)
+        x = np.linspace(simudata.pos[:, 0].min(), simudata.pos[:, 0].max(), self.nx)
+        y = np.linspace(simudata.pos[:, 1].min(), simudata.pos[:, 1].max(), self.ny)
         x, y = np.meshgrid(x, y)
         x = x.reshape(x.size, 1)
         y = y.reshape(y.size, 1)
@@ -95,7 +95,7 @@ class TH_model(object):
             ids = mtree.query(simudata.pos[i, :2], simudata.hsml[i])
             for j in ids:
                 d = np.sqrt((simudata.pos[i, 0] - x[j])**2 + (simudata.pos[i, 0] - y[j])**2)
-                self.ydata[j % nx, j/nx] += self.Tszdata[i]*SPH(d, simudata.hsml[i])
+                self.ydata[j % self.nx, j/self.nx] += self.Tszdata[i]*SPH(d, simudata.hsml[i])
 
     def _ymap_yt(self, simudata):
         self.ned = simudata[("Gas", "NE")]
