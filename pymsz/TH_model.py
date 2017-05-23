@@ -29,7 +29,7 @@ def SPH(x, h):  # 3D
     data = np.zeros(x.size, dtype=float)
     ids = (x > 0) & (x <= 0.5)
     data[ids] = 8*(1 - 6*x[ids]**2 + 6*x[ids]**3)/np.pi/h**3
-    ids = (x > 0.5) & (x <= 1)
+    ids = (x > 0.5) & (x < 1)
     data[ids] = 16*(1 - x[ids])**3/np.pi/h**3
     return data
 # def SPH(x, h):  # 2D
@@ -96,17 +96,17 @@ class TH_model(object):
         x = np.linspace(simudata.pos[:, 0].min(), simudata.pos[:, 0].max(), self.nx-1)
         y = np.linspace(simudata.pos[:, 1].min(), simudata.pos[:, 1].max(), self.ny-1)
         x, y = np.meshgrid(x, y)
-        x = x.reshape(x.size, 1)
-        y = y.reshape(y.size, 1)
-        mtree = cKDTree(np.append(x, y, axis=1))
+        mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
         for i in np.arange(self.Tszdata.size):
             ids = mtree.query_ball_point(simudata.pos[i, :2], simudata.hsml[i])
             if isinstance(ids, type(0)):  # int object
                 ids = np.array([ids])
-            dist = np.sqrt((simudata.pos[i, 0] - x[ids, 0])**2 + (simudata.pos[i, 1] - y[ids, 0])**2)
-            xx = np.int32((x[ids, 0]-simudata.pos[:, 0].min())/self.pixelsize)
-            yy = np.int32((y[ids, 0]-simudata.pos[:, 1].min())/self.pixelsize)
+            dist = np.sqrt((simudata.pos[i, 0] - mtree.data[ids, 0])**2 + (simudata.pos[i, 1] - mtree.data[ids, 1])**2)
+            xx = np.int32((mtree.data[ids, 0]-simudata.pos[:, 0].min())/self.pixelsize)
+            yy = np.int32((mtree.data[ids, 1]-simudata.pos[:, 1].min())/self.pixelsize)
             wsph = SPH(dist/simudata.hsml[i], simudata.hsml[i])
+            if 78 in xx:
+                print(wsph[xx==78],dist[xx==78],simudata.hsml[i])
             self.ydata[xx, yy] += self.Tszdata[i] * wsph / wsph.sum()
 
     def _ymap_yt(self, simudata):
