@@ -1,0 +1,64 @@
+language: python
+
+env:
+    global:
+        # Set defaults to avoid repeating in most cases
+        - NUMPY_VERSION=1.11
+
+matrix:
+    include:
+
+        # Try all python versions with the latest numpy
+        - python: 2.7
+          env: CMD='nosetests --with-answer-testing --local --local-dir . --answer-name=pyxsim11_2 pyxsim/tests'; PYTHON='python'
+          env: CMD='nosetests --with-answer-testing --local --local-dir . --answer-name=pyxsim11_2 pyxsim/tests'; PYTHON='python'
+        - python: 3.5
+          env: CMD='nosetests --with-answer-testing --local --local-dir . --answer-name=pyxsim11_3 pyxsim/tests --with-coverage --cover-package=pyxsim'; PYTHON='python3'
+        - python: 3.6
+          env: CMD='nosetests --with-answer-testing --local --local-dir . --answer-name=pyxsim11_3 pyxsim/tests'; PYTHON='python3'
+
+before_install:
+
+    # - wget http://yt-project.org/data/GasSloshingLowRes.tar.gz
+    # - tar -zxvf GasSloshingLowRes.tar.gz
+    # - wget http://hea-www.cfa.harvard.edu/~jzuhone/pyxsim11_2.tar.gz
+    # - tar -zxvf pyxsim11_2.tar.gz
+    # - wget http://hea-www.cfa.harvard.edu/~jzuhone/pyxsim11_3.tar.gz
+    # - tar -zxvf pyxsim11_3.tar.gz
+    # - mkdir ~/.yt
+    # - printf "[yt]\ntest_data_dir = $PWD" >> ~/.yt/config
+    # # Use utf8 encoding. Should be default, but this is insurance against
+    # # future changes
+    # - export PYTHONIOENCODING=UTF8
+    # - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+    # - chmod +x miniconda.sh
+    # - ./miniconda.sh -b
+    # - export PATH=/home/travis/miniconda2/bin:$PATH
+    # - conda update --yes conda
+
+    # UPDATE APT-GET LISTINGS
+    - sudo apt-get update
+
+install:
+
+    # CONDA
+    - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
+    - source activate test
+
+    # CORE DEPENDENCIES
+    - conda config --add channels https://conda.anaconda.org/sherpa
+    - conda config --add channels conda-forge
+    - conda install --yes numpy=$NUMPY_VERSION nose pip yt astropy  # sherpa cython
+
+    # COVERAGE DEPENDENCIES
+    - pip install coverage coveralls
+    - $PYTHON setup.py develop
+
+script:
+
+    - $CMD
+
+after_success:
+    - if [[ $PYTHON == 'python3' ]]; then
+          coveralls --rcfile='pyxsim/tests/coveragerc';
+      fi
