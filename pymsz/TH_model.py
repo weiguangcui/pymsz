@@ -106,8 +106,6 @@ class TH_model(object):
             xx = np.int32((mtree.data[ids, 0]-simudata.pos[:, 0].min())/self.pixelsize)
             yy = np.int32((mtree.data[ids, 1]-simudata.pos[:, 1].min())/self.pixelsize)
             wsph = SPH(dist/simudata.hsml[i], simudata.hsml[i])
-            if 78 in xx:
-                print(wsph[xx==78],dist[xx==78],simudata.hsml[i])
             self.ydata[xx, yy] += self.Tszdata[i] * wsph / wsph.sum()
 
     def _ymap_yt(self, simudata):
