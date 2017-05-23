@@ -22,8 +22,7 @@ else:
     M_sun = solar_mass.v
     me = mass_electron_cgs.v
     c = speed_of_light_cgs.v
-    from yt.utilities.physical_ratios import cm_per_kpc
-    Kpc = cm_per_kpc.v
+    from yt.utilities.physical_ratios import cm_per_kpc as Kpc
 
 
 def SPH(x, h):
