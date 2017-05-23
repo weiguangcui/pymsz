@@ -46,8 +46,8 @@ install:
     - source activate test
 
     # CORE DEPENDENCIES
-    - conda config --add channels https://conda.anaconda.org/sherpa
-    - conda config --add channels conda-forge
+    # - conda config --add channels https://conda.anaconda.org/sherpa
+    # - conda config --add channels conda-forge
     - conda install --yes numpy=$NUMPY_VERSION nose pip yt astropy  # sherpa cython
 
     # COVERAGE DEPENDENCIES
