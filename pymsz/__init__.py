@@ -10,8 +10,8 @@ __email__ = 'cuiweiguang@gmail.com'
 __ver__ = 'beta'
 
 # import numpy as np  # For modern purposes
-from pymgal.SSP_models import SSP_models
-from pymgal.load_data import load_data
-from pymgal.filters import filters
-from pymgal import utils
-from pymgal import dusts
+from pymsz.TH_models import TH_models
+from pymsz.load_data import load_data
+from pymgal.SZ_models import SZ_models
+# from pymgal import utils
+# from pymgal import dusts
