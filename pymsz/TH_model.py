@@ -92,10 +92,10 @@ class TH_model(object):
         y = y.reshape(y.size, 1)
         mtree = cKDTree(np.append(x, y, axis=1))
         for i in np.arange(self.Tszdata.size):
-            ids = mtree.query(simudata.pos[i, :2], simudata.hsml[i])
-            for j in ids:
-                d = np.sqrt((simudata.pos[i, 0] - x[j])**2 + (simudata.pos[i, 0] - y[j])**2)
-                self.ydata[j % self.nx, j/self.nx] += self.Tszdata[i]*SPH(d, simudata.hsml[i])
+            dist, ids = mtree.query(simudata.pos[i, :2], simudata.hsml[i])
+            for j, n in enumerate(ids):
+                # d = np.sqrt((simudata.pos[i, 0] - x[j])**2 + (simudata.pos[i, 1] - y[j])**2)
+                self.ydata[n % self.nx, n/self.nx] += self.Tszdata[i]*SPH(dist[j], simudata.hsml[i])
 
     def _ymap_yt(self, simudata):
         self.ned = simudata[("Gas", "NE")]
