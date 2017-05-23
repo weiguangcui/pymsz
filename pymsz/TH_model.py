@@ -26,12 +26,12 @@ else:
 
 
 def SPH(x, h):  # 3D
-    if (x > 0) and (x <= 0.5):
-        return 8*(1 - 6*x**2 + 6*x**3)/np.pi/h**3
-    elif (x > 0.5) and (x <= 1):
-        return 16*(1 - x)**3/np.pi/h**3
-    else:
-        return 0
+    data = np.zeros(x.size, dtype=float)
+    ids = (x > 0) & (x <= 0.5)
+    data[ids] = 8*(1 - 6*x[ids]**2 + 6*x[ids]**3)/np.pi/h**3
+    ids = (x > 0.5) & (x <= 1)
+    data[ids] = 16*(1 - x[ids])**3/np.pi/h**3
+    return data
 # def SPH(x, h):  # 2D
 #     if (x > 0) and (x <= 0.5):
 #         return 10*(1 - 3*x**2/2. + 3*x**3/4.)/7./np.pi/h**2
@@ -102,14 +102,12 @@ class TH_model(object):
         for i in np.arange(self.Tszdata.size):
             ids = mtree.query_ball_point(simudata.pos[i, :2], simudata.hsml[i])
             if isinstance(ids, type(0)):  # int object
-                dist = np.sqrt((simudata.pos[i, 0] - x[ids])**2 + (simudata.pos[i, 1] - y[ids])**2)
-                self.ydata[ids % self.nx, ids/self.nx] += self.Tszdata[i] * \
-                    SPH(dist/simudata.hsml[i], simudata.hsml[i])
-            else:
-                for n in ids:
-                    dist = np.sqrt((simudata.pos[i, 0] - x[n])**2 + (simudata.pos[i, 1] - y[n])**2)
-                    self.ydata[n % self.nx, n/self.nx] += self.Tszdata[i] * \
-                        SPH(dist/simudata.hsml[i], simudata.hsml[i])
+                ids = np.array([ids])
+            dist = np.sqrt((simudata.pos[i, 0] - x[ids])**2 + (simudata.pos[i, 1] - y[ids])**2)
+            xx = np.int((x[ids]-simudata.pos[:, 0].min())/self.pixelsize)
+            yy = np.int((y[ids]-simudata.pos[:, 1].min())/self.pixelsize)
+            wsph = SPH(dist/simudata.hsml[i], simudata.hsml[i])
+            self.ydata[xx, yy] += self.Tszdata[i] * wsph / wsph.sum()
 
     def _ymap_yt(self, simudata):
         self.ned = simudata[("Gas", "NE")]
