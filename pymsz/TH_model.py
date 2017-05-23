@@ -1,9 +1,9 @@
-from scipy.interpolate import interp1d
+# from scipy.interpolate import interp1d
 import numpy as np
 from rotate_data import rotate_data
 # import pyfits
 # scipy must >= 0.17 to properly use this!
-from scipy.stats import binned_statistic_2d
+# from scipy.stats import binned_statistic_2d
 try:
     from yt.utilities.physical_constants import mp, kb, cross_section_thompson_cgs, \
         solar_mass, mass_electron_cgs, speed_of_light_cgs
@@ -93,9 +93,12 @@ class TH_model(object):
         mtree = cKDTree(np.append(x, y, axis=1))
         for i in np.arange(self.Tszdata.size):
             dist, ids = mtree.query(simudata.pos[i, :2], simudata.hsml[i])
-            for j, n in enumerate(ids):
-                # d = np.sqrt((simudata.pos[i, 0] - x[j])**2 + (simudata.pos[i, 1] - y[j])**2)
-                self.ydata[n % self.nx, n/self.nx] += self.Tszdata[i]*SPH(dist[j], simudata.hsml[i])
+            if isinstance(ids, type(0)):  # int object
+                self.ydata[ids % self.nx, ids/self.nx] += self.Tszdata[i]*SPH(dist, simudata.hsml[i])
+            else:
+                for j, n in enumerate(ids):
+                    # d = np.sqrt((simudata.pos[i, 0] - x[j])**2 + (simudata.pos[i, 1] - y[j])**2)
+                    self.ydata[n % self.nx, n/self.nx] += self.Tszdata[i]*SPH(dist[j], simudata.hsml[i])
 
     def _ymap_yt(self, simudata):
         self.ned = simudata[("Gas", "NE")]
