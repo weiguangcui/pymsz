@@ -8,21 +8,31 @@ try:
     from yt.utilities.physical_constants import mp, kb, cross_section_thompson_cgs, \
         solar_mass, mass_electron_cgs, speed_of_light_cgs
 except ImportError:
-    mp = 1.67373522381e-24  # proton mass in g
-    kb = 1.3806488e-16      # Boltzman constants in erg/K
+    Mp = 1.67373522381e-24  # proton mass in g
+    Kb = 1.3806488e-16      # Boltzman constants in erg/K
     cs = 6.65245854533e-25  # cross_section_thompson in cm**2
     M_sun = 1.98841586e+33  # g
     Kpc = 3.0856775809623245e+21  # cm
     me = 9.10938291e-28     # g
     c = 29979245800.0      # cm/s
 else:
-    mp = mp.v
-    kb = kb.v
+    Mp = mp.v
+    Kb = kb.v
     cs = cross_section_thompson_cgs.v
     M_sun = solar_mass.v
     me = mass_electron_cgs.v
     c = speed_of_light_cgs.v
     from yt.utilities.physical_ratios import cm_per_kpc as Kpc
+    from yt.units import cm
+
+
+def Ele_num_den(field, data):
+    return data[field.name[0], "Density"] * data[field.name[0], "ElectronAbundance"] * (1 - data[field.name[0], "Z"] - 0.24) / mp
+
+
+def Temp_SZ(field, data):
+    return data[field.name[0], "END"] * data['Gas', 'Temperature'] * kb * cross_section_thompson_cgs / \
+        mass_electron_cgs / speed_of_light_cgs**2
 
 
 def SPH(x, h):  # 3D
@@ -70,12 +80,12 @@ class TH_model(object):
     """
 
     def __init__(self, simudata, npixel, axis):
-        self.Tszdata = np.array([])
-        self.ned = np.array([])        # electron number density
         self.np = npixel
         self.ydata = np.array([])
 
         if simudata.data_type == "snapshot":
+            self.Tszdata = np.array([])
+            self.ned = np.array([])        # electron number density
             simudata.pos = rotate_data(simudata.pos, axis)
             self.pixelsize = np.min(np.max(simudata.pos[:, :2], axis=0) - np.min(simudata.pos[:, :2], axis=0))/self.np
             self.pixelsize *= (1+1.0e-6)
@@ -84,15 +94,15 @@ class TH_model(object):
             self.ydata = np.zeros((self.nx, self.ny), dtype=np.float32)
             self._ymap_snap(simudata)
         elif simudata.data_type == "yt_data":
-            self._ymap_yt(simudata)
+            self._ymap_yt(simudata, axis)
         else:
             raise ValueError("Do not accept this data type %s"
                              "Please try to use load_data to get the data" % simudata.data_type)
 
     def _ymap_snap(self, simudata):  # Now everything need to be in physical
-        self.ned = simudata.ne/mp * (1.0e10*M_sun*simudata.cosmology["h"]**2/Kpc**3)
-        self.Tszdata = self.ned*kb*simudata.temp*cs/me/c**2
-        # smearing the data using SPH with respected to the smoothing length
+        self.ned = simudata.ne/Mp * (1.0e10*M_sun*simudata.cosmology["h"]**2/Kpc**3)  # now in cm^-3
+        self.Tszdata = self.ned*Kb*simudata.temp*cs/me/c**2  # now in cm^-1
+        # smearing the Tsz data using SPH with respected to the smoothing length
         from scipy.spatial import cKDTree
         x = np.arange(simudata.pos[:, 0].min(), simudata.pos[:, 0].max(), self.pixelsize)
         y = np.arange(simudata.pos[:, 1].min(), simudata.pos[:, 1].max(), self.pixelsize)
@@ -107,9 +117,21 @@ class TH_model(object):
             yy = np.int32((mtree.data[ids, 1]-simudata.pos[:, 1].min())/self.pixelsize)
             wsph = SPH(dist/simudata.hsml[i], simudata.hsml[i])
             self.ydata[xx, yy] += self.Tszdata[i] * wsph / wsph.sum()
+        self.ydata *= 2*simudata.radius*Kpc/simudata.cosmology["h"]
 
-    def _ymap_yt(self, simudata):
-        self.ned = simudata[("Gas", "NE")]
+    def _ymap_yt(self, simudata, axis):
+        if 'PGas' in simudata.data.ds.particle_types:
+            Ptype = 'PGas'
+        else:
+            Ptype = 'Gas'
+        simudata.data.ds.add_field((Ptype, "END"), function=Ele_num_den, sampling_type="particle", units="cm**(-3)")
+        simudata.data.ds.add_field((Ptype, "Tsz"), function=Temp_SZ, sampling_type="particle", units="1/cm")
+        simudata.data.ds.add_smoothed_particle_field((Ptype, "Tsz"))
+        if isinstance(axis, type('x')):
+            projection = simudata.data.ds.proj(('deposit', Ptype+'_smoothed_Tsz'), axis,
+                                               center=simudata.center, data_source=simudata.data)
+            FRB = projection.to_frb(2.*simudata.radius, self.np)
+            self.ydata = FRB[('deposit', Ptype+'_smoothed_Tsz')]
 
     # def ymap(self, file, IMF):
     #     r""" calculating of SZ y-map.
