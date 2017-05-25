@@ -27,7 +27,8 @@ else:
 
 
 def Ele_num_den(field, data):
-    return data[field.name[0], "Density"] * data[field.name[0], "ElectronAbundance"] * (1 - data[field.name[0], "Z"] - 0.24) / mp
+    return data[field.name[0], "Density"] * data[field.name[0], "ElectronAbundance"] * \
+        (1 - data[field.name[0], "Z"] - 0.24) / mp
 
 
 def Temp_SZ(field, data):
@@ -131,7 +132,7 @@ class TH_model(object):
             projection = simudata.data.ds.proj(('deposit', Ptype+'_smoothed_Tsz'), axis,
                                                center=simudata.center, data_source=simudata.data)
             FRB = projection.to_frb(2.*simudata.radius, self.np)
-            self.ydata = FRB[('deposit', Ptype+'_smoothed_Tsz')]
+            self.ydata = FRB[('deposit', Ptype+'_smoothed_Tsz')] * cm
 
     # def ymap(self, file, IMF):
     #     r""" calculating of SZ y-map.
