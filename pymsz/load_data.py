@@ -225,11 +225,11 @@ class load_data(object):
         else:
             ds = yt.load(self.filename)
 
-        if ("Gas", "ElectronAbundance") in ds.field_info:
+        if ("Gas", "ElectronAbundance") in ds.field_list:
             yt.add_field(("Gas", "ElectronAbundance"), function=add_GEA,
                          sampling_type="particle", units="", force_override=True)
 
-        if ("Gas", "Z") in ds.field_info:
+        if ("Gas", "Z") in ds.field_list:
             yt.add_field(("Gas", "Z"), function=add_GMT,
                          sampling_type="particle", units="", force_override=True)
 
