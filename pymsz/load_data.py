@@ -83,7 +83,7 @@ class load_data(object):
         else:
             raise ValueError("Do not accept this metal %f." % metal)
         Metal = self.metal
-            
+
         if snapshot:
             self.data_type = "snapshot"
             self.temp = np.array([])
@@ -161,7 +161,8 @@ class load_data(object):
 
         # gas metal if there are
         if self.metal is 0:
-            self.metal = readsnapsgl(self.filename, "Z   ", ptype=0, quiet=True)  # auto calculate Z
+            self.metal = readsnapsgl(self.filename, "Z   ", ptype=0,
+                                     quiet=True)  # auto calculate Z
             if self.metal is not 0:
                 self.metal = self.metal[ids]
 
@@ -209,7 +210,7 @@ class load_data(object):
             if self.hsml is not 0:
                 self.hsml = self.hsml[ids_ex]
             else:
-                self.hsml = (3*self.mass/self.pos/4/np.pi)**(1./3.)  # approximate
+                self.hsml = (3 * self.mass / self.pos / 4 / np.pi)**(1. / 3.)  # approximate
 
     def _load_yt(self, specified_field):
         try:
@@ -225,7 +226,12 @@ class load_data(object):
             ds = yt.load(self.filename)
 
         if ("Gas", "ElectronAbundance") in ds.field_info:
-            ds.add_field(("Gas", "ElectronAbundance"), function=add_GEA, sampling_type="particle", units="")
+            yt.add_field(("Gas", "ElectronAbundance"), function=add_GEA,
+                         sampling_type="particle", units="", force_override=True)
+
+        if ("Gas", "Z") in ds.field_info:
+            yt.add_field(("Gas", "Z"), function=add_GMT,
+                         sampling_type="particle", units="", force_override=True)
 
         if (self.center is not None) and (self.radius is not None):
             sp = ds.sphere(center=self.center, radius=(self.radius, "kpc/h"))
@@ -234,7 +240,8 @@ class load_data(object):
 
         if ('Gas', 'StarFomationRate') in ds.field_info.keys():
             if len(sp['Gas', 'StarFomationRate'][sp['Gas', 'StarFomationRate'] >= 0.1]) > 0:
-                yt.add_particle_filter("PGas", function=proper_gas, filtered_type='Gas', requires=["StarFomationRate"])
+                yt.add_particle_filter("PGas", function=proper_gas,
+                                       filtered_type='Gas', requires=["StarFomationRate"])
                 ds.add_particle_filter('PGas')
 
         # if ('Gas', 'StarFomationRate') in ds.field_info.keys():  this is only work with cell data
