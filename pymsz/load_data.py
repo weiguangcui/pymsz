@@ -3,6 +3,11 @@ from pymsz.readsnapsgl import readsnapsgl
 # from astropy.cosmology import FlatLambdaCDM
 
 
+def proper_gas(pfilter, data):
+    filter = data[pfilter.filtered_type, "StarFomationRate"] < 0.1
+    return filter
+
+
 class load_data(object):
     r"""load analysing data from simulation snapshots (gadget format only),
     yt, or raw data. Currently only works with snapshot=True. Will work more
@@ -42,8 +47,8 @@ class load_data(object):
 
     Notes
     -----
-    Need to take more care about the units!!! Currently only assume simulation units.
-    kpc/h and 10^10 M_sun
+    Please be extremly careful about the units!!! Currently only assume in simulation units:
+        kpc/h and 10^10 M_sun
     Raw data set needs to provide the cosmology, Otherwise WMAP7 is used...
     center and radius need to set together in the simulation units!
     Example
@@ -213,7 +218,12 @@ class load_data(object):
             sp = ds.all_data()
 
         if ('Gas', 'StarFomationRate') in ds.field_info.keys():
-            sp = sp.cut_region(["obj[('Gas', 'StarFomationRate')] < 0.1"])
+            if len(sp['Gas', 'StarFomationRate'][sp['Gas', 'StarFomationRate'] >= 0.1]) > 0:
+                yt.add_particle_filter("PGas", function=proper_gas, filtered_type='Gas', requires=["StarFomationRate"])
+                ds.add_particle_filter('PGas')
+
+        # if ('Gas', 'StarFomationRate') in ds.field_info.keys():  this is only work with cell data
+        #     sp = sp.cut_region(["obj[('Gas', 'StarFomationRate')] < 0.1"])
 
         return sp
 
