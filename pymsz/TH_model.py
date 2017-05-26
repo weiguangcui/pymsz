@@ -27,8 +27,11 @@ else:
 
 
 def Ele_num_den(field, data):
-    return data[field.name[0], "Density"] * data[field.name[0], "ElectronAbundance"] * \
-        (1 - data[field.name[0], "Z"] - 0.24) / mp
+    if ("Gas", "ElectronAbundance") in data.ds.field_info:
+        return data[field.name[0], "Density"] * data[field.name[0], "ElectronAbundance"] * \
+            (1 - data[field.name[0], "Z"] - 0.24) / mp
+    else:  # Assume full ionized
+        return data[field.name[0], "Density"] * 1.351 * (1 - data[field.name[0], "Z"] - 0.24) / mp
 
 
 def Temp_SZ(field, data):
