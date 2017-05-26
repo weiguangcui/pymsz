@@ -1,6 +1,6 @@
-# from scipy.interpolate import interp1d
 import numpy as np
 from rotate_data import rotate_data
+from astropy.cosmology import FlatLambdaCDM, WMAP7
 # import pyfits
 # scipy must >= 0.17 to properly use this!
 # from scipy.stats import binned_statistic_2d
@@ -39,9 +39,9 @@ def Temp_SZ(field, data):
 def SPH(x, h):  # 3D
     data = np.zeros(x.size, dtype=float)
     ids = (x > 0) & (x <= 0.5)
-    data[ids] = 8*(1 - 6*x[ids]**2 + 6*x[ids]**3)/np.pi/h**3
+    data[ids] = 8 * (1 - 6 * x[ids]**2 + 6 * x[ids]**3) / np.pi / h**3
     ids = (x > 0.5) & (x < 1)
-    data[ids] = 16*(1 - x[ids])**3/np.pi/h**3
+    data[ids] = 16 * (1 - x[ids])**3 / np.pi / h**3
     return data
 # def SPH(x, h):  # 2D
 #     if (x > 0) and (x <= 0.5):
@@ -59,10 +59,7 @@ class TH_model(object):
     Parameters
     ----------
     simudata : the simulation data from load_data
-    npixel   : number of pixels for your image, int. Assume that x-y have the same number of pixels
-    axis     : can be 'x', 'y', 'z', or a list of degrees [alpha, beta, gamma],
-               which will rotate the data points by $\alpha$ around the x-axis,
-               $\beta$ around the y-axis, and $\gamma$ around the z-axis
+
     Returns
     -------
     Theoretical projected y-map in a given direction. 2D mesh data right now.
@@ -80,168 +77,96 @@ class TH_model(object):
     mm=pymsz.TH_models(simudata, 1024, "z")
     """
 
-    def __init__(self, simudata, npixel, axis):
-        self.np = npixel
+    def __init__(self, simudata):
         self.ydata = np.array([])
-
         if simudata.data_type == "snapshot":
             self.Tszdata = np.array([])
-            self.ned = np.array([])        # electron number density
-            simudata.pos = rotate_data(simudata.pos, axis)
-            self.pixelsize = np.min(np.max(simudata.pos[:, :2], axis=0) - np.min(simudata.pos[:, :2], axis=0))/self.np
-            self.pixelsize *= (1+1.0e-6)
-            self.nx = np.int32((simudata.pos[:, 0].max() - simudata.pos[:, 0].min())/self.pixelsize) + 1
-            self.ny = np.int32((simudata.pos[:, 1].max() - simudata.pos[:, 1].min())/self.pixelsize) + 1
-            self.ydata = np.zeros((self.nx, self.ny), dtype=np.float32)
-            self._ymap_snap(simudata)
+            # self.ned = np.array([])        # electron number density
+            self._prep_snap(simudata)
         elif simudata.data_type == "yt_data":
-            self._ymap_yt(simudata, axis)
+            self._prep_yt(simudata)
         else:
             raise ValueError("Do not accept this data type %s"
                              "Please try to use load_data to get the data" % simudata.data_type)
 
-    def _ymap_snap(self, simudata):  # Now everything need to be in physical
-        self.ned = simudata.ne/Mp * (1.0e10*M_sun*simudata.cosmology["h"]**2/Kpc**3)  # now in cm^-3
-        self.Tszdata = self.ned*Kb*simudata.temp*cs/me/c**2  # now in cm^-1
-        # smearing the Tsz data using SPH with respected to the smoothing length
-        from scipy.spatial import cKDTree
-        x = np.arange(simudata.pos[:, 0].min(), simudata.pos[:, 0].max(), self.pixelsize)
-        y = np.arange(simudata.pos[:, 1].min(), simudata.pos[:, 1].max(), self.pixelsize)
-        x, y = np.meshgrid(x, y)
-        mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
-        for i in np.arange(self.Tszdata.size):
-            ids = mtree.query_ball_point(simudata.pos[i, :2], simudata.hsml[i])
-            if isinstance(ids, type(0)):  # int object
-                ids = np.array([ids])
-            dist = np.sqrt((simudata.pos[i, 0] - mtree.data[ids, 0])**2 + (simudata.pos[i, 1] - mtree.data[ids, 1])**2)
-            xx = np.int32((mtree.data[ids, 0]-simudata.pos[:, 0].min())/self.pixelsize)
-            yy = np.int32((mtree.data[ids, 1]-simudata.pos[:, 1].min())/self.pixelsize)
-            wsph = SPH(dist/simudata.hsml[i], simudata.hsml[i])
-            self.ydata[xx, yy] += self.Tszdata[i] * wsph / wsph.sum()
-        self.ydata *= 2*simudata.radius*Kpc/simudata.cosmology["h"]
+    def _prep_snap(self, simudata):  # Now everything need to be in physical
+        simudata.ne = simudata.ne / Mp * (1.0e10 * M_sun * simudata.cosmology["h"]**2 / Kpc**3)  # now in cm^-3
+        self.Tszdata = simudata.ne * Kb * simudata.temp * cs / me / c**2  # now in cm^-1
 
-    def _ymap_yt(self, simudata, axis):
+    def _prep_yt(self, simudata):
         if 'PGas' in simudata.data.ds.particle_types:
-            Ptype = 'PGas'
+            self.Ptype = 'PGas'
         else:
-            Ptype = 'Gas'
-        simudata.data.ds.add_field((Ptype, "END"), function=Ele_num_den, sampling_type="particle", units="cm**(-3)")
-        simudata.data.ds.add_field((Ptype, "Tsz"), function=Temp_SZ, sampling_type="particle", units="1/cm")
-        simudata.data.ds.add_smoothed_particle_field((Ptype, "Tsz"))
-        if isinstance(axis, type('x')):
-            projection = simudata.data.ds.proj(('deposit', Ptype+'_smoothed_Tsz'), axis,
-                                               center=simudata.center, data_source=simudata.data)
-            FRB = projection.to_frb(2.*simudata.radius, self.np)
-            self.ydata = FRB[('deposit', Ptype+'_smoothed_Tsz')] * cm
+            self.Ptype = 'Gas'
+        simudata.data.ds.add_field((self.Ptype, "END"), function=Ele_num_den,
+                                   sampling_type="particle", units="cm**(-3)")
+        simudata.data.ds.add_field((self.Ptype, "Tsz"), function=Temp_SZ,
+                                   sampling_type="particle", units="1/cm")
+        simudata.data.ds.add_smoothed_particle_field((self.Ptype, "Tsz"))
 
-    # def ymap(self, file, IMF):
-    #     r""" calculating of SZ y-map.
-    #     TH_model.ymap(nsample=None)
-    #
-    #     Parameters
-    #     ----------
-    #     model_file : File name for the SSP models. Only "name" + _ + "model",
-    #                  such as c09_exp, or bc03_ssp. The whole name of the model
-    #                  must be name_model_z_XXX_IMF.model (or .ised, .txt, .fits)
-    #
-    #     Returns
-    #     -------
-    #     The theoretical y-map from the SZ effect.
-    #
-    #     See also
-    #     --------
-    #     T_sz function in this class
-    #
-    #     Notes
-    #     -----
-    #     ...
-    #
-    #     Example
-    #     -------
-    #     y-map = TH_model.ymap(nsample=None)
-    #     """
-    #
-    #     return y_map
+    def get_ymap(self, simd, npixel=500, axis='z', AR=None, redshift=None):
+        r"""
+            simudata : the simulation data from load_data
+            npixel   : number of pixels for your image, int. Assume that x-y have the same number of pixels
+            axis     : can be 'x', 'y', 'z', or a list of degrees [alpha, beta, gamma],
+                       which will rotate the data points by $\alpha$ around the x-axis,
+                       $\beta$ around the y-axis, and $\gamma$ around the z-axis
+            AR       : angular resolution in arcsec. Default : None, which gives npixel = 2 * cluster radius
+                        and ignores the cluster's redshift.
+                        Otherwise, the cluster's redshift with AR decides how many pixels the cluster occupies.
+            redshift : The redshift where the cluster is at. Default : None, we will look it from simulation data.
+                        If redshift = 0, it will automatically put into 0.02, unless you set AR = None.
+        """
+        self.np = npixel
+        self.ax = axis
+        self.ar = AR
 
-    # def T_sz(self, file):
-    #     r""" calculating of SZ y-map.
-    #     TH_model.ymap(nsample=None)
-    #
-    #     Parameters
-    #     ----------
-    #     model_file : File name for the SSP models. Only "name" + _ + "model",
-    #                  such as c09_exp, or bc03_ssp. The whole name of the model
-    #                  must be name_model_z_XXX_IMF.model (or .ised, .txt, .fits)
-    #
-    #     Returns
-    #     -------
-    #     The theoretical y-map from the SZ effect.
-    #
-    #     See also
-    #     --------
-    #     T_sz function in this class
-    #
-    #     Notes
-    #     -----
-    #     ...
-    #
-    #     Example
-    #     -------
-    #     y-map = TH_model.ymap(nsample=None)
-    #     """
-    #
-    #     return Tsz
-    #
-    # def get_seds(self, simdata, dust_func=None, units='Fv'):
-    #     r"""
-    #     Seds = SSP_model(simdata, dust_func=None, units='Fv')
-    #
-    #     Parameters
-    #     ----------
-    #     simudata   : Simulation data read from load_data
-    #     dust_func  : dust function.
-    #     units      : The units for retruned SEDS. Default: 'Fv'
-    #
-    #     Get SEDS for the simulated star particles
-    #
-    #     Available output units are (case insensitive):
-    #
-    #     ========== ====================
-    #     Name       Units
-    #     ========== ====================
-    #     Jy         Jansky
-    #     Fv         ergs/s/cm^2/Hz
-    #     Fl         ergs/s/cm^2/Angstrom
-    #     Flux       ergs/s/cm^2
-    #     Luminosity ergs/s
-    #     ========== ====================
-    #     """
-    #
-    #     seds = np.zeros((self.nvs[0], simdata.S_age.size), dtype=np.float64)
-    #
-    #     # We do not do 2D interpolation since there is only several metallicity
-    #     # in the models.
-    #     if self.nmets > 1:
-    #         mids = np.interp(simdata.S_metal, self.metals,
-    #                          np.arange(self.nmets))
-    #         mids = np.int32(np.round(mids))
-    #
-    #     for i, metmodel in enumerate(self.met_name):
-    #         f = interp1d(self.ages[metmodel], self.seds[metmodel])
-    #
-    #         if self.nmets > 1:
-    #             ids = mids == i
-    #         else:
-    #             ids = np.ones(simdata.S_metal.size, dtype=np.bool)
-    #
-    #         if dust_func is None:
-    #             seds[:, ids] = f(simdata.S_age[ids]) * simdata.S_mass[ids]
-    #         else:
-    #             seds[:, ids] = f(simdata.S_age[ids]) * simdata.S_mass[ids] * \
-    #                 dust_func(simdata.S_age[ids], self.ls[metmodel])
-    #
-    #     if simdata.grid_mass is not None:
-    #         seds = binned_statistic_2d(simdata.S_pos[:, 0], simdata.S_pos[:, 1],
-    #                                    values=seds,
-    #                                    bins=[simdata.nx, simdata.nx],
-    #                                    statistic='sum')[0]
+        if simd.data_type == "snapshot":
+            if simd.cosmology['omega_matter'] != 0:
+                cosmo = FlatLambdaCDM(H0=simd.cosmology['h']*100, Om0=simd.cosmology['omega_matter'])
+            else:
+                cosmo = WMAP7
+            if redshift is None:
+                self.red = simd.cosmology['z']
+            simd.pos = rotate_data(simd.pos, self.ax)
+            minx = simd.pos[:, 0].min(); miny = simd.pos[:, 1].min()
+            maxx = simd.pos[:, 0].max(); maxy = simd.pos[:, 1].max()
+            if self.ar is None:
+                self.pixelsize = np.min([maxx-minx, maxy - miny]) / self.np
+            else:
+
+            self.pixelsize *= (1 + 1.0e-6)
+            self.nx = np.int32((maxx -
+                                minx) / self.pixelsize) + 1
+            self.ny = np.int32((maxy -
+                                miny) / self.pixelsize) + 1
+            self.ydata = np.zeros((self.nx, self.ny), dtype=np.float32)
+
+            # smearing the Tsz data using SPH with respected to the smoothing length
+            from scipy.spatial import cKDTree
+            x = np.arange(minx, maxx, self.pixelsize)
+            y = np.arange(miny, maxy, self.pixelsize)
+            x, y = np.meshgrid(x, y)
+            mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
+            for i in np.arange(self.Tszdata.size):
+                ids = mtree.query_ball_point(simd.pos[i, :2], simd.hsml[i])
+                if isinstance(ids, type(0)):  # int object
+                    ids = np.array([ids])
+                dist = np.sqrt((simd.pos[i, 0] - mtree.data[ids, 0]) **
+                               2 + (simd.pos[i, 1] - mtree.data[ids, 1])**2)
+                xx = np.int32((mtree.data[ids, 0] - minx) / self.pixelsize)
+                yy = np.int32((mtree.data[ids, 1] - miny) / self.pixelsize)
+                wsph = SPH(dist / simd.hsml[i], simd.hsml[i])
+                self.ydata[xx, yy] += self.Tszdata[i] * wsph / wsph.sum()
+            self.ydata *= 2 * simd.radius * Kpc / simd.cosmology["h"]
+        elif simd.data_type == "yt_data":
+            if isinstance(self.ax, type('x')):
+                projection = simd.data.ds.proj(('deposit', self.Ptype + '_smoothed_Tsz'), axis,
+                                               center=simd.center, data_source=simd.data)
+                FRB = projection.to_frb(2. * simd.radius, self.np)
+                self.ydata = FRB[('deposit', self.Ptype + '_smoothed_Tsz')] * cm
+        else:
+            raise ValueError("Do not accept this data type %s"
+                             "Please try to use load_data to get the data" % simd.data_type)
+
+        return self.ydata
