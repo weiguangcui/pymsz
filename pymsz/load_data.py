@@ -74,7 +74,7 @@ class load_data(object):
                 self.metal = metal
             else:
                 raise ValueError("Do not accept this metal %f." % metal)
-            self.mass = np.array([])
+            self.mass = 0.0
             self.pos = np.array([])
             self.rho = np.array([])
             self.ne = 0
@@ -143,10 +143,8 @@ class load_data(object):
 
         # mass only gas
         self.mass = readsnapsgl(self.filename, "MASS", ptype=0, quiet=True)
-        if self.mass is not 0:
+        if not isinstance(self.mass, type(0.0)):
             self.mass = self.mass[ids]
-        else:
-            raise ValueError("Can't get gas mass, which is required")
 
         # gas metal if there are
         if self.metal is 0:
@@ -188,7 +186,8 @@ class load_data(object):
 
         if (ids_ex is not None) and (ids_ex is not True):
             self.temp = self.temp[ids_ex]     # cgs
-            self.mass = self.mass[ids_ex]
+            if not isinstance(self.mass, type(0.0)):
+                self.mass = self.mass[ids_ex]
             self.pos = self.pos[ids_ex]
             self.rho = self.rho[ids_ex]
             self.ne = self.ne[ids_ex]         # cgs
