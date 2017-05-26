@@ -2,6 +2,17 @@ import numpy as np
 from pymsz.readsnapsgl import readsnapsgl
 # from astropy.cosmology import FlatLambdaCDM
 
+Metal = 0
+
+
+def add_GEA(field, data):  # full ionized gas ElectronAbundance
+    return data['Gas', 'particle_ones'] * 1.315789474
+
+
+def add_GMT(field, data):  # No metallicity
+    global Metal
+    return data['Gas', 'particle_ones'] * Metal
+
 
 def proper_gas(pfilter, data):
     filter = data[pfilter.filtered_type, "StarFomationRate"] < 0.1
@@ -61,19 +72,21 @@ class load_data(object):
 
     def __init__(self, filename='', snapshot=False, metal=None, yt_load=False,
                  specified_field=None, datafile=False, center=None, radius=None):
-
+        global Metal
         self.center = center
         self.radius = radius
         self.filename = filename
+        if metal is None:
+            self.metal = 0
+        elif isinstance(metal, type(0.1)) or isinstance(metal, type(np.ones(1))):
+            self.metal = metal
+        else:
+            raise ValueError("Do not accept this metal %f." % metal)
+        Metal = self.metal
+            
         if snapshot:
             self.data_type = "snapshot"
             self.temp = np.array([])
-            if metal is None:
-                self.metal = 0
-            elif isinstance(metal, type(0.1)) or isinstance(metal, type(np.ones(1))):
-                self.metal = metal
-            else:
-                raise ValueError("Do not accept this metal %f." % metal)
             self.mass = 0.0
             self.pos = np.array([])
             self.rho = np.array([])
@@ -210,6 +223,9 @@ class load_data(object):
             ds = yt.load(self.filename, field_spec="my_def")
         else:
             ds = yt.load(self.filename)
+
+        if ("Gas", "ElectronAbundance") in ds.field_info:
+            ds.add_field(("Gas", "ElectronAbundance"), function=add_GEA, sampling_type="particle", units="")
 
         if (self.center is not None) and (self.radius is not None):
             sp = ds.sphere(center=self.center, radius=(self.radius, "kpc/h"))
