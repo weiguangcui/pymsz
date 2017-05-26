@@ -123,21 +123,23 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
 
             if block == "MASS":
                 idg0 = (npart > 0) & (masstbl <= 0)
-                if (len(npart[idg0]) == 0) and (fullmass):  # No Mass block!
-                    idg1 = (npart > 0) & (masstbl > 0)
-                    if len(npart[idg1]) == 1:
-                        return masstbl[idg1]
-                    else:  # multi masstble
-                        totmass = np.zeros(np.sum(npart, dtype='int64'), dtype='float32')
-                        countnm = 0
-                        for i in np.arange(6):
-                            if npart[i] > 0:
-                                totmass[countnm:countnm + npart[i]] = masstbl[i]
-                                countnm += npart[i]
-                        return totmass
-                    if ptype is not None:
-                        if masstbl[ptype] > 0:
-                            return(masstbl[ptype])
+                if len(npart[idg0]) == 0:  # No Mass block!
+                    if fullmass:
+                        idg1 = (npart > 0) & (masstbl > 0)
+                        if len(npart[idg1]) == 1:
+                            return masstbl[idg1]
+                        else:  # multi masstble
+                            totmass = np.zeros(np.sum(npart, dtype='int64'), dtype='float32')
+                            countnm = 0
+                            for i in np.arange(6):
+                                if npart[i] > 0:
+                                    totmass[countnm:countnm + npart[i]] = masstbl[i]
+                                    countnm += npart[i]
+                            return totmass
+                    elif ptype is not None:
+                        return masstbl[ptype]
+                    else:
+                        return masstbl
 
         npf = open(filename, 'rb')
         subdata = read_block(npf, block, endian, quiet, longid, fmt, pty, rawdata)
