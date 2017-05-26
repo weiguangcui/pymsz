@@ -120,32 +120,38 @@ class TH_model(object):
         self.np = npixel
         self.ax = axis
         self.ar = AR
+        self.red = redshift
 
         if simd.data_type == "snapshot":
             if simd.cosmology['omega_matter'] != 0:
                 cosmo = FlatLambdaCDM(H0=simd.cosmology['h']*100, Om0=simd.cosmology['omega_matter'])
             else:
                 cosmo = WMAP7
-            if redshift is None:
+            if self.red is None:
                 self.red = simd.cosmology['z']
+
             simd.pos = rotate_data(simd.pos, self.ax)
             minx = simd.pos[:, 0].min(); miny = simd.pos[:, 1].min()
             maxx = simd.pos[:, 0].max(); maxy = simd.pos[:, 1].max()
-            if self.ar is None:
-                self.pixelsize = np.min([maxx-minx, maxy - miny]) / self.np
-            else:
-
-            self.pixelsize *= (1 + 1.0e-6)
-            self.nx = np.int32((maxx -
-                                minx) / self.pixelsize) + 1
-            self.ny = np.int32((maxy -
-                                miny) / self.pixelsize) + 1
-            self.ydata = np.zeros((self.nx, self.ny), dtype=np.float32)
 
             # smearing the Tsz data using SPH with respected to the smoothing length
             from scipy.spatial import cKDTree
-            x = np.arange(minx, maxx, self.pixelsize)
-            y = np.arange(miny, maxy, self.pixelsize)
+            if self.ar is None:
+                self.pixelsize = np.min([maxx-minx, maxy - miny]) / self.np
+                self.pixelsize *= (1 + 1.0e-6)
+                self.nx = np.int32((maxx - minx) / self.pixelsize) + 1
+                self.ny = np.int32((maxy - miny) / self.pixelsize) + 1
+                self.ydata = np.zeros((self.nx, self.ny), dtype=np.float32)
+                x = np.arange(minx, maxx, self.pixelsize)
+                y = np.arange(miny, maxy, self.pixelsize)
+            else:
+                if self.red <= 0.0:
+                    self.red = 0.02
+                self.pixelsize = cosmo.arcsec_per_kpc_proper(self.red) * self.ar * simd.cosmology['h']
+                self.ydata = np.zeros((self.np, self.np), dtype=np.float32)
+                x = np.arange(minx, maxx, self.pixelsize)
+                y = np.arange(miny, maxy, self.pixelsize)
+
             x, y = np.meshgrid(x, y)
             mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
             for i in np.arange(self.Tszdata.size):
@@ -160,10 +166,19 @@ class TH_model(object):
                 self.ydata[xx, yy] += self.Tszdata[i] * wsph / wsph.sum()
             self.ydata *= 2 * simd.radius * Kpc / simd.cosmology["h"]
         elif simd.data_type == "yt_data":
+            if self.red is None:
+                self.red = simd.data.ds.current_redshift
+            if self.ar is None:
+                rr = 2. * simd.radius
+            else:
+                if self.red <= 0.0:
+                    self.red = 0.02
+                self.pixelsize = cosmo.arcsec_per_kpc_proper(self.red) * self.ar * simd.cosmology['h']
+                rr = self.np * self.pixelsize
             if isinstance(self.ax, type('x')):
-                projection = simd.data.ds.proj(('deposit', self.Ptype + '_smoothed_Tsz'), axis,
+                projection = simd.data.ds.proj(('deposit', self.Ptype + '_smoothed_Tsz'), self.ax,
                                                center=simd.center, data_source=simd.data)
-                FRB = projection.to_frb(2. * simd.radius, self.np)
+                FRB = projection.to_frb(rr, self.np)
                 self.ydata = FRB[('deposit', self.Ptype + '_smoothed_Tsz')] * cm
         else:
             raise ValueError("Do not accept this data type %s"
