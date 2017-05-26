@@ -77,20 +77,23 @@ class TH_model(object):
     mm=pymsz.TH_models(simudata, 1024, "z")
     """
 
-    def __init__(self, simudata):
+    def __init__(self, simudata, yt_nref=None):
         self.ydata = np.array([])
         if simudata.data_type == "snapshot":
             self.Tszdata = np.array([])
             # self.ned = np.array([])        # electron number density
             self._prep_snap(simudata)
         elif simudata.data_type == "yt_data":
+            if yt_nref is not None:
+                simudata.data.ds.n_ref = yt_nref
             self._prep_yt(simudata)
         else:
             raise ValueError("Do not accept this data type %s"
                              "Please try to use load_data to get the data" % simudata.data_type)
 
     def _prep_snap(self, simudata):  # Now everything need to be in physical
-        simudata.ne = simudata.ne / Mp * (1.0e10 * M_sun * simudata.cosmology["h"]**2 / Kpc**3)  # now in cm^-3
+        simudata.ne = simudata.ne / Mp * \
+            (1.0e10 * M_sun * simudata.cosmology["h"]**2 / Kpc**3)  # now in cm^-3
         self.Tszdata = simudata.ne * Kb * simudata.temp * cs / me / c**2  # now in cm^-1
 
     def _prep_yt(self, simudata):
@@ -124,20 +127,23 @@ class TH_model(object):
 
         if simd.data_type == "snapshot":
             if simd.cosmology['omega_matter'] != 0:
-                cosmo = FlatLambdaCDM(H0=simd.cosmology['h']*100, Om0=simd.cosmology['omega_matter'])
+                cosmo = FlatLambdaCDM(H0=simd.cosmology['h']
+                                      * 100, Om0=simd.cosmology['omega_matter'])
             else:
                 cosmo = WMAP7
             if self.red is None:
                 self.red = simd.cosmology['z']
 
             simd.pos = rotate_data(simd.pos, self.ax)
-            minx = simd.pos[:, 0].min(); miny = simd.pos[:, 1].min()
-            maxx = simd.pos[:, 0].max(); maxy = simd.pos[:, 1].max()
+            minx = simd.pos[:, 0].min()
+            maxx = simd.pos[:, 0].max()
+            miny = simd.pos[:, 1].min()
+            maxy = simd.pos[:, 1].max()
 
             # smearing the Tsz data using SPH with respected to the smoothing length
             from scipy.spatial import cKDTree
             if self.ar is None:
-                self.pixelsize = np.min([maxx-minx, maxy - miny]) / self.np
+                self.pixelsize = np.min([maxx - minx, maxy - miny]) / self.np
                 self.pixelsize *= (1 + 1.0e-6)
                 self.nx = np.int32((maxx - minx) / self.pixelsize) + 1
                 self.ny = np.int32((maxy - miny) / self.pixelsize) + 1
@@ -147,7 +153,8 @@ class TH_model(object):
             else:
                 if self.red <= 0.0:
                     self.red = 0.02
-                self.pixelsize = cosmo.arcsec_per_kpc_proper(self.red) * self.ar * simd.cosmology['h']
+                self.pixelsize = cosmo.arcsec_per_kpc_proper(
+                    self.red) * self.ar * simd.cosmology['h']
                 self.ydata = np.zeros((self.np, self.np), dtype=np.float32)
                 x = np.arange(minx, maxx, self.pixelsize)
                 y = np.arange(miny, maxy, self.pixelsize)
@@ -173,7 +180,8 @@ class TH_model(object):
             else:
                 if self.red <= 0.0:
                     self.red = 0.02
-                self.pixelsize = cosmo.arcsec_per_kpc_proper(self.red) * self.ar * simd.cosmology['h']
+                self.pixelsize = cosmo.arcsec_per_kpc_proper(
+                    self.red) * self.ar * simd.cosmology['h']
                 rr = self.np * self.pixelsize
             if isinstance(self.ax, type('x')):
                 projection = simd.data.ds.proj(('deposit', self.Ptype + '_smoothed_Tsz'), self.ax,
