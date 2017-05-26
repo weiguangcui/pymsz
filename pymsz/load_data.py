@@ -227,12 +227,12 @@ class load_data(object):
 
         if ("Gas", "ElectronAbundance") not in ds.field_list:
             print("Add electrons as full ionized gas")
-            yt.add_field(("Gas", "ElectronAbundance"), function=add_GEA,
+            ds.add_field(("Gas", "ElectronAbundance"), function=add_GEA,
                          sampling_type="particle", units="", force_override=True)
 
         if ("Gas", "Z") not in ds.field_list:
             print("Adding given metallicity %f" % Metal)
-            yt.add_field(("Gas", "Z"), function=add_GMT,
+            ds.add_field(("Gas", "Z"), function=add_GMT,
                          sampling_type="particle", units="", force_override=True)
 
         if (self.center is not None) and (self.radius is not None):
