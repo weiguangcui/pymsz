@@ -251,30 +251,6 @@ class load_data(object):
 
         return sp
 
-        # if ('Gas', 'Temperature') in sp.ds.field_info.keys():
-        #     self.temp = sp[('Gas', 'Temperature')].v
-        # else:
-        #     raise ValueError("Can't get gas temperature, which is required for this code.")
-        # if ('Gas', 'Mass') in sp.ds.field_info.keys():
-        #     self.mass = sp[('Gas', 'Mass')].v
-        # else:
-        #     raise ValueError("Can't get gas mass, which is required for this code.")
-        # if ('Gas', 'Coordinates') in sp.ds.field_info.keys():
-        #     self.pos = sp[('Gas', 'Coordinates')].v
-        # else:
-        #     raise ValueError("Can't get gas positions, which is required for this code.")
-        # if ('Gas', 'Density') in sp.ds.field_info.keys():
-        #     self.rho = sp[('Gas', 'Density')].v
-        # else:
-        #     raise ValueError("Can't get gas density, which is required for this code.")
-        # if self.metal == 0:
-        #     if ('Gas', 'Z') in sp.ds.field_info.keys():
-        #         self.metal = sp[('Gas', 'Z')].v
-        # if ('Gas', 'ElectronAbundance') in sp.ds.field_info.keys():
-        #     self.ne = sp[('Gas', 'ElectronAbundance')].v
-        # if ('Gas', 'SmoothingLength') in sp.ds.field_info.keys():
-        #     self.hsml = sp[('Gas', 'SmoothingLength')].v
-
     # def _load_raw(self):
     #     if (self.center is not None) and (self.radius is not None):
     #         r = np.sqrt(np.sum((self.filename['pos'] - self.center)**2, axis=1))
