@@ -36,8 +36,8 @@ def Ele_num_den(field, data):
 
 
 def Temp_SZ(field, data):
-    return data[field.name[0], "END"] * data['Gas', 'Temperature'] * kb * cross_section_thompson_cgs / \
-        mass_electron_cgs / speed_of_light_cgs**2
+    return data[field.name[0], "END"] * data['Gas', 'Temperature'] * kb * \
+        cross_section_thompson_cgs / mass_electron_cgs / speed_of_light_cgs**2
 
 
 def SPH(x, h):  # 3D
