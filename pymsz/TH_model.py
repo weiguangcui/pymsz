@@ -146,11 +146,11 @@ class TH_model(object):
             if self.red is None:
                 self.red = simd.cosmology['z']
 
-            simd.pos = rotate_data(simd.pos, self.ax)
-            minx = simd.pos[:, 0].min()
-            maxx = simd.pos[:, 0].max()
-            miny = simd.pos[:, 1].min()
-            maxy = simd.pos[:, 1].max()
+            pos = rotate_data(simd.pos, self.ax)
+            minx = pos[:, 0].min()
+            maxx = pos[:, 0].max()
+            miny = pos[:, 1].min()
+            maxy = pos[:, 1].max()
 
             if isinstance(simd.hsml, type(0)):
                 neighbours = 27
@@ -180,14 +180,14 @@ class TH_model(object):
             mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
             for i in np.arange(self.Tszdata.size):
                 if neighbours is not None:
-                    ids, dist = mtree.query(simd.pos[i, :2], neighbours)
+                    ids, dist = mtree.query(pos, neighbours)
                     wsph = SPH(dist / hsml, hsml)
                 else:
-                    ids = mtree.query_ball_point(simd.pos[i, :2], simd.hsml[i])
+                    ids = mtree.query_ball_point(pos, simd.hsml[i])
                     if isinstance(ids, type(0)):  # int object
                         ids = np.array([ids])
-                    dist = np.sqrt((simd.pos[i, 0] - mtree.data[ids, 0]) **
-                                   2 + (simd.pos[i, 1] - mtree.data[ids, 1])**2)
+                    dist = np.sqrt((pos - mtree.data[ids, 0]) **
+                                   2 + (pos - mtree.data[ids, 1])**2)
                     wsph = SPH(dist / simd.hsml[i], simd.hsml[i])
                 xx = np.int32((mtree.data[ids, 0] - minx) / self.pixelsize)
                 yy = np.int32((mtree.data[ids, 1] - miny) / self.pixelsize)
