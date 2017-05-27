@@ -180,10 +180,8 @@ class TH_model(object):
             mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
             for i in np.arange(self.Tszdata.size):
                 if neighbours is not None:
-                    ids, dist = mtree.query(pos, neighbours)
+                    dist, ids = mtree.query(pos, neighbours)
                     wsph = SPH(dist / hsml, hsml)
-                    if isinstance(ids, type(0)):  # int object
-                        ids = np.array([ids])
                 else:
                     ids = mtree.query_ball_point(pos, simd.hsml[i])
                     if isinstance(ids, type(0)):  # int object
