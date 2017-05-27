@@ -111,18 +111,25 @@ class TH_model(object):
                                    sampling_type="particle", units="1/cm")
         simudata.data.ds.add_smoothed_particle_field((self.Ptype, "Tsz"))
 
-    def get_ymap(self, simd, npixel=500, axis='z', AR=None, redshift=None):
+    def get_ymap(self, simd, npixel=500, neighbours=None, axis='z', AR=None, redshift=None):
         r"""
             simudata : the simulation data from load_data
-            npixel   : number of pixels for your image, int. Assume that x-y have the same number of pixels
+            npixel   : number of pixels for your image, int.
+                        Assume that x-y have the same number of pixels
             axis     : can be 'x', 'y', 'z', or a list of degrees [alpha, beta, gamma],
                        which will rotate the data points by $\alpha$ around the x-axis,
                        $\beta$ around the y-axis, and $\gamma$ around the z-axis
-            AR       : angular resolution in arcsec. Default : None, which gives npixel = 2 * cluster radius
+            neighbours: this parameter only works with simulation data (not yt data).
+                        If this is set, it will force the SPH particles smoothed into nearby N
+                        neighbours, HSML from the simulation will be ignored.
+            AR       : angular resolution in arcsec.
+                        Default : None, which gives npixel = 2 * cluster radius
                         and ignores the cluster's redshift.
-                        Otherwise, the cluster's redshift with AR decides how many pixels the cluster occupies.
-            redshift : The redshift where the cluster is at. Default : None, we will look it from simulation data.
-                        If redshift = 0, it will automatically put into 0.02, unless you set AR = None.
+                        Otherwise, cluster's redshift with AR decides how large the cluster looks.
+            redshift : The redshift where the cluster is at.
+                        Default : None, we will look it from simulation data.
+                        If redshift = 0, it will be automatically put into 0.02,
+                        unless AR is set to None.
         """
         self.np = npixel
         self.ax = axis
