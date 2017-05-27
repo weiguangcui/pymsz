@@ -31,7 +31,8 @@ def Ele_num_den(field, data):
     return data[field.name[0], "Density"] * data[field.name[0], "ElectronAbundance"] * \
         (1 - data[field.name[0], "Z"] - 0.24) / mp
     # else:  # Assume full ionized
-    #     return data[field.name[0], "Density"] * 1.351 * (1 - data[field.name[0], "Z"] - 0.24) / mp
+    # return data[field.name[0], "Density"] * 1.351 * (1 - data[field.name[0],
+    # "Z"] - 0.24) / mp
 
 
 def Temp_SZ(field, data):
@@ -174,7 +175,7 @@ class TH_model(object):
                 yy = np.int32((mtree.data[ids, 1] - miny) / self.pixelsize)
                 wsph = SPH(dist / simd.hsml[i], simd.hsml[i])
                 self.ydata[xx, yy] += self.Tszdata[i] * wsph / wsph.sum()
-            self.ydata *= 2 * simd.radius * Kpc / simd.cosmology["h"]
+            self.ydata *= self.pixelsize * Kpc / simd.cosmology["h"]
         elif simd.data_type == "yt_data":
             if self.red is None:
                 self.red = simd.data.ds.current_redshift
