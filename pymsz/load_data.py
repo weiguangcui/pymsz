@@ -60,7 +60,7 @@ class load_data(object):
     -----
     Please be extremly careful about the units!!! Currently only assume in simulation units:
         kpc/h and 10^10 M_sun
-    Raw data set needs to provide the cosmology, Otherwise WMAP7 is used...
+    Raw data set needs to provide the cosmology, Otherwise WMAP7 is used for later calculation...
     center and radius need to set together in the simulation units!
     Example
     -------
