@@ -182,6 +182,8 @@ class TH_model(object):
                 if neighbours is not None:
                     ids, dist = mtree.query(pos, neighbours)
                     wsph = SPH(dist / hsml, hsml)
+                    if isinstance(ids, type(0)):  # int object
+                        ids = np.array([ids])
                 else:
                     ids = mtree.query_ball_point(pos, simd.hsml[i])
                     if isinstance(ids, type(0)):  # int object
