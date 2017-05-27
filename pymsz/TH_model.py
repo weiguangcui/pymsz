@@ -122,6 +122,7 @@ class TH_model(object):
             neighbours: this parameter only works with simulation data (not yt data).
                         If this is set, it will force the SPH particles smoothed into nearby N
                         neighbours, HSML from the simulation will be ignored.
+                        If no HSML provided in the simulation, neighbours = 27
             AR       : angular resolution in arcsec.
                         Default : None, which gives npixel = 2 * cluster radius
                         and ignores the cluster's redshift.
@@ -151,6 +152,9 @@ class TH_model(object):
             miny = simd.pos[:, 1].min()
             maxy = simd.pos[:, 1].max()
 
+            if isinstance(simd.hsml, type(0)):
+                neighbours = 27
+
             # smearing the Tsz data using SPH with respected to the smoothing length
             from scipy.spatial import cKDTree
             if self.ar is None:
@@ -170,17 +174,23 @@ class TH_model(object):
                 x = np.arange(minx, maxx, self.pixelsize)
                 y = np.arange(miny, maxy, self.pixelsize)
 
+            if neighbours is not None:
+                hsml = neighbours**(1.0 / 3) * self.pixelsize
             x, y = np.meshgrid(x, y)
             mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
             for i in np.arange(self.Tszdata.size):
-                ids = mtree.query_ball_point(simd.pos[i, :2], simd.hsml[i])
-                if isinstance(ids, type(0)):  # int object
-                    ids = np.array([ids])
-                dist = np.sqrt((simd.pos[i, 0] - mtree.data[ids, 0]) **
-                               2 + (simd.pos[i, 1] - mtree.data[ids, 1])**2)
+                if neighbours is not None:
+                    ids, dist = mtree.query(simd.pos[i, :2], neighbours)
+                    wsph = SPH(dist / hsml, hsml)
+                else:
+                    ids = mtree.query_ball_point(simd.pos[i, :2], simd.hsml[i])
+                    if isinstance(ids, type(0)):  # int object
+                        ids = np.array([ids])
+                    dist = np.sqrt((simd.pos[i, 0] - mtree.data[ids, 0]) **
+                                   2 + (simd.pos[i, 1] - mtree.data[ids, 1])**2)
+                    wsph = SPH(dist / simd.hsml[i], simd.hsml[i])
                 xx = np.int32((mtree.data[ids, 0] - minx) / self.pixelsize)
                 yy = np.int32((mtree.data[ids, 1] - miny) / self.pixelsize)
-                wsph = SPH(dist / simd.hsml[i], simd.hsml[i])
                 self.ydata[xx, yy] += self.Tszdata[i] * wsph / wsph.sum()
             self.ydata *= self.pixelsize * Kpc / simd.cosmology["h"]
         elif simd.data_type == "yt_data":
