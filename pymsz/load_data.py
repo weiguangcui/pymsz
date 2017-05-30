@@ -1,25 +1,6 @@
 import numpy as np
 from pymsz.readsnapsgl import readsnapsgl
 # from astropy.cosmology import FlatLambdaCDM
-Mu = 0
-Metal = 0
-
-
-def add_GEA(field, data):  # full ionized gas ElectronAbundance
-    global Mu
-    # mu = 4.0 / (3.0 * x_H + 1.0 + 4.0 * x_H * a_e)
-    ae = (4.0 / Mu - 3.0 * 0.76 - 1.0) / 4.0 / 0.76
-    return data['Gas', 'particle_ones'] * ae
-
-
-def add_GMT(field, data):  # No metallicity
-    global Metal
-    return data['Gas', 'particle_ones'] * Metal
-
-
-def proper_gas(pfilter, data):
-    filter = data[pfilter.filtered_type, "StarFomationRate"] < 0.1
-    return filter
 
 
 class load_data(object):
@@ -97,12 +78,7 @@ class load_data(object):
             self.metal = metal
         else:
             raise ValueError("Do not accept this metal %f." % metal)
-        Metal = self.metal
         self.mu = mu
-        if self.mu is None:
-            Mu = 0.5882352941176471  # full ionized
-        else:
-            Mu = self.mu
 
         if snapshot:
             self.data_type = "snapshot"
@@ -242,8 +218,36 @@ class load_data(object):
     def _load_yt(self, specified_field):
         try:
             import yt
+            from yt.utilities.physical_constants import mp, kb
         except ImportError:
             raise ImportError("Can not find yt package, which is required to use this function!")
+
+        def _add_GTP(field, data):
+            if ("Gas", "ElectronAbundance") in data.ds.field_info:
+                mu = 4.0 / (3.28 + 3.04 * data['Gas', 'ElectronAbundance'])
+            else:
+                if self.mu is not None:
+                    mu = self.mu
+                else:
+                    mu = 0.588
+            ret = data['Gas', "InternalEnergy"] * (2.0 / 3.0) * mu * mp / kb
+            return ret.in_units(data.ds.unit_system["temperature"])
+
+        def _add_GEA(field, data):  # full ionized gas ElectronAbundance
+            # mu = 4.0 / (3.0 * x_H + 1.0 + 4.0 * x_H * a_e)
+            if self.mu is not None:
+                ae = (4.0 / self.mu - 3.28) / 3.04
+            else:  # full ionized
+                # (4.0 / 0.5882352941176471 - 3.0 * 0.76 - 1.0) / 4.0 / 0.76
+                ae = 1.157894736842105
+            return data['Gas', 'particle_ones'] * ae
+
+        def _add_GMT(field, data):  # No metallicity
+            return data['Gas', 'particle_ones'] * self.metal
+
+        def _proper_gas(pfilter, data):
+            filter = data[pfilter.filtered_type, "StarFomationRate"] < 0.1
+            return filter
 
         if specified_field is not None:
             from yt.frontends.gadget.definitions import gadget_field_specs
@@ -257,12 +261,16 @@ class load_data(object):
                 print("Add electrons as full ionized gas")
             else:
                 print("Add electrons for gas with given mean_mol_weight %f" % self.mu)
-            ds.add_field(("Gas", "ElectronAbundance"), function=add_GEA,
+            ds.add_field(("Gas", "ElectronAbundance"), function=_add_GEA,
                          sampling_type="particle", units="", force_override=True)
+
+        # we force to re-add the gas temperature
+        ds.add_field(("Gas", "Temperature"), function=_add_GTP, sampling_type="particle",
+                     units='K', force_override=True)
 
         if ("Gas", "Z") not in ds.field_list:
             print("Adding given metallicity %f" % Metal)
-            ds.add_field(("Gas", "Z"), function=add_GMT,
+            ds.add_field(("Gas", "Z"), function=_add_GMT,
                          sampling_type="particle", units="", force_override=True)
 
         if (self.center is not None) and (self.radius is not None):
@@ -272,7 +280,7 @@ class load_data(object):
 
         if ('Gas', 'StarFomationRate') in ds.field_info.keys():
             if len(sp['Gas', 'StarFomationRate'][sp['Gas', 'StarFomationRate'] >= 0.1]) > 0:
-                yt.add_particle_filter("PGas", function=proper_gas,
+                yt.add_particle_filter("PGas", function=_proper_gas,
                                        filtered_type='Gas', requires=["StarFomationRate"])
                 ds.add_particle_filter('PGas')
 
