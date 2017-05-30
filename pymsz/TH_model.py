@@ -40,13 +40,13 @@ def Temp_SZ(field, data):
         cross_section_thompson_cgs / mass_electron_cgs / speed_of_light_cgs**2
 
 
-def SPH(x, h):  # 3D
+def SPH(x):  # 3D Cubic
     data = np.zeros(x.size, dtype=float)
     ids = (x > 0) & (x <= 0.5)
-    data[ids] = 8 * (1 - 6 * x[ids]**2 + 6 * x[ids]**3) / np.pi / h**3
+    data[ids] = 1 - 6 * x[ids]**2 + 6 * x[ids]**3
     ids = (x > 0.5) & (x < 1)
-    data[ids] = 16 * (1 - x[ids])**3 / np.pi / h**3
-    return data
+    data[ids] = 2 * (1 - x[ids])**3
+    return data * 2.5464790894703255
 # def SPH(x, h):  # 2D
 #     if (x > 0) and (x <= 0.5):
 #         return 10*(1 - 3*x**2/2. + 3*x**3/4.)/7./np.pi/h**2
@@ -178,17 +178,22 @@ class TH_model(object):
                 hsml = neighbours**(1.0 / 3) * self.pixelsize
             x, y = np.meshgrid(x, y)
             mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
+            if neighbours is not None:
+                dist, ids = mtree.query(pos, neighbours)
             for i in np.arange(self.Tszdata.size):
                 if neighbours is not None:
-                    dist, ids = mtree.query(pos, neighbours)
-                    wsph = SPH(dist / hsml, hsml)
+                    wsph = SPH(dist[i] / hsml)
                 else:
-                    ids = mtree.query_ball_point(pos, simd.hsml[i])
-                    if isinstance(ids, type(0)):  # int object
-                        ids = np.array([ids])
-                    dist = np.sqrt((pos - mtree.data[ids, 0]) **
-                                   2 + (pos - mtree.data[ids, 1])**2)
-                    wsph = SPH(dist / simd.hsml[i], simd.hsml[i])
+                    ids = mtree.query_ball_point(pos[i], simd.hsml[i])
+                    # if isinstance(ids, type(0)):  # int object
+                    #     ids = np.array([ids])
+                    if len(ids) == 0:
+                        wsph = np.array([1])
+                        dist, ids = mtree.query(pos[i], k=1)
+                    else:
+                        dist = np.sqrt((pos - mtree.data[ids, 0]) **
+                                       2 + (pos - mtree.data[ids, 1])**2)
+                        wsph = SPH(dist / simd.hsml[i])
                 xx = np.int32((mtree.data[ids, 0] - minx) / self.pixelsize)
                 yy = np.int32((mtree.data[ids, 1] - miny) / self.pixelsize)
                 self.ydata[xx, yy] += self.Tszdata[i] * wsph / wsph.sum()
