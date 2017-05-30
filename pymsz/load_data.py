@@ -197,8 +197,12 @@ class load_data(object):
             if self.ne is not 0:
                 self.ne *= self.rho * (1 - self.metal - 0.24)  # assume constant Y = 0.24
             else:
-                # full ionized without taking metal into account
-                self.ne = 1.157894736842105 * self.rho * (1 - self.metal - 0.24)
+                if self.mu is None:
+                    # full ionized without taking metal into account
+                    self.ne = 1.157894736842105 * self.rho * (1 - self.metal - 0.24)
+                else:
+                    ae = (4.0 / self.mu - 3.0 * 0.76 - 1.0) / 4.0 / 0.76
+                    self.ne = ae * self.rho * (1 - self.metal - 0.24)
 
         # we need to remove some spurious particles.... if there is a MHI or SRF block
         # see Klaus's doc or Borgani et al. 2003 for detials.
