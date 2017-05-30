@@ -68,7 +68,6 @@ class load_data(object):
 
     def __init__(self, filename='', metal=None, mu=None, snapshot=False, yt_load=False,
                  specified_field=None, datafile=False, center=None, radius=None):
-        global Metal, Mu
         self.center = center
         self.radius = radius
         self.filename = filename
@@ -269,7 +268,7 @@ class load_data(object):
                      units='K', force_override=True)
 
         if ("Gas", "Z") not in ds.field_list:
-            print("Adding given metallicity %f" % Metal)
+            print("Adding given metallicity %f" % self.metal)
             ds.add_field(("Gas", "Z"), function=_add_GMT,
                          sampling_type="particle", units="", force_override=True)
 
