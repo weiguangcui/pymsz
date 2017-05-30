@@ -5,7 +5,7 @@ nmets = 11
 
 
 def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11,
-                fullmass=False, rhb=True, fmt=None, ptype=None, rawdata=False):
+                fullmass=False, mu=None, rhb=True, fmt=None, ptype=None, rawdata=False):
     """
     readsnapsgl(filename,block,endian=None,quiet=None,longid=None,met=None, fmt=None)
         read snapshot files and new subfind files, return any block result you need.
@@ -19,6 +19,8 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
         nmet: Specify how many different matels are produced in the simulation, default: 11
         fullmass: return all mass of particles inorder of saved particle position
                   False(default): return only mass block
+        mu: mean_molecular_weight. Specify this value for gas temperature.
+                  It will be ignored when you have NE block in your simulatin data.
         rhb: return header brief. True(default): only return useful head information, else: all
         fmt: default or 1: G3 format with blocks; 0: G2 format; -1: new subfind results.
         ptype: read only specified particle type: 0: gas, 1: DM, 2: , 3: , 4: star, 5: bh
@@ -244,12 +246,15 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                     NE = read_block(npf, "NE  ", endian, 1, longid, fmt, pty, rawdata)
                     if NE is None:
                         # we assume it is NR run with full ionized gas n_e/nH = 1 + 2*nHe/nH
-                        mean_mol_weight = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)
+                        if mu is None:
+                            mean_mol_weight = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)
+                        else:
+                            mean_mol_weight = mu
                     else:
                         mean_mol_weight = (1. + 4. * yhelium) / (1. + yhelium + NE)
                     v_unit = 1.0e5 * np.sqrt(time)       # (e.g. 1.0 km/sec)
                     prtn = 1.67373522381e-24  # (proton mass in g)
-                    bk = 1.3806488e-16    # (Boltzman constant in CGS)
+                    bk = 1.3806488e-16        # (Boltzman constant in CGS)
                     npf.close()
                     return(temp * (5. / 3 - 1) * v_unit**2 * prtn * mean_mol_weight / bk)
             if not quiet:
