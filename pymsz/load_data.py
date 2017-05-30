@@ -1,12 +1,15 @@
 import numpy as np
 from pymsz.readsnapsgl import readsnapsgl
 # from astropy.cosmology import FlatLambdaCDM
-
+Mu = 0
 Metal = 0
 
 
 def add_GEA(field, data):  # full ionized gas ElectronAbundance
-    return data['Gas', 'particle_ones'] * 1.315789474
+    global Mu
+    # mu = 4.0 / (3.0 * x_H + 1.0 + 4.0 * x_H * a_e)
+    ae = (4.0 / Mu - 3.0 * 0.76 - 1.0) / 4.0 / 0.76
+    return data['Gas', 'particle_ones'] * ae
 
 
 def add_GMT(field, data):  # No metallicity
@@ -26,16 +29,27 @@ class load_data(object):
 
     Parameters
     ----------
-    filename    : The filename of simulation snapshot, or data. Default : ''
-    snapshot    : Is loading snapshot or not? Default : False
-    metal       : Gas metallicity. Default: None, will try to read from simulation.
-                  Otherwise, will use this give metallicity, which can be float,
-                  or array (Must be the same number of gas particles)
-
-    yt_load     : Do you want to use yt to load the data? Default : False. Requries yt modelds.
+    filename    : The filename of simulation snapshot, or data.
+                    Type: str. Default : ''
+    metal       : Gas metallicity.
+                    Type: float or array. Default: None, will try to read from simulation.
+                    Otherwise, will use this give metallicity.
+                    It must be the same number of gas particles if it is an array.
+    mu          : mean_molecular_weight.
+                    Type: float. Default: None.
+                    It is used for calculating gas temperature, when there is no NE block
+                    from the simulation snapshot.
+                    with snapshot=True, it assumes full ionized gas with mu ~ 0.588.
+                    with yt_load=True, it assumes zero ionization with mu ~ 1.22.
+    snapshot    : Is loading snapshot or not?
+                    Type: bool. Default : False
+    yt_load     : Do you want to use yt to load the data?
+                    Type: bool. Default : False.
+                    It requries yt models.
 
     specified_field: If you want to specify the data fields (for Gadget snapshots) for yt.load.
-                    Default: None. Only works with yt_load = True. For example:
+                    Default: None. This only works with yt_load = True.
+                    For example:
                     My_def = ("Coordinates", "Velocities", "ParticleIDs", "Mass",
                               ("InternalEnergy", "Gas"),
                               ("Density", "Gas"),
@@ -46,6 +60,7 @@ class load_data(object):
                               ("Age", ("Stars", "Bndry")),
                               ("Z", ("Gas","Stars")),
                              )
+                    specified_field=My_def
 
     rawdata     : Is it raw data? Default : False
                   Please look at (or change) the reading function in this file to load the raw data.
@@ -62,17 +77,17 @@ class load_data(object):
         kpc/h and 10^10 M_sun
     Raw data set needs to provide the cosmology, Otherwise WMAP7 is used for later calculation...
     center and radius need to set together in the simulation units!
+
     Example
     -------
     simd = load_data(snapfilename="/home/weiguang/Downloads/snap_127",
-                     snapshot=True,
-                     center=[500000,500000,500000], radius=800)
+                     snapshot=True, center=[500000,500000,500000], radius=800)
 
     """
 
-    def __init__(self, filename='', snapshot=False, metal=None, yt_load=False,
+    def __init__(self, filename='', metal=None, mu=None, snapshot=False, yt_load=False,
                  specified_field=None, datafile=False, center=None, radius=None):
-        global Metal
+        global Metal, Mu
         self.center = center
         self.radius = radius
         self.filename = filename
@@ -83,6 +98,11 @@ class load_data(object):
         else:
             raise ValueError("Do not accept this metal %f." % metal)
         Metal = self.metal
+        self.mu = mu
+        if self.mu is None:
+            Mu = 0.5882352941176471  # full ionized
+        else:
+            Mu = self.mu
 
         if snapshot:
             self.data_type = "snapshot"
@@ -136,7 +156,10 @@ class load_data(object):
             self.ne = self.ne[ids]
 
         # Temperature
-        self.temp = readsnapsgl(self.filename, "TEMP", quiet=True)
+        if self.mu is None:
+            self.temp = readsnapsgl(self.filename, "TEMP", quiet=True)
+        else:
+            self.temp = readsnapsgl(self.filename, "TEMP", mu=self.mu, quiet=True)
         if self.temp is not 0:
             self.temp = self.temp[ids]
         else:
@@ -175,7 +198,7 @@ class load_data(object):
                 self.ne *= self.rho * (1 - self.metal - 0.24)  # assume constant Y = 0.24
             else:
                 # full ionized without taking metal into account
-                self.ne = 1.315789474 * self.rho * (1 - self.metal - 0.24)
+                self.ne = 1.157894736842105 * self.rho * (1 - self.metal - 0.24)
 
         # we need to remove some spurious particles.... if there is a MHI or SRF block
         # see Klaus's doc or Borgani et al. 2003 for detials.
@@ -226,7 +249,10 @@ class load_data(object):
             ds = yt.load(self.filename)
 
         if ("Gas", "ElectronAbundance") not in ds.field_list:
-            print("Add electrons as full ionized gas")
+            if self.mu is None:
+                print("Add electrons as full ionized gas")
+            else:
+                print("Add electrons for gas with given mean_mol_weight %f" % self.mu)
             ds.add_field(("Gas", "ElectronAbundance"), function=add_GEA,
                          sampling_type="particle", units="", force_override=True)
 
