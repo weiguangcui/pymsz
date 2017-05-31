@@ -139,8 +139,8 @@ class TH_model(object):
                     wsph = np.array([1])
                     dist, ids = mtree.query(pos[i], k=1)
                 else:
-                    dist = np.sqrt((pos - mtree.data[ids, 0]) **
-                                   2 + (pos - mtree.data[ids, 1])**2)
+                    dist = np.sqrt((pos[i, 0] - mtree.data[ids, 0]) **
+                                   2 + (pos[i, 1] - mtree.data[ids, 1])**2)
                     wsph = SPH(dist / simd.hsml[i])
             xx = np.int32((mtree.data[ids, 0] - minx) / self.pxs)
             yy = np.int32((mtree.data[ids, 1] - miny) / self.pxs)
