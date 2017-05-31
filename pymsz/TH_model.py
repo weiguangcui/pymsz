@@ -97,7 +97,7 @@ class TH_model(object):
         maxy = pos[:, 1].max()
 
         if isinstance(simd.hsml, type(0)):
-            neighbours = 27
+            self.ngb = 27
 
         # smearing the Tsz data using SPH with respected to the smoothing length
         from scipy.spatial import cKDTree
@@ -122,14 +122,14 @@ class TH_model(object):
             x = np.arange(minx, maxx, self.pxs)
             y = np.arange(miny, maxy, self.pxs)
 
-        if neighbours is not None:
-            hsml = neighbours**(1.0 / 3) * self.pxs
+        if self.ngb is not None:
+            hsml = self.ngb**(1.0 / 3) * self.pxs
         x, y = np.meshgrid(x, y)
         mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
-        if neighbours is not None:
-            dist, ids = mtree.query(pos, neighbours)
+        if self.ngb is not None:
+            dist, ids = mtree.query(pos, self.ngb)
         for i in np.arange(simd.Tszdata.size):
-            if neighbours is not None:
+            if self.ngb is not None:
                 wsph = SPH(dist[i] / hsml)
             else:
                 ids = mtree.query_ball_point(pos[i], simd.hsml[i])
