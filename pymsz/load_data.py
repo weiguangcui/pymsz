@@ -358,10 +358,10 @@ class load_data(object):
                     self.yt_ds.add_particle_filter('PGas')
                     Ptype = 'PGas'
 
-            self.yt_ds.add_field((self.Ptype, "END"), function=Ele_num_den,
+            self.yt_ds.add_field((Ptype, "END"), function=Ele_num_den,
                                  sampling_type="particle", units="cm**(-3)")
-            self.yt_ds.add_field((self.Ptype, "Tsz"), function=Temp_SZ,
+            self.yt_ds.add_field((Ptype, "Tsz"), function=Temp_SZ,
                                  sampling_type="particle", units="1/cm")
-            self.yt_ds.add_smoothed_particle_field((self.Ptype, "Tsz"))
+            self.yt_ds.add_smoothed_particle_field((Ptype, "Tsz"))
 
         return Ptype
