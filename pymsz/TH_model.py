@@ -127,10 +127,11 @@ class TH_model(object):
         x, y = np.meshgrid(x, y)
         mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
         if self.ngb is not None:
-            dist, ids = mtree.query(pos, self.ngb)
+            dist, idst = mtree.query(pos, self.ngb)
         for i in np.arange(simd.Tszdata.size):
             if self.ngb is not None:
                 wsph = SPH(dist[i] / hsml)
+                ids = idst[i]
             else:
                 ids = mtree.query_ball_point(pos[i], simd.hsml[i])
                 # if isinstance(ids, type(0)):  # int object
