@@ -148,7 +148,7 @@ class TH_model(object):
         self.ydata *= self.pxs * Kpc / simd.cosmology["h"]
 
     def _cal_yt(self, simd):
-        from yt.units import cm
+        # from yt.units import cm
         Ptype = simd.prep_yt()
         if self.red is None:
             self.red = simd.yt_ds.current_redshift
@@ -169,7 +169,7 @@ class TH_model(object):
             projection = simd.yt_ds.proj(('deposit', Ptype + '_smoothed_Tsz'), self.ax,
                                          center=simd.center, data_source=simd.yt_sp)
             FRB = projection.to_frb(rr, self.npl)
-            self.ydata = FRB[('deposit', Ptype + '_smoothed_Tsz')] * cm
+            self.ydata = FRB[('deposit', Ptype + '_smoothed_Tsz')]
 
     # else:
     #     raise ValueError("Do not accept this data type %s"
