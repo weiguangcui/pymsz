@@ -151,7 +151,7 @@ class TH_model(object):
         from yt.units import cm
         Ptype = simd.prep_yt()
         if self.red is None:
-            self.red = simd.yt_ds.current_self.red
+            self.red = simd.yt_ds.current_redshift
         if self.ar is None:
             rr = 2. * simd.radius
         else:
