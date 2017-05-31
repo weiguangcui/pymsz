@@ -1,6 +1,25 @@
 import numpy as np
 from pymsz.readsnapsgl import readsnapsgl
 # from astropy.cosmology import FlatLambdaCDM
+try:
+    from yt.utilities.physical_constants import mp, kb, cross_section_thompson_cgs, \
+        solar_mass, mass_electron_cgs, speed_of_light_cgs
+except ImportError:
+    Mp = 1.67373522381e-24  # proton mass in g
+    Kb = 1.3806488e-16      # Boltzman constants in erg/K
+    cs = 6.65245854533e-25  # cross_section_thompson in cm**2
+    M_sun = 1.98841586e+33  # g
+    Kpc = 3.0856775809623245e+21  # cm
+    me = 9.10938291e-28     # g
+    c = 29979245800.0      # cm/s
+else:
+    Mp = mp.v
+    Kb = kb.v
+    cs = cross_section_thompson_cgs.v
+    M_sun = solar_mass.v
+    me = mass_electron_cgs.v
+    c = speed_of_light_cgs.v
+    from yt.utilities.physical_ratios import cm_per_kpc as Kpc
 
 
 class load_data(object):
@@ -42,6 +61,11 @@ class load_data(object):
                               ("Z", ("Gas","Stars")),
                              )
                     specified_field=My_def
+    n_ref       : It governs how many particles in an oct results in that oct being
+                    refined into eight child octs. Only for yt_load = True
+                  Type: int. Default: None (use yt setup 64).
+                  It’s recommended that if you want higher-resolution, try reducing the
+                    value of n_ref to 32 or 16.
 
     rawdata     : Is it raw data? Default : False
                   Please look at (or change) the reading function in this file to load the raw data.
@@ -67,7 +91,7 @@ class load_data(object):
     """
 
     def __init__(self, filename='', metal=None, mu=None, snapshot=False, yt_load=False,
-                 specified_field=None, datafile=False, center=None, radius=None):
+                 specified_field=None, n_ref=None, datafile=False, center=None, radius=None):
         self.center = center
         self.radius = radius
         self.filename = filename
@@ -78,6 +102,7 @@ class load_data(object):
         else:
             raise ValueError("Do not accept this metal %f." % metal)
         self.mu = mu
+        self.n_ref = n_ref
 
         if snapshot:
             self.data_type = "snapshot"
@@ -88,6 +113,8 @@ class load_data(object):
             self.ne = 0
             self.hsml = 0
             self.cosmology = {}  # default wmap7
+            self.Tszdata = np.array([])
+
             # self.currenta = 1.0  # z = 0
             # self.z = 0.0
             # self.Uage = 0.0  # university age in Gyrs
@@ -96,7 +123,9 @@ class load_data(object):
             self._load_snap()
         elif yt_load:
             self.data_type = "yt_data"
-            self.data = self._load_yt(specified_field)
+            self.yt_sp = None
+            self.yt_ds = self._load_yt(specified_field)
+
         # elif datafile:
         #     self.data_type = "snapshot"
         #     self._load_raw()
@@ -228,7 +257,7 @@ class load_data(object):
                 if self.mu is not None:
                     mu = self.mu
                 else:
-                    mu = 0.588
+                    mu = 0.5882352941176471
             ret = data['Gas', "InternalEnergy"] * (2.0 / 3.0) * mu * mp / kb
             return ret.in_units(data.ds.unit_system["temperature"])
 
@@ -244,16 +273,15 @@ class load_data(object):
         def _add_GMT(field, data):  # No metallicity
             return data['Gas', 'particle_ones'] * self.metal
 
-        def _proper_gas(pfilter, data):
-            filter = data[pfilter.filtered_type, "StarFomationRate"] < 0.1
-            return filter
-
         if specified_field is not None:
             from yt.frontends.gadget.definitions import gadget_field_specs
             gadget_field_specs["my_def"] = specified_field
             ds = yt.load(self.filename, field_spec="my_def")
         else:
             ds = yt.load(self.filename)
+
+        if self.n_ref is not None:
+            ds.n_ref = self.n_ref
 
         if ("Gas", "ElectronAbundance") not in ds.field_list:
             if self.mu is None:
@@ -272,21 +300,10 @@ class load_data(object):
             ds.add_field(("Gas", "Z"), function=_add_GMT,
                          sampling_type="particle", units="", force_override=True)
 
-        if (self.center is not None) and (self.radius is not None):
-            sp = ds.sphere(center=self.center, radius=(self.radius, "kpc/h"))
-        else:
-            sp = ds.all_data()
-
-        if ('Gas', 'StarFomationRate') in ds.field_info.keys():
-            if len(sp['Gas', 'StarFomationRate'][sp['Gas', 'StarFomationRate'] >= 0.1]) > 0:
-                yt.add_particle_filter("PGas", function=_proper_gas,
-                                       filtered_type='Gas', requires=["StarFomationRate"])
-                ds.add_particle_filter('PGas')
-
         # if ('Gas', 'StarFomationRate') in ds.field_info.keys():  this is only work with cell data
         #     sp = sp.cut_region(["obj[('Gas', 'StarFomationRate')] < 0.1"])
 
-        return sp
+        return ds
 
     # def _load_raw(self):
     #     if (self.center is not None) and (self.radius is not None):
@@ -297,3 +314,54 @@ class load_data(object):
     #     self.temp = self.filename['age'][ids]
     #     self.mass = self.filename['mass'][ids]
     #     self.metal = self.filename['metal'][ids]
+
+    def prep_snap(self):  # Now everything need to be in physical
+        if len(self.Tszdata) == 0:  # only need to prepare once
+            self.Tszdata = self.ne / Mp * \
+                (1.0e10 * M_sun * self.cosmology["h"]**2 / Kpc**3)  # now in cm^-3
+            self.Tszdata *= Kb * self.temp * cs / me / c**2  # now in cm^-1
+
+    def prep_yt(self):
+        if 'PGas' in self.yt_ds.particle_types:
+            Ptype = 'PGas'
+        else:
+            Ptype = 'Gas'
+
+        if self.yt_sp is None:  # only need to calculate once
+            import yt
+
+            def Ele_num_den(field, data):
+                # if ("Gas", "ElectronAbundance") in data.ds.field_info:
+                return data[field.name[0], "Density"] * data[field.name[0], "ElectronAbundance"] * \
+                    (1 - data[field.name[0], "Z"] - 0.24) / mp
+                # else:  # Assume full ionized
+                # return data[field.name[0], "Density"] * 1.351 * (1 - data[field.name[0],
+                # "Z"] - 0.24) / mp
+
+            def Temp_SZ(field, data):
+                return data[field.name[0], "END"] * data['Gas', 'Temperature'] * kb * \
+                    cross_section_thompson_cgs / mass_electron_cgs / speed_of_light_cgs**2
+
+            def _proper_gas(pfilter, data):
+                filter = data[pfilter.filtered_type, "StarFomationRate"] < 0.1
+                return filter
+
+            if (self.center is not None) and (self.radius is not None):
+                self.yt_sp = self.yt_ds.sphere(center=self.center, radius=(self.radius, "kpc/h"))
+            else:
+                self.yt_sp = self.yt_ds.all_data()
+
+            if ('Gas', 'StarFomationRate') in self.yt_ds.field_info.keys():
+                if len(self.yt_sp['Gas', 'StarFomationRate'][self.yt_sp['Gas', 'StarFomationRate'] >= 0.1]) > 0:
+                    yt.add_particle_filter("PGas", function=_proper_gas,
+                                           filtered_type='Gas', requires=["StarFomationRate"])
+                    self.yt_ds.add_particle_filter('PGas')
+                    Ptype = 'PGas'
+
+            self.yt_ds.add_field((self.Ptype, "END"), function=Ele_num_den,
+                                 sampling_type="particle", units="cm**(-3)")
+            self.yt_ds.add_field((self.Ptype, "Tsz"), function=Temp_SZ,
+                                 sampling_type="particle", units="1/cm")
+            self.yt_ds.add_smoothed_particle_field((self.Ptype, "Tsz"))
+
+        return Ptype
