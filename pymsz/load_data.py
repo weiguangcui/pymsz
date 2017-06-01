@@ -148,11 +148,11 @@ class load_data(object):
         spos = readsnapsgl(self.filename, "POS ", ptype=0, quiet=True)
         if (self.center is not None) and (self.radius is not None):
             r = np.sqrt(np.sum((spos - self.center)**2, axis=1))
-            ids = r <= self.radius
+            ids = r <= self.radius * 2  # increase to get all the projected data
             self.pos = spos[ids] - self.center
         else:
             ids = np.ones(head[0][0], dtype=bool)
-            self.center = np.mean(spos, axis=0)
+            self.center = np.median(spos, axis=0)
             self.pos = spos - self.center
 
         # Electron fraction
