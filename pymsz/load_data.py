@@ -318,7 +318,7 @@ class load_data(object):
                 (1.0e10 * M_sun * self.cosmology["h"]**2 / Kpc**3)  # now in cm^-3
             self.Tszdata *= Kb * self.temp * cs / me / c**2  # now in cm^-1
 
-    def prep_yt(self, conserived_smooth=False, force_redo=False):
+    def prep_yt(self, conserved_smooth=False, force_redo=False):
         if 'PGas' in self.yt_ds.particle_types:
             Ptype = 'PGas'
         else:
@@ -326,6 +326,8 @@ class load_data(object):
 
         if (self.yt_sp is None) or force_redo:  # only need to calculate once
             import yt
+            if force_redo:
+                print("data fields are forced to recalculated.")
 
             def _proper_gas(pfilter, data):
                 filter = data[pfilter.filtered_type, "StarFomationRate"] < 0.1
@@ -370,7 +372,8 @@ class load_data(object):
             #                      sampling_type="particle", units="cm**(-3)")
             self.yt_ds.add_field((Ptype, "Tsz"), function=Temp_SZ,
                                  sampling_type="particle", units="1/cm", force_override=True)
-            if conserived_smooth:
+            if conserved_smooth:
+                print("conserved smoothing...")
                 self.yt_ds.add_field((Ptype, "MTsz"), function=MTsz,
                                      sampling_type="particle", units="g/cm", force_override=True)
                 self.yt_ds.add_smoothed_particle_field((Ptype, "Mass"))
@@ -378,6 +381,7 @@ class load_data(object):
                 self.yt_ds.add_field(('deposit', Ptype + "_smmothed_Tsz"), function=SMWTsz,
                                      sampling_type="cell", units="1/cm", force_override=True)
             else:
+                print("Not conserved smoothing...")
                 self.yt_ds.add_smoothed_particle_field((Ptype, "Tsz"))
 
         return Ptype
