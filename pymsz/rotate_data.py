@@ -44,7 +44,7 @@ def rotate_data(pos, axis):
         else:
             raise ValueError(
                 "Do not accept this value %s for projection" % axis)
-    return pos[:, :2]
+    return pos
 
     # Now grid the data
     # pmax, pmin = np.max(pos, axis=0), np.min(pos, axis=0)
