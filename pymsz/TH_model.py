@@ -92,15 +92,18 @@ class TH_model(object):
 
         pos = rotate_data(simd.pos, self.ax)
         if simd.radius is not None:
-            ids = (pos[:, 2] > simd.radius*-1) & (pos[:, 2] <= simd.radius)
-            pos = pos[ids, :2]
+            idc = (pos[:, 2] > simd.radius * -1) & (pos[:, 2] <= simd.radius)
+            pos = pos[idc, :2]
         minx = pos[:, 0].min()
         maxx = pos[:, 0].max()
         miny = pos[:, 1].min()
         maxy = pos[:, 1].max()
+        Tszdata = simd.Tszdata[idc]
 
         if isinstance(simd.hsml, type(0)):
             self.ngb = 27
+        else:
+            hsml = simd.hsml[idc]
 
         # smearing the Tsz data using SPH with respected to the smoothing length
         from scipy.spatial import cKDTree
@@ -131,12 +134,12 @@ class TH_model(object):
         mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
         if self.ngb is not None:
             dist, idst = mtree.query(pos, self.ngb)
-        for i in np.arange(simd.Tszdata.size):
+        for i in np.arange(Tszdata.size):
             if self.ngb is not None:
                 wsph = SPH(dist[i] / hsml) / hsml**3
                 ids = idst[i]
             else:
-                ids = mtree.query_ball_point(pos[i], simd.hsml[i])
+                ids = mtree.query_ball_point(pos[i], hsml[i])
                 # if isinstance(ids, type(0)):  # int object
                 #     ids = np.array([ids])
                 if len(ids) == 0:
@@ -145,10 +148,10 @@ class TH_model(object):
                 else:
                     dist = np.sqrt((pos[i, 0] - mtree.data[ids, 0]) **
                                    2 + (pos[i, 1] - mtree.data[ids, 1])**2)
-                    wsph = SPH(dist / simd.hsml[i]) / simd.hsml[i]**3
+                    wsph = SPH(dist / hsml[i]) / hsml[i]**3
             xx = np.int32((mtree.data[ids, 0] - minx) / self.pxs)
             yy = np.int32((mtree.data[ids, 1] - miny) / self.pxs)
-            self.ydata[xx, yy] += simd.Tszdata[i] * wsph / wsph.sum()
+            self.ydata[xx, yy] += Tszdata[i] * wsph / wsph.sum()
         self.ydata *= self.pxs * Kpc / simd.cosmology["h"]
 
     def _cal_yt(self, simd):
