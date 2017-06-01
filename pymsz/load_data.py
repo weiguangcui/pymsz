@@ -319,10 +319,10 @@ class load_data(object):
             self.Tszdata *= Kb * self.temp * cs / me / c**2  # now in cm^-1
 
     def prep_yt(self, conserved_smooth=False, force_redo=False):
-        # if 'PGas' in self.yt_ds.particle_types:
-        #     Ptype = 'PGas'
-        # else:
-        #     Ptype = 'Gas'
+        if 'PGas' in self.yt_ds.particle_types:
+            Ptype = 'PGas'
+        else:
+            Ptype = 'Gas'
 
         if (self.yt_sp is None) or force_redo:  # only need to calculate once
             import yt
@@ -383,9 +383,5 @@ class load_data(object):
                                            filtered_type='Gas', requires=["StarFomationRate"])
                     self.yt_ds.add_particle_filter('PGas')
                     Ptype = 'PGas'
-                else:
-                    Ptype = 'Gas'
-            else:
-                Ptype = 'Gas'
 
         return Ptype
