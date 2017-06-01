@@ -91,6 +91,9 @@ class TH_model(object):
             self.red = simd.cosmology['z']
 
         pos = rotate_data(simd.pos, self.ax)
+        if simd.radius is not None:
+            ids = (pos[:, 2] > simd.radius*-1) & (pos[:, 2] <= simd.radius)
+            pos = pos[ids, :2]
         minx = pos[:, 0].min()
         maxx = pos[:, 0].max()
         miny = pos[:, 1].min()
