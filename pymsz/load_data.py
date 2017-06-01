@@ -318,13 +318,13 @@ class load_data(object):
                 (1.0e10 * M_sun * self.cosmology["h"]**2 / Kpc**3)  # now in cm^-3
             self.Tszdata *= Kb * self.temp * cs / me / c**2  # now in cm^-1
 
-    def prep_yt(self):
+    def prep_yt(self, conserived_smooth=False, force_redo=False):
         if 'PGas' in self.yt_ds.particle_types:
             Ptype = 'PGas'
         else:
             Ptype = 'Gas'
 
-        if self.yt_sp is None:  # only need to calculate once
+        if (self.yt_sp is None) or force_redo:  # only need to calculate once
             import yt
 
             def _proper_gas(pfilter, data):
@@ -361,18 +361,23 @@ class load_data(object):
                 return data[field.name[0], 'Tsz'] * data[field.name[0], 'Mass']
 
             def SMWTsz(field, data):
-                return data[field.name[0], Ptype + '_smoothed_MTsz'] / data[field.name[0], Ptype + '_smoothed_Mass']
+                ret = data[field.name[0], Ptype + '_smoothed_MTsz']
+                ids = data[field.name[0], Ptype + '_smoothed_Mass'] > 0
+                ret[ids] /= data[field.name[0], Ptype + '_smoothed_Mass'][ids]
+                return ret
 
             # self.yt_ds.add_field((Ptype, "END"), function=Ele_num_den,
             #                      sampling_type="particle", units="cm**(-3)")
             self.yt_ds.add_field((Ptype, "Tsz"), function=Temp_SZ,
-                                 sampling_type="particle", units="1/cm")
-            self.yt_ds.add_field((Ptype, "MTsz"), function=MTsz,
-                                 sampling_type="particle", units="g/cm")
-            # self.yt_ds.add_smoothed_particle_field((Ptype, "Tsz"))
-            self.yt_ds.add_smoothed_particle_field((Ptype, "Mass"))
-            self.yt_ds.add_smoothed_particle_field((Ptype, "MTsz"))
-            self.yt_ds.add_field(('deposit', "MWSTsz"), function=SMWTsz,
-                                 sampling_type="cell", units="1/cm")
+                                 sampling_type="particle", units="1/cm", force_override=True)
+            if conserived_smooth:
+                self.yt_ds.add_field((Ptype, "MTsz"), function=MTsz,
+                                     sampling_type="particle", units="g/cm", force_override=True)
+                self.yt_ds.add_smoothed_particle_field((Ptype, "Mass"))
+                self.yt_ds.add_smoothed_particle_field((Ptype, "MTsz"))
+                self.yt_ds.add_field(('deposit', Ptype + "_smmothed_Tsz"), function=SMWTsz,
+                                     sampling_type="cell", units="1/cm", force_override=True)
+            else:
+                self.yt_ds.add_smoothed_particle_field((Ptype, "Tsz"))
 
         return Ptype
