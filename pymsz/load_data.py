@@ -257,7 +257,7 @@ class load_data(object):
                 if self.mu is not None:
                     mu = self.mu
                 else:
-                    mu = 0.5882352941176471
+                    mu = 0.5882352941176471  # full ionized gas
             ret = data['Gas', "InternalEnergy"] * (2.0 / 3.0) * mu * mp / kb
             return ret.in_units(data.ds.unit_system["temperature"])
 
@@ -291,7 +291,7 @@ class load_data(object):
             ds.add_field(("Gas", "ElectronAbundance"), function=_add_GEA,
                          sampling_type="particle", units="", force_override=True)
 
-        # we force to re-add the gas temperature
+        # we force to re-add the gas temperature. Otherwise yt cal temperature with mu ~ 1.2
         ds.add_field(("Gas", "Temperature"), function=_add_GTP, sampling_type="particle",
                      units='K', force_override=True)
 
@@ -299,9 +299,6 @@ class load_data(object):
             print("Adding given metallicity %f" % self.metal)
             ds.add_field(("Gas", "Z"), function=_add_GMT,
                          sampling_type="particle", units="", force_override=True)
-
-        # if ('Gas', 'StarFomationRate') in ds.field_info.keys():  this is only work with cell data
-        #     sp = sp.cut_region(["obj[('Gas', 'StarFomationRate')] < 0.1"])
 
         return ds
 
@@ -330,18 +327,6 @@ class load_data(object):
         if self.yt_sp is None:  # only need to calculate once
             import yt
 
-            def Ele_num_den(field, data):
-                # if ("Gas", "ElectronAbundance") in data.ds.field_info:
-                return data[field.name[0], "Density"] * data[field.name[0], "ElectronAbundance"] * \
-                    (1 - data[field.name[0], "Z"] - 0.24) / mp
-                # else:  # Assume full ionized
-                # return data[field.name[0], "Density"] * 1.351 * (1 - data[field.name[0],
-                # "Z"] - 0.24) / mp
-
-            def Temp_SZ(field, data):
-                return data[field.name[0], "END"] * data['Gas', 'Temperature'] * kb * \
-                    cross_section_thompson_cgs / mass_electron_cgs / speed_of_light_cgs**2
-
             def _proper_gas(pfilter, data):
                 filter = data[pfilter.filtered_type, "StarFomationRate"] < 0.1
                 return filter
@@ -358,10 +343,36 @@ class load_data(object):
                     self.yt_ds.add_particle_filter('PGas')
                     Ptype = 'PGas'
 
-            self.yt_ds.add_field((Ptype, "END"), function=Ele_num_den,
-                                 sampling_type="particle", units="cm**(-3)")
+            # def Ele_num_den(field, data):
+            #     # if ("Gas", "ElectronAbundance") in data.ds.field_info:
+            #     return data[field.name[0], "Density"] * data[field.name[0], "ElectronAbundance"] * \
+            #         (1 - data[field.name[0], "Z"] - 0.24) / mp
+            #     # else:  # Assume full ionized
+            #     # return data[field.name[0], "Density"] * 1.351 * (1 - data[field.name[0],
+            #     # "Z"] - 0.24) / mp
+
+            def Temp_SZ(field, data):
+                const = kb * cross_section_thompson_cgs / mass_electron_cgs / speed_of_light_cgs**2 / mp
+                end = data[field.name[0], "Density"] * data[field.name[0], "ElectronAbundance"] * \
+                    (1 - data[field.name[0], "Z"] - 0.24)
+                return end * data[field.name[0], 'Temperature'] * const
+
+            def MTsz(field, data):
+                return data[field.name[0], 'Tsz'] * data[field.name[0], 'Mass']
+
+            def SMWTsz(field, data):
+                return data[field.name[0], Ptype + '_smoothed_MTsz'] / data[field.name[0], Ptype + '_smoothed_Mass']
+
+            # self.yt_ds.add_field((Ptype, "END"), function=Ele_num_den,
+            #                      sampling_type="particle", units="cm**(-3)")
             self.yt_ds.add_field((Ptype, "Tsz"), function=Temp_SZ,
                                  sampling_type="particle", units="1/cm")
-            self.yt_ds.add_smoothed_particle_field((Ptype, "Tsz"))
+            self.yt_ds.add_field((Ptype, "MTsz"), function=MTsz,
+                                 sampling_type="particle", units="g/cm")
+            # self.yt_ds.add_smoothed_particle_field((Ptype, "Tsz"))
+            self.yt_ds.add_smoothed_particle_field((Ptype, "Mass"))
+            self.yt_ds.add_smoothed_particle_field((Ptype, "MTsz"))
+            self.yt_ds.add_field(('deposit', "MWSTsz"), function=SMWTsz,
+                                 sampling_type="cell", units="1/cm")
 
         return Ptype
