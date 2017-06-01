@@ -319,31 +319,15 @@ class load_data(object):
             self.Tszdata *= Kb * self.temp * cs / me / c**2  # now in cm^-1
 
     def prep_yt(self, conserved_smooth=False, force_redo=False):
-        if 'PGas' in self.yt_ds.particle_types:
-            Ptype = 'PGas'
-        else:
-            Ptype = 'Gas'
+        # if 'PGas' in self.yt_ds.particle_types:
+        #     Ptype = 'PGas'
+        # else:
+        #     Ptype = 'Gas'
 
         if (self.yt_sp is None) or force_redo:  # only need to calculate once
             import yt
             if force_redo:
                 print("data fields are forced to recalculated.")
-
-            def _proper_gas(pfilter, data):
-                filter = data[pfilter.filtered_type, "StarFomationRate"] < 0.1
-                return filter
-
-            if (self.center is not None) and (self.radius is not None):
-                self.yt_sp = self.yt_ds.sphere(center=self.center, radius=(self.radius, "kpc/h"))
-            else:
-                self.yt_sp = self.yt_ds.all_data()
-
-            if ('Gas', 'StarFomationRate') in self.yt_ds.field_info.keys():
-                if len(self.yt_sp['Gas', 'StarFomationRate'][self.yt_sp['Gas', 'StarFomationRate'] >= 0.1]) > 0:
-                    yt.add_particle_filter("PGas", function=_proper_gas,
-                                           filtered_type='Gas', requires=["StarFomationRate"])
-                    self.yt_ds.add_particle_filter('PGas')
-                    Ptype = 'PGas'
 
             # def Ele_num_den(field, data):
             #     # if ("Gas", "ElectronAbundance") in data.ds.field_info:
@@ -363,25 +347,45 @@ class load_data(object):
                 return data[field.name[0], 'Tsz'] * data[field.name[0], 'Mass']
 
             def SMWTsz(field, data):
-                ret = data[field.name[0], Ptype + '_smoothed_MTsz']
-                ids = data[field.name[0], Ptype + '_smoothed_Mass'] > 0
-                ret[ids] /= data[field.name[0], Ptype + '_smoothed_Mass'][ids]
+                ret = data[field.name[0], 'Gas_smoothed_MTsz']
+                ids = data[field.name[0], 'Gas_smoothed_Mass'] > 0
+                ret[ids] /= data[field.name[0], 'Gas_smoothed_Mass'][ids]
                 return ret
 
-            # self.yt_ds.add_field((Ptype, "END"), function=Ele_num_den,
+            # self.yt_ds.add_field(("Gas", "END"), function=Ele_num_den,
             #                      sampling_type="particle", units="cm**(-3)")
-            self.yt_ds.add_field((Ptype, "Tsz"), function=Temp_SZ,
+            self.yt_ds.add_field(("Gas", "Tsz"), function=Temp_SZ,
                                  sampling_type="particle", units="1/cm", force_override=True)
             if conserved_smooth:
                 print("conserved smoothing...")
-                self.yt_ds.add_field((Ptype, "MTsz"), function=MTsz,
+                self.yt_ds.add_field(("Gas", "MTsz"), function=MTsz,
                                      sampling_type="particle", units="g/cm", force_override=True)
-                self.yt_ds.add_smoothed_particle_field((Ptype, "Mass"))
-                self.yt_ds.add_smoothed_particle_field((Ptype, "MTsz"))
-                self.yt_ds.add_field(('deposit', Ptype + "_smmothed_Tsz"), function=SMWTsz,
+                self.yt_ds.add_smoothed_particle_field(("Gas", "Mass"))
+                self.yt_ds.add_smoothed_particle_field(("Gas", "MTsz"))
+                self.yt_ds.add_field(('deposit', "Gas" + "_smmothed_Tsz"), function=SMWTsz,
                                      sampling_type="cell", units="1/cm", force_override=True)
             else:
                 print("Not conserved smoothing...")
-                self.yt_ds.add_smoothed_particle_field((Ptype, "Tsz"))
+                self.yt_ds.add_smoothed_particle_field(("Gas", "Tsz"))
+
+            def _proper_gas(pfilter, data):
+                filter = data[pfilter.filtered_type, "StarFomationRate"] < 0.1
+                return filter
+
+            if (self.center is not None) and (self.radius is not None):
+                self.yt_sp = self.yt_ds.sphere(center=self.center, radius=(self.radius, "kpc/h"))
+            else:
+                self.yt_sp = self.yt_ds.all_data()
+
+            if ('Gas', 'StarFomationRate') in self.yt_ds.field_info.keys():
+                if len(self.yt_sp['Gas', 'StarFomationRate'][self.yt_sp['Gas', 'StarFomationRate'] >= 0.1]) > 0:
+                    yt.add_particle_filter("PGas", function=_proper_gas,
+                                           filtered_type='Gas', requires=["StarFomationRate"])
+                    self.yt_ds.add_particle_filter('PGas')
+                    Ptype = 'PGas'
+                else:
+                    Ptype = 'Gas'
+            else:
+                Ptype = 'Gas'
 
         return Ptype
