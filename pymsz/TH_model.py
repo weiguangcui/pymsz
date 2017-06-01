@@ -123,14 +123,14 @@ class TH_model(object):
             y = np.arange(miny, maxy, self.pxs)
 
         if self.ngb is not None:
-            hsml = self.ngb**(1.0 / 3) * self.pxs
+            hsml = np.sqrt(self.ngb) * self.pxs
         x, y = np.meshgrid(x, y)
         mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
         if self.ngb is not None:
             dist, idst = mtree.query(pos, self.ngb)
         for i in np.arange(simd.Tszdata.size):
             if self.ngb is not None:
-                wsph = SPH(dist[i] / hsml)
+                wsph = SPH(dist[i] / hsml) / hsml**3
                 ids = idst[i]
             else:
                 ids = mtree.query_ball_point(pos[i], simd.hsml[i])
@@ -142,7 +142,7 @@ class TH_model(object):
                 else:
                     dist = np.sqrt((pos[i, 0] - mtree.data[ids, 0]) **
                                    2 + (pos[i, 1] - mtree.data[ids, 1])**2)
-                    wsph = SPH(dist / simd.hsml[i])
+                    wsph = SPH(dist / simd.hsml[i]) / simd.hsml[i]**3
             xx = np.int32((mtree.data[ids, 0] - minx) / self.pxs)
             yy = np.int32((mtree.data[ids, 1] - miny) / self.pxs)
             self.ydata[xx, yy] += simd.Tszdata[i] * wsph / wsph.sum()
