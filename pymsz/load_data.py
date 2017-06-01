@@ -152,7 +152,8 @@ class load_data(object):
             self.pos = spos[ids] - self.center
         else:
             ids = np.ones(head[0][0], dtype=bool)
-            self.pos = spos - np.mean(spos, axis=0)
+            self.center = np.mean(spos, axis=0)
+            self.pos = spos - self.center
 
         # Electron fraction
         self.ne = readsnapsgl(self.filename, "NE  ", quiet=True)
