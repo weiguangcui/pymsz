@@ -95,11 +95,13 @@ class TH_model(object):
             idc = (pos[:, 2] > -1 * simd.radius) & (pos[:, 2] <= simd.radius) & \
                   (pos[:, 0] > -1 * simd.radius) & (pos[:, 0] <= simd.radius) & \
                   (pos[:, 1] > -1 * simd.radius) & (pos[:, 1] <= simd.radius)
-            pos = pos[idc, :2]
+            pos = pos[idc]
         minx = pos[:, 0].min()
         maxx = pos[:, 0].max()
         miny = pos[:, 1].min()
         maxy = pos[:, 1].max()
+        minz = pos[:, 2].min()
+        maxz = pos[:, 2].max()
         Tszdata = simd.Tszdata[idc]
 
         if isinstance(simd.hsml, type(0)):
@@ -110,13 +112,15 @@ class TH_model(object):
         # smearing the Tsz data using SPH with respected to the smoothing length
         from scipy.spatial import cKDTree
         if self.ar is None:
-            self.pxs = np.min([maxx - minx, maxy - miny]) / self.npl
+            self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
             self.pxs *= (1 + 1.0e-6)
             nx = np.int32((maxx - minx) / self.pxs) + 1
             ny = np.int32((maxy - miny) / self.pxs) + 1
-            self.ydata = np.zeros((nx, ny), dtype=np.float32)
+            nz = np.int32((maxz - minz) / self.pxs) + 1
+            self.ydata = np.zeros((nx, ny, nz), dtype=np.float32)
             x = np.arange(minx, maxx, self.pxs)
             y = np.arange(miny, maxy, self.pxs)
+            z = np.arange(minz, maxz, self.pxs)
         else:
             if self.red <= 0.0:
                 self.red = 0.02
@@ -126,14 +130,15 @@ class TH_model(object):
             else:
                 cosmo = WMAP7
             self.pxs = cosmo.arcsec_per_kpc_proper(self.red) * self.ar * simd.cosmology['h']
-            self.ydata = np.zeros((self.npl, self.npl), dtype=np.float32)
+            self.ydata = np.zeros((self.npl, self.npl, self.npl), dtype=np.float32)
             x = np.arange(minx, maxx, self.pxs)
             y = np.arange(miny, maxy, self.pxs)
+            z = np.arange(minz, maxz, self.pxs)
 
         if self.ngb is not None:
             hsml = np.sqrt(self.ngb) * self.pxs
-        x, y = np.meshgrid(x, y)
-        mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), axis=1))
+        x, y, z = np.meshgrid(x, y, z)
+        mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), z.reshape(z.size, 1), axis=1))
         if self.ngb is not None:
             dist, idst = mtree.query(pos, self.ngb)
         for i in np.arange(Tszdata.size):
@@ -153,8 +158,10 @@ class TH_model(object):
                     wsph = SPH(dist / hsml[i]) / hsml[i]**3
             xx = np.int32((mtree.data[ids, 0] - minx) / self.pxs)
             yy = np.int32((mtree.data[ids, 1] - miny) / self.pxs)
-            self.ydata[xx, yy] += Tszdata[i] * wsph / wsph.sum()
-        self.ydata *= self.pxs * Kpc / simd.cosmology["h"]
+            zz = np.int32((mtree.data[ids, 2] - minz) / self.pxs)
+            self.ydata[xx, yy, zz] += Tszdata[i] * wsph / wsph.sum()
+
+        self.ydata = np.sum(self.ydata, axis=2) * self.pxs * Kpc / simd.cosmology["h"]
 
     def _cal_yt(self, simd):
         # from yt.units import cm
