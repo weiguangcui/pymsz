@@ -138,7 +138,7 @@ class TH_model(object):
         if self.ngb is not None:
             hsml = np.sqrt(self.ngb) * self.pxs
         x, y, z = np.meshgrid(x, y, z)
-        mtree = cKDTree(np.append(x.reshape(x.size, 1), y.reshape(y.size, 1), z.reshape(z.size, 1), axis=1))
+        mtree = cKDTree(np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1), z.reshape(z.size, 1)), axis=1))
         if self.ngb is not None:
             dist, idst = mtree.query(pos, self.ngb)
         for i in np.arange(Tszdata.size):
