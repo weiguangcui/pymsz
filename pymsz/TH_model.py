@@ -92,7 +92,9 @@ class TH_model(object):
 
         pos = rotate_data(simd.pos, self.ax)
         if simd.radius is not None:
-            idc = (pos[:, 2] > simd.radius * -1) & (pos[:, 2] <= simd.radius)
+            idc = (pos[:, 2] > -1 * simd.radius) & (pos[:, 2] <= simd.radius) & \
+                  (pos[:, 0] > -1 * simd.radius) & (pos[:, 0] <= simd.radius) & \
+                  (pos[:, 1] > -1 * simd.radius) & (pos[:, 1] <= simd.radius)
             pos = pos[idc, :2]
         minx = pos[:, 0].min()
         maxx = pos[:, 0].max()
