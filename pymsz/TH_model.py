@@ -103,7 +103,7 @@ class TH_model(object):
         minz = pos[:, 2].min()
         maxz = pos[:, 2].max()
         Tszdata = simd.Tszdata[idc]
-        if isinstance(mass, type(0.0)):
+        if isinstance(simd.mass, type(0.0)):
             mass = simd.mass
         else:
             mass = simd.mass[idc]
