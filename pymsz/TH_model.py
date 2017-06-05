@@ -103,6 +103,8 @@ class TH_model(object):
         minz = pos[:, 2].min()
         maxz = pos[:, 2].max()
         Tszdata = simd.Tszdata[idc]
+        mass = simd.mass[idc]
+        dens = simd.rho[idc]
 
         if isinstance(simd.hsml, type(0)):
             self.ngb = 27
@@ -134,17 +136,21 @@ class TH_model(object):
             y = np.arange(miny, maxy, self.pxs)
             z = np.arange(minz, maxz, self.pxs)
 
-        if self.ngb is not None:
-            hsml = np.sqrt(self.ngb) * self.pxs
+        # if self.ngb is not None:
+        #     hsml = np.sqrt(self.ngb) * self.pxs
         x, y, z = np.meshgrid(x, y, z, indexing='ij')
-        mtree = cKDTree(np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1), z.reshape(z.size, 1)), axis=1))
+        xyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1), z.reshape(z.size, 1)), axis=1)
+        mtree = cKDTree(pos)
         if self.ngb is not None:
-            dist, idst = mtree.query(pos, self.ngb)
-        for i in np.arange(Tszdata.size):
+            dist, idst = mtree.query(xyz, self.ngb)
+        for i in np.arange(xyz.shape[0]):
             if self.ngb is not None:
-                wsph = SPH(dist[i] / hsml) / hsml**3
                 ids = idst[i]
+                ihsml3 = 1. / hsml[ids]**3
+                wsph = (mass[ids] / dens[ids]) * ihsml3
+                wsph *= SPH(dist[i] / hsml[ids]) * ihsml3
             else:
+                ihsml3 = 1. / hsml[i]**3
                 ids = mtree.query_ball_point(pos[i], hsml[i])
                 # if isinstance(ids, type(0)):  # int object
                 #     ids = np.array([ids])
@@ -154,11 +160,14 @@ class TH_model(object):
                 else:
                     dist = np.sqrt((pos[i, 0] - mtree.data[ids, 0]) **
                                    2 + (pos[i, 1] - mtree.data[ids, 1])**2)
-                    wsph = SPH(dist / hsml[i]) / hsml[i]**3
-            xx = np.int32((mtree.data[ids, 0] - minx) / self.pxs)
-            yy = np.int32((mtree.data[ids, 1] - miny) / self.pxs)
-            zz = np.int32((mtree.data[ids, 2] - minz) / self.pxs)
-            self.ydata[xx, yy, zz] += Tszdata[i] * wsph / wsph.sum()
+                    wsph = SPH(dist / hsml[i]) * ihsml3
+            # xx = np.int32((mtree.data[ids, 0] - minx) / self.pxs)
+            # yy = np.int32((mtree.data[ids, 1] - miny) / self.pxs)
+            # zz = np.int32((mtree.data[ids, 2] - minz) / self.pxs)
+            xx = np.int32((xyz[i, 0] - minx) / self.pxs)
+            yy = np.int32((xyz[i, 1] - miny) / self.pxs)
+            zz = np.int32((xyz[i, 2] - minz) / self.pxs)
+            self.ydata[xx, yy, zz] += Tszdata[i] * wsph  # / wsph.sum()
 
         self.ydata = np.sum(self.ydata, axis=2) * self.pxs * Kpc / simd.cosmology["h"]
 
