@@ -125,8 +125,7 @@ class TH_model(object):
             if self.red <= 0.0:
                 self.red = 0.02
             if simd.cosmology['omega_matter'] != 0:
-                cosmo = FlatLambdaCDM(H0=simd.cosmology['h']
-                                      * 100, Om0=simd.cosmology['omega_matter'])
+                cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100, Om0=simd.cosmology['omega_matter'])
             else:
                 cosmo = WMAP7
             self.pxs = cosmo.arcsec_per_kpc_proper(self.red) * self.ar * simd.cosmology['h']
@@ -137,7 +136,7 @@ class TH_model(object):
 
         if self.ngb is not None:
             hsml = np.sqrt(self.ngb) * self.pxs
-        x, y, z = np.meshgrid(x, y, z)
+        x, y, z = np.meshgrid(x, y, z, indexing='ij')
         mtree = cKDTree(np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1), z.reshape(z.size, 1)), axis=1))
         if self.ngb is not None:
             dist, idst = mtree.query(pos, self.ngb)
