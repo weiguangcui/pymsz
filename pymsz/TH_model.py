@@ -149,12 +149,15 @@ class TH_model(object):
         for i in np.arange(xyz.shape[0]):
             if self.ngb is not None:
                 ids = idst[i]
-                ihsml3 = 1. / hsml[ids]**3
+                mxhsml = dist[i].max()/2.0
+                ihsml = hsml[ids]
+                ihsml[ihsml < mxhsml] = mxhsml
+                ihsml3 = 1. / ihsml**3
                 if isinstance(mass, type(0.0)):
                     wsph = (mass / dens[ids]) * ihsml3
                 else:
                     wsph = (mass[ids] / dens[ids]) * ihsml3
-                wsph *= SPH(dist[i] / hsml[ids]) * ihsml3
+                wsph *= SPH(dist[i] / ihsml) * ihsml3
             else:
                 ihsml3 = 1. / hsml[i]**3
                 ids = mtree.query_ball_point(pos[i], hsml[i])
@@ -173,7 +176,7 @@ class TH_model(object):
             xx = np.int32((xyz[i, 0] - minx) / self.pxs)
             yy = np.int32((xyz[i, 1] - miny) / self.pxs)
             zz = np.int32((xyz[i, 2] - minz) / self.pxs)
-            self.ydata[xx, yy, zz] += Tszdata[i] * wsph  # / wsph.sum()
+            self.ydata[xx, yy, zz] += np.sum(Tszdata[i] * wsph)  # / wsph.sum()
 
         self.ydata = np.sum(self.ydata, axis=2) * self.pxs * Kpc / simd.cosmology["h"]
 
