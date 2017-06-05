@@ -130,7 +130,8 @@ class TH_model(object):
             if self.red <= 0.0:
                 self.red = 0.02
             if simd.cosmology['omega_matter'] != 0:
-                cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100, Om0=simd.cosmology['omega_matter'])
+                cosmo = FlatLambdaCDM(H0=simd.cosmology['h']
+                                      * 100, Om0=simd.cosmology['omega_matter'])
             else:
                 cosmo = WMAP7
             self.pxs = cosmo.arcsec_per_kpc_proper(self.red) * self.ar * simd.cosmology['h']
@@ -142,14 +143,15 @@ class TH_model(object):
         # if self.ngb is not None:
         #     hsml = np.sqrt(self.ngb) * self.pxs
         x, y, z = np.meshgrid(x, y, z, indexing='ij')
-        xyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1), z.reshape(z.size, 1)), axis=1)
+        xyz = np.concatenate((x.reshape(x.size, 1), y.reshape(
+            y.size, 1), z.reshape(z.size, 1)), axis=1)
         mtree = cKDTree(pos)
         if self.ngb is not None:
             dist, idst = mtree.query(xyz, self.ngb)
         for i in np.arange(xyz.shape[0]):
             if self.ngb is not None:
                 ids = idst[i]
-                mxhsml = dist[i].max()/2.0
+                mxhsml = dist[i].max() / 2.0
                 ihsml = hsml[ids]
                 ihsml[ihsml < mxhsml] = mxhsml
                 ihsml3 = 1. / ihsml**3
@@ -157,7 +159,7 @@ class TH_model(object):
                     wsph = (mass / dens[ids]) * ihsml3
                 else:
                     wsph = (mass[ids] / dens[ids]) * ihsml3
-                wsph *= SPH(dist[i] / ihsml) * ihsml3
+                wsph *= Tszdata[ids] * SPH(dist[i] / ihsml) * ihsml3
             else:
                 ihsml3 = 1. / hsml[i]**3
                 ids = mtree.query_ball_point(pos[i], hsml[i])
@@ -176,7 +178,7 @@ class TH_model(object):
             xx = np.int32((xyz[i, 0] - minx) / self.pxs)
             yy = np.int32((xyz[i, 1] - miny) / self.pxs)
             zz = np.int32((xyz[i, 2] - minz) / self.pxs)
-            self.ydata[xx, yy, zz] += np.sum(Tszdata[i] * wsph)  # / wsph.sum()
+            self.ydata[xx, yy, zz] += np.sum(wsph)  # / wsph.sum()
 
         self.ydata = np.sum(self.ydata, axis=2) * self.pxs * Kpc / simd.cosmology["h"]
 
