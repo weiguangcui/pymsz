@@ -3,7 +3,7 @@ from pymsz.readsnapsgl import readsnapsgl
 # from astropy.cosmology import FlatLambdaCDM
 try:
     from yt.utilities.physical_constants import mp, kb, cross_section_thompson_cgs, \
-        solar_mass, mass_electron_cgs, speed_of_light_cgs
+        solar_mass, mass_electron_cgs, speed_of_light_cgs, Tcmb, hcgs
 except ImportError:
     Mp = 1.67373522381e-24  # proton mass in g
     Kb = 1.3806488e-16      # Boltzman constants in erg/K
@@ -11,7 +11,10 @@ except ImportError:
     M_sun = 1.98841586e+33  # g
     Kpc = 3.0856775809623245e+21  # cm
     me = 9.10938291e-28     # g
-    c = 29979245800.0      # cm/s
+    c = 29979245800.0       # cm/s
+    tcmb = 2.726            # K
+    Hcgs = 6.62606957e-27   # erg*s
+    I0 = 270.211495296      # MJy/steradian
 else:
     Mp = mp.v
     Kb = kb.v
@@ -19,7 +22,12 @@ else:
     M_sun = solar_mass.v
     me = mass_electron_cgs.v
     c = speed_of_light_cgs.v
+    tcmb = Tcmb.v
+    Hcgs = hcgs.v
     from yt.utilities.physical_ratios import cm_per_kpc as Kpc
+    from yt.units import sr
+    I0 = (2 * (kb * Tcmb)**3 / ((hcgs * speed_of_light_cgs)**2) / sr).in_units("MJy/steradian")
+    I0 = I0.v
 
 
 class load_data(object):
@@ -313,13 +321,17 @@ class load_data(object):
     #     self.mass = self.filename['mass'][ids]
     #     self.metal = self.filename['metal'][ids]
 
-    def prep_snap(self):  # Now everything need to be in physical
+    def prep_ss_TH(self):  # Now everything need to be in physical
         if len(self.Tszdata) == 0:  # only need to prepare once
             self.Tszdata = self.ne / Mp * \
                 (1.0e10 * M_sun * self.cosmology["h"]**2 / Kpc**3)  # now in cm^-3
             self.Tszdata *= Kb * self.temp * cs / me / c**2  # now in cm^-1
 
-    def prep_yt(self, conserved_smooth=False, force_redo=False):
+    def prep_ss_SZ(self):
+        if len(self._t_squared) == 0:
+            self._t_squared = 0
+
+    def prep_yt_TH(self, conserved_smooth=False, force_redo=False):
         if 'PGas' in self.yt_ds.particle_types:
             Ptype = 'PGas'
         else:
@@ -386,3 +398,30 @@ class load_data(object):
                     Ptype = 'PGas'
 
         return Ptype
+
+    def prep_yt_SZ(self, conserved_smooth=False, force_redo=False):
+        def _t_squared(field, data):
+            return data["gas", "density"] * data["gas", "kT"] * data["gas", "kT"]
+        self.yt_ds.add_field(("gas", "t_squared"), function=_t_squared,
+                             units="g*keV**2/cm**3")
+
+        def _beta_par_squared(field, data):
+            return data["gas", "beta_par"]**2 / data["gas", "density"]
+        self.yt_ds.add_field(("gas", "beta_par_squared"), function=_beta_par_squared,
+                             units="g/cm**3")
+
+        def _beta_perp_squared(field, data):
+            return data["gas", "density"] * data["gas", "velocity_magnitude"]**2 \
+                / speed_of_light_cgs / speed_of_light_cgs - data["gas", "beta_par_squared"]
+        self.yt_ds.add_field(("gas", "beta_perp_squared"), function=_beta_perp_squared,
+                             units="g/cm**3")
+
+        def _t_beta_par(field, data):
+            return data["gas", "kT"] * data["gas", "beta_par"]
+        self.yt_ds.add_field(("gas", "t_beta_par"), function=_t_beta_par,
+                             units="keV*g/cm**3")
+
+        def _t_sz(field, data):
+            return data["gas", "density"] * data["gas", "kT"]
+        self.yt_ds.add_field(("gas", "t_sz"), function=_t_sz,
+                             units="keV*g/cm**3")
