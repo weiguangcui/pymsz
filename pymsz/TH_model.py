@@ -118,10 +118,10 @@ class TH_model(object):
         from scipy.spatial import cKDTree
         if self.ar is None:
             self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
-            self.pxs *= (1 + 1.0e-6)
-            nx = np.int32((maxx - minx) / self.pxs) + 1
-            ny = np.int32((maxy - miny) / self.pxs) + 1
-            nz = np.int32((maxz - minz) / self.pxs) + 1
+            # self.pxs *= (1 + 1.0e-6)
+            nx = np.int32(np.ceil((maxx - minx) / self.pxs)) + 1
+            ny = np.int32(np.ceil((maxy - miny) / self.pxs)) + 1
+            nz = np.int32(np.ceil((maxz - minz) / self.pxs)) + 1
             self.ydata = np.zeros((nx, ny, nz), dtype=np.float32)
             x = np.arange(minx, maxx, self.pxs)
             y = np.arange(miny, maxy, self.pxs)
@@ -151,7 +151,7 @@ class TH_model(object):
         for i in np.arange(xyz.shape[0]):
             if self.ngb is not None:
                 ids = idst[i]
-                mxhsml = dist[i].max() / 2.0
+                mxhsml = dist[i].max()
                 ihsml = hsml[ids]
                 ihsml[ihsml < mxhsml] = mxhsml
                 ihsml3 = 1. / ihsml**3
