@@ -151,16 +151,15 @@ class TH_model(object):
         for i in np.arange(xyz.shape[0]):
             if self.ngb is not None:
                 ids = idst[i]
-                mxhsml = dist[i].max() / 2.
-                ihsml = 1. / hsml[ids]
-                ihsml3 = hsml[ids]
-                ihsml3[ihsml3 < mxhsml] = mxhsml
-                ihsml3 = 1. / ihsml3**3
+                # mxhsml = dist[i].max()
+                ihsml = hsml[ids]
+                # ihsml[ihsml < mxhsml] = mxhsml
+                ihsml3 = 1. / ihsml**3
                 if isinstance(mass, type(0.0)):
                     wsph = (mass / dens[ids]) * ihsml3
                 else:
                     wsph = (mass[ids] / dens[ids]) * ihsml3
-                wsph *= Tszdata[ids] * SPH(dist[i] / ihsml) * ihsml3
+                wsph *= Tszdata[ids] * SPH(dist[i] / ihsml)
             else:
                 ihsml3 = 1. / hsml[i]**3
                 ids = mtree.query_ball_point(pos[i], hsml[i])
