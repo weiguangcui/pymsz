@@ -85,7 +85,7 @@ class TH_model(object):
 
     def _cal_snap(self, simd):
         Kpc = 3.0856775809623245e+21  # cm
-        simd.prep_snap()
+        simd.prep_ss_TH()
 
         if self.red is None:
             self.red = simd.cosmology['z']
@@ -184,7 +184,7 @@ class TH_model(object):
 
     def _cal_yt(self, simd):
         # from yt.units import cm
-        Ptype = simd.prep_yt()
+        Ptype = simd.prep_yt_TH()
         if self.red is None:
             self.red = simd.yt_ds.current_redshift
         if self.ar is None:
