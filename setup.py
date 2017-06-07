@@ -19,7 +19,7 @@ class InstallSZpack(install, object):
         src_path = './pymsz/SZpack.v1.1.1/'
 
         print("making SZpack models...")
-        subprocess.check_call('make all', cwd=src_path, shell=True)
+        subprocess.check_call('make all; make SZpack.py', cwd=src_path, shell=True)
 
 
 def read(fname):
