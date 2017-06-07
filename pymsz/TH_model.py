@@ -159,7 +159,7 @@ class TH_model(object):
                     wsph = (mass / dens[ids]) * ihsml3
                 else:
                     wsph = (mass[ids] / dens[ids]) * ihsml3
-                wsph *= Tszdata[ids] * SPH(dist[i] / ihsml)
+                wsph *= SPH(dist[i] / ihsml)
             else:
                 ihsml3 = 1. / hsml[i]**3
                 ids = mtree.query_ball_point(pos[i], hsml[i])
@@ -178,7 +178,7 @@ class TH_model(object):
             xx = np.int32((xyz[i, 0] - minx) / self.pxs)
             yy = np.int32((xyz[i, 1] - miny) / self.pxs)
             zz = np.int32((xyz[i, 2] - minz) / self.pxs)
-            self.ydata[xx, yy, zz] += np.sum(wsph)  # / wsph.sum()
+            self.ydata[xx, yy, zz] += np.sum(Tszdata[ids] * wsph) / wsph.sum()
 
         self.ydata = np.sum(self.ydata, axis=2) * self.pxs * Kpc / simd.cosmology["h"]
 
