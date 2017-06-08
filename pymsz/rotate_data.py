@@ -252,11 +252,11 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
 
     x = np.arange(minx, maxx, pxls)
     y = np.arange(miny, maxy, pxls)
-    nx = np.int32(np.ceil((maxx - minx) / pxls)) + 1
-    ny = np.int32(np.ceil((maxy - miny) / pxls)) + 1
+    nx = np.int32(np.ceil((maxx - minx) / pxls))
+    ny = np.int32(np.ceil((maxy - miny) / pxls))
     if SD == 3:
         z = np.arange(minz, maxz, pxls)
-        nz = np.int32(np.ceil((maxz - minz) / pxls)) + 1
+        nz = np.int32(np.ceil((maxz - minz) / pxls))
         x, y, z = np.meshgrid(x, y, z, indexing='ij')
         xyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1),
                              z.reshape(z.size, 1)), axis=1)
