@@ -292,10 +292,11 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
         x, y = np.meshgrid(x, y, indexing='ij')
         xyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
         dist = np.sqrt(np.sum((xyz - pos[i])**2, axis=1)) / hsml[i]
-        wsph = sphkernel(dist)
-        ids = (xyz[:, 0] >= 0) & (xyz[:, 0] < nx) & (xyz[:, 1] >= 0) & (xyz[:, 1] < ny)
-        if wsph[ids].sum() > 0:
-            ydata[xyz[ids, 0], xyz[ids, 1]] += wdata[i] * wsph[ids] / wsph[ids].sum()
+        if len(dist[dist < 1]) >= 1:
+            wsph = sphkernel(dist)
+            ids = (xyz[:, 0] >= 0) & (xyz[:, 0] < nx) & (xyz[:, 1] >= 0) & (xyz[:, 1] < ny)
+            if wsph[ids].sum() > 0:
+                ydata[xyz[ids, 0], xyz[ids, 1]] += wdata[i] * wsph[ids] / wsph[ids].sum()
 
     # mtree = cKDTree(indxyz)
     # if hsml is None:
