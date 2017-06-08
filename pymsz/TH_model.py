@@ -139,6 +139,7 @@ class TH_model(object):
             else:
                 self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml,
                                            neighbors=self.ngb,  pxln=self.npl)
+                self.ydata = np.sum(self.ydata, axis=2)
 
         self.ydata *= self.pxs * Kpc / simd.cosmology["h"]
 
