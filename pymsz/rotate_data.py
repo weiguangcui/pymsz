@@ -283,32 +283,44 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
                 for i in range(len(wdata)):
                     ydata[str(i)] = np.zeros((nx, ny, nz), dtype=np.float32)
 
-    mtree = cKDTree(indxyz)
-    if hsml is None:
-        dist, idst = mtree.query(pos, neighbors)
-    else:
+    # Federico's method
+    if hsml is not None:
         hsml /= pxls
     for i in np.arange(pos.shape[0]):
-        if hsml is not None:
-            ids = mtree.query_ball_point(pos[i], hsml[i])
-            if len(ids) != 0:
-                dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                wsph = sphkernel(dist/hsml[i])
-            else:
-                continue
-        else:
-            ids = idst[i]
-            wsph = sphkernel(dist[i]/dist[i].max())
+        x = np.arange(np.int32(pos[i, 0] - hsml[i]), np.int32(pos[i, 0] + hsml[i]), 1)
+        y = np.arange(np.int32(pos[i, 1] - hsml[i]), np.int32(pos[i, 1] + hsml[i]), 1)
+        x, y = np.meshgrid(x, y, indexing='ij')
+        xyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
+        dist = np.sqrt(np.sum((xyz - pos[i])**2, axis=1)) / hsml[i]
+        wsph = sphkernel(dist)
+        ydata[xyz[:, 0], xyz[:, 1]] += wdata[i] * wsph / wsph.sum()
 
-        if isinstance(wdata, type(np.array([1]))):
-            if SD == 2:
-                ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
-            else:
-                ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
-        else:
-            for j in range(len(wdata)):
-                if SD == 2:
-                    ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
-                else:
-                    ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
+    # mtree = cKDTree(indxyz)
+    # if hsml is None:
+    #     dist, idst = mtree.query(pos, neighbors)
+    # else:
+    #     hsml /= pxls
+    # for i in np.arange(pos.shape[0]):
+    #     if hsml is not None:
+    #         ids = mtree.query_ball_point(pos[i], hsml[i])
+    #         if len(ids) != 0:
+    #             dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+    #             wsph = sphkernel(dist/hsml[i])
+    #         else:
+    #             continue
+    #     else:
+    #         ids = idst[i]
+    #         wsph = sphkernel(dist[i]/dist[i].max())
+    #
+    #     if isinstance(wdata, type(np.array([1]))):
+    #         if SD == 2:
+    #             ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+    #         else:
+    #             ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
+    #     else:
+    #         for j in range(len(wdata)):
+    #             if SD == 2:
+    #                 ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
+    #             else:
+    #                 ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
     return ydata
