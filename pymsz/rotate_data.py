@@ -207,7 +207,7 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
 
     Example
     -------
-
+    ydata = SPH_smoothing(wdata, pos, 10, hsml=HSML)
     """
 
     if kernel_name.lower() == 'cubic':
@@ -303,8 +303,14 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
             wsph = sphkernel(dist[i]/dist[i].max())
 
         if isinstance(wdata, type(np.array([1]))):
-            ydata[indxyz[ids][:, [k for k in range(SD)]]] += wdata[i] * wsph / wsph.sum()
+            if SD == 2:
+                ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+            else:
+                ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
         else:
             for j in range(len(wdata)):
-                ydata[str(j)][indxyz[ids][:, [k for k in range(SD)]]] += wdata[j][i] * wsph / wsph.sum()
+                if SD == 2:
+                    ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
+                else:
+                    ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
     return ydata
