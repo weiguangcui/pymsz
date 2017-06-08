@@ -250,16 +250,26 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
             minz = medpos[2] - pxls * pxln / 2
             maxz = medpos[2] + pxls * pxln / 2
 
-    x = np.arange(minx, maxx, pxls)
-    y = np.arange(miny, maxy, pxls)
-    nx = np.int32(np.ceil((maxx - minx) / pxls))
-    ny = np.int32(np.ceil((maxy - miny) / pxls))
-    if SD == 3:
-        z = np.arange(minz, maxz, pxls)
+    if SD == 2:
+        pos = (pos - [minx, miny]) / pxls  # in units of pixel size
+        nx = np.int32(np.ceil((maxx - minx) / pxls))
+        ny = np.int32(np.ceil((maxy - miny) / pxls))
+        x, y = np.meshgrid(np.arange(nx), np.arange(ny), indexing='ij')
+        indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
+        if isinstance(wdata, type(np.array([1]))):
+            ydata = np.zeros((nx, ny), dtype=np.float32)
+        else:
+            if len(wdata) > 20:
+                raise ValueError("Too many data to be smoothed %d" % len(wdata))
+            else:
+                ydata = {}
+                for i in range(len(wdata)):
+                    ydata[str(i)] = np.zeros((nx, ny), dtype=np.float32)
+    else:
+        pos = (pos - [minx, miny, minz]) / pxls
+        nx = np.int32(np.ceil((maxx - minx) / pxls))
+        ny = np.int32(np.ceil((maxy - miny) / pxls))
         nz = np.int32(np.ceil((maxz - minz) / pxls))
-        x, y, z = np.meshgrid(x, y, z, indexing='ij')
-        xyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1),
-                             z.reshape(z.size, 1)), axis=1)
         x, y, z = np.meshgrid(np.arange(nx), np.arange(ny), np.arange(nz), indexing='ij')
         indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1),
                                 z.reshape(z.size, 1)), axis=1)
@@ -272,24 +282,12 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
                 ydata = {}
                 for i in range(len(wdata)):
                     ydata[str(i)] = np.zeros((nx, ny, nz), dtype=np.float32)
-    else:
-        x, y = np.meshgrid(x, y, indexing='ij')
-        xyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
-        x, y = np.meshgrid(np.arange(nx), np.arange(ny), indexing='ij')
-        indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
-        if isinstance(wdata, type(np.array([1]))):
-            ydata = np.zeros((nx, ny), dtype=np.float32)
-        else:
-            if len(wdata) > 20:
-                raise ValueError("Too many data to be smoothed %d" % len(wdata))
-            else:
-                ydata = {}
-                for i in range(len(wdata)):
-                    ydata[str(i)] = np.zeros((nx, ny), dtype=np.float32)
 
-    mtree = cKDTree(xyz)
+    mtree = cKDTree(indxyz)
     if hsml is None:
         dist, idst = mtree.query(pos, neighbors)
+    else:
+        hsml /= pxls
     for i in np.arange(pos.shape[0]):
         if hsml is not None:
             ids = mtree.query_ball_point(pos[i], hsml[i])
