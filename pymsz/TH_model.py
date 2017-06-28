@@ -197,15 +197,14 @@ class TH_model(object):
         if fname[-5:] != ".fits":
             fname = fname + ".fits"
 
-        for i in self.outd.keys():
-            hdu = pf.PrimaryHDU(self.ydata.T)
-            hdu.header["RCVAL1"] = float(self.cc[0])
-            hdu.header["RCVAL2"] = float(self.cc[1])
-            hdu.header["RCVAL3"] = float(self.cc[2])
-            hdu.header["UNITS"] = "kpc/h"
-            hdu.header["ORAD"] = float(self.rr)
-            hdu.header["REDSHIFT"] = float(self.z)
-            hdu.header["PSIZE"] = float(self.pxs)
-            hdu.header["AGLRES"] = float(self.ar)
-            hdu.header["NOTE"] = ""
-            hdu.writeto(fname[:-5]+"-"+i+fname[-5:], clobber=clobber)
+        hdu = pf.PrimaryHDU(self.ydata.T)
+        hdu.header["RCVAL1"] = float(self.cc[0])
+        hdu.header["RCVAL2"] = float(self.cc[1])
+        hdu.header["RCVAL3"] = float(self.cc[2])
+        hdu.header["UNITS"] = "kpc/h"
+        hdu.header["ORAD"] = float(self.rr)
+        hdu.header["REDSHIFT"] = float(self.z)
+        hdu.header["PSIZE"] = float(self.pxs)
+        hdu.header["AGLRES"] = float(self.ar)
+        hdu.header["NOTE"] = ""
+        hdu.writeto(fname[:-5]+"-"+i+fname[-5:], clobber=clobber)
