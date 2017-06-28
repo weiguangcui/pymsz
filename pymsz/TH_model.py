@@ -120,6 +120,7 @@ class TH_model(object):
             maxz = pos[:, 2].max()
             self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
 
+            Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
             if self.SD == 2:
                 self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml, neighbors=self.ngb)
             else:
@@ -133,6 +134,8 @@ class TH_model(object):
             else:
                 cosmo = WMAP7
             self.pxs = self.ar / cosmo.arcsec_per_kpc_proper(self.red).value * simd.cosmology['h']
+
+            Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
             if self.SD == 2:
                 self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
                                            neighbors=self.ngb, pxln=self.npl)
@@ -141,7 +144,7 @@ class TH_model(object):
                                            neighbors=self.ngb,  pxln=self.npl)
                 self.ydata = np.sum(self.ydata, axis=2)
 
-        self.ydata /= (self.pxs * Kpc / simd.cosmology["h"])**2
+        # self.ydata /=
 
     def _cal_yt(self, simd):
         # from yt.units import cm
