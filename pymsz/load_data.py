@@ -200,10 +200,10 @@ class load_data(object):
             self.mass = self.mass[ids]
 
         # gas metal if there are
-        if self.metal == 0:
+        if self.metal is 0:
             self.metal = readsnapsgl(self.filename, "Z   ", ptype=0,
                                      quiet=True)  # auto calculate Z
-            if self.metal != 0:
+            if self.metal is not 0:
                 self.metal = self.metal[ids]
 
         # Electron fraction
@@ -222,7 +222,7 @@ class load_data(object):
 
         # Change NE (electron number fraction respected to H number density in simulation)
         Zs = readsnapsgl(self.filename, "Zs  ", quiet=True)
-        if Zs != 0:
+        if Zs is not 0:
             self.ne *= (1 - self.metal - Zs[ids, 0])
         else:
             self.ne *= (1 - self.metal - 0.24)  # assume constant Y = 0.24
@@ -230,7 +230,7 @@ class load_data(object):
         # we need to remove some spurious particles.... if there is a MHI or SRF block
         # see Klaus's doc or Borgani et al. 2003 for detials.
         mhi = readsnapsgl(self.filename, "MHI ", quiet=True)
-        if mhi == 0:
+        if mhi is 0:
             # try exclude sfr gas particles
             sfr = readsnapsgl(self.filename, "SFR ", quiet=True)
             if sfr is not 0:
