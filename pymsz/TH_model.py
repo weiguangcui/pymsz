@@ -203,7 +203,7 @@ class TH_model(object):
         hdu.header["RCVAL3"] = float(self.cc[2])
         hdu.header["UNITS"] = "kpc/h"
         hdu.header["ORAD"] = float(self.rr)
-        hdu.header["REDSHIFT"] = float(self.z)
+        hdu.header["REDSHIFT"] = float(self.red)
         hdu.header["PSIZE"] = float(self.pxs)
         hdu.header["AGLRES"] = float(self.ar)
         hdu.header["NOTE"] = ""
