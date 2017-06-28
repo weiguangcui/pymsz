@@ -255,9 +255,9 @@ class load_data(object):
             self.pos = self.pos[ids_ex]
             self.rho = self.rho[ids_ex]
             self.ne = self.ne[ids_ex]         # cgs
-            if self.metal != 0:
+            if self.metal is not 0:
                 self.metal = self.metal[ids_ex]
-            if self.hsml != 0:
+            if self.hsml is not 0:
                 self.hsml = self.hsml[ids_ex]
             else:
                 self.hsml = (3 * self.mass / self.pos / 4 / np.pi)**(1. / 3.)  # approximate
@@ -332,7 +332,7 @@ class load_data(object):
     #     self.metal = self.filename['metal'][ids]
 
     def prep_ss_TH(self, force_redo=False):  # Now everything need to be in physical
-        if len(self.Tszdata) == 0 or force_redo:  # only need to prepare once
+        if len(self.Tszdata) is 0 or force_redo:  # only need to prepare once
             if self.mu is None:
                 self.Tszdata = self.ne*self.mass/self.mmw/Mp*(1.0e10*M_sun)  # now in number
             else:
@@ -340,7 +340,7 @@ class load_data(object):
             self.Tszdata *= Kb * self.temp * cs / me / c**2  # now in cm^-1
 
     def prep_ss_SZ(self, force_redo=False):
-        if len(self.tau) == 0 or force_redo:
+        if len(self.tau) is 0 or force_redo:
             self.tau = cs * self.rho * self.mueinv / Mp
 
     def prep_yt_TH(self, conserved_smooth=False, force_redo=False):
