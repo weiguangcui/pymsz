@@ -261,6 +261,8 @@ class load_data(object):
                 self.hsml = self.hsml[ids_ex]
             else:
                 self.hsml = (3 * self.mass / self.pos / 4 / np.pi)**(1. / 3.)  # approximate
+            if self.mmw is not None:
+                self.mmw = self.mmw[ids_ex]
 
     def _load_yt(self, specified_field):
         try:
