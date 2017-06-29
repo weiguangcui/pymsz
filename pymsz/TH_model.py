@@ -207,4 +207,4 @@ class TH_model(object):
         hdu.header["PSIZE"] = float(self.pxs)
         hdu.header["AGLRES"] = float(self.ar)
         hdu.header["NOTE"] = ""
-        hdu.writeto(fname[:-5]+"-"+i+fname[-5:], clobber=clobber)
+        hdu.writeto(fname, clobber=clobber)
