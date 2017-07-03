@@ -307,7 +307,7 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
     #             ydata[xyz[ids, 0], xyz[ids, 1]] += wdata[i] * wsph[ids] / wsph[ids].sum()
 
     mtree = cKDTree(indxyz)
-    idnxyz = np.int32(indxyz)
+    indxyz = np.int32(indxyz)
     if hsml is None:  # nearest neighbors
         dist, idst = mtree.query(pos, neighbors)
         if isinstance(wdata, type(np.array([1]))):
