@@ -236,32 +236,32 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
     if SD not in [2, 3]:
         raise ValueError("pos shape %d is not correct, the second dimension must be 2 or 3" % pos.shape)
 
-    if pxln is None:  # use min max
-        minx = pos[:, 0].min()
-        maxx = pos[:, 0].max()
-        miny = pos[:, 1].min()
-        maxy = pos[:, 1].max()
-        if SD == 3:
-            minz = pos[:, 2].min()
-            maxz = pos[:, 2].max()
-    else:  # use pos center
-        # medpos = np.median(pos, axis=0)
-        minx = -pxls * pxln / 2
-        maxx = +pxls * pxln / 2
-        miny = -pxls * pxln / 2
-        maxy = +pxls * pxln / 2
-        if (minx > pos[:, 0].min()) or (maxx < pos[:, 0].max()) or \
-           (miny > pos[:, 1].min()) or (maxy < pos[:, 1].max()):
-            print("Warning, mesh is small for SPH data!")
-        if SD == 3:
-            minz = -pxls * pxln / 2
-            maxz = +pxls * pxln / 2
+    # if pxln is None:  # use min max
+    #     minx = pos[:, 0].min()
+    #     maxx = pos[:, 0].max()
+    #     miny = pos[:, 1].min()
+    #     maxy = pos[:, 1].max()
+    #     if SD == 3:
+    #         minz = pos[:, 2].min()
+    #         maxz = pos[:, 2].max()
+    # else:  # use pos center
+    #     # medpos = np.median(pos, axis=0)
+    minx = -(pxls + 1) * pxln / 2
+    maxx = +(pxls + 1) * pxln / 2
+    miny = -(pxls + 1) * pxln / 2
+    maxy = +(pxls + 1) * pxln / 2
+    if (minx > pos[:, 0].min()) or (maxx < pos[:, 0].max()) or \
+       (miny > pos[:, 1].min()) or (maxy < pos[:, 1].max()):
+        print("Warning, mesh is small for SPH data!")
+    if SD == 3:
+        minz = -(pxls + 1) * pxln / 2
+        maxz = +(pxls + 1) * pxln / 2
 
     if SD == 2:
         pos = (pos - [minx, miny]) / pxls  # in units of pixel size
-        nx = np.int32(np.ceil((maxx - minx) / pxls)) + 1
-        ny = np.int32(np.ceil((maxy - miny) / pxls)) + 1
-        x, y = np.meshgrid(np.arange(nx), np.arange(ny), indexing='ij')
+        nx = np.int32(np.ceil((maxx - minx) / pxls))
+        ny = np.int32(np.ceil((maxy - miny) / pxls))
+        x, y = np.meshgrid(np.arange(0.5, nx, 1.0), np.arange(0.5, ny, 1.0), indexing='ij')
         indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
         if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
             ydata = np.zeros((nx, ny), dtype=np.float32)
@@ -274,10 +274,11 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
                     ydata[str(i)] = np.zeros((nx, ny), dtype=np.float32)
     else:
         pos = (pos - [minx, miny, minz]) / pxls
-        nx = np.int32(np.ceil((maxx - minx) / pxls)) + 1
-        ny = np.int32(np.ceil((maxy - miny) / pxls)) + 1
-        nz = np.int32(np.ceil((maxz - minz) / pxls)) + 1
-        x, y, z = np.meshgrid(np.arange(nx), np.arange(ny), np.arange(nz), indexing='ij')
+        nx = np.int32(np.ceil((maxx - minx) / pxls))
+        ny = np.int32(np.ceil((maxy - miny) / pxls))
+        nz = np.int32(np.ceil((maxz - minz) / pxls))
+        x, y, z = np.meshgrid(np.arange(0.5, nx, 1.0), np.arange(0.5, ny, 1.0),
+                              np.arange(0.5, nz, 1.0), indexing='ij')
         indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1),
                                 z.reshape(z.size, 1)), axis=1)
         if isinstance(wdata, type(np.array([1]))):
