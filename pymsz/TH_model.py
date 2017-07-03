@@ -1,7 +1,6 @@
 import numpy as np
 from rotate_data import rotate_data, SPH_smoothing
 from astropy.cosmology import FlatLambdaCDM, WMAP7
-# import pyfits
 # scipy must >= 0.17 to properly use this!
 # from scipy.stats import binned_statistic_2d
 
@@ -39,7 +38,7 @@ class TH_model(object):
                 neighbours, HSML from the simulation will be ignored.
                 If no HSML provided in the simulation, neighbours = 27
     AR       : angular resolution in arcsec.
-                Default : None, which gives npixel = 2 * cluster radius
+                Default : 0, which gives npixel = 2 * cluster radius
                 and ignores the cluster's redshift.
                 Otherwise, cluster's redshift with AR decides how large the cluster looks.
     SD       : dimensions for SPH smoothing. Type: int. Default: 2.
@@ -48,6 +47,10 @@ class TH_model(object):
                 Default : None, we will look it from simulation data.
                 If redshift = 0, it will be automatically put into 0.02,
                 unless AR is set to None.
+    sph_kernel : The kernel used to smoothing the y values. Default : "cubic"
+                Choose from 'cubic': cubic spline; 'quartic': quartic spline;
+                'quintic': quintic spline; 'wendland2': Wendland C2; 'wendland4': Wendland C4;
+                'wendland6': Wendland C6;
 
     Returns
     -------
@@ -66,7 +69,8 @@ class TH_model(object):
     mm=pymsz.TH_models(simudata, 1024, "z")
     """
 
-    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=None, SD=2, redshift=None):
+    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=0, SD=2,
+                 redshift=None, sph_kernel='cubic'):
         self.npl = npixel
         self.ngb = neighbours
         self.ax = axis
@@ -75,11 +79,14 @@ class TH_model(object):
         self.pxs = 0
         self.SD = SD
         self.ydata = np.array([])
+        self.sph_kn = sph_kernel
 
         if self.SD not in [2, 3]:
             raise ValueError("smoothing dimension must be 2 or 3" % SD)
 
         if simudata.data_type == "snapshot":
+            self.cc = simudata.center
+            self.rr = simudata.radius
             self._cal_snap(simudata)
         elif simudata.data_type == "yt_data":
             self._cal_yt(simudata)
@@ -111,7 +118,7 @@ class TH_model(object):
             hsml = simd.hsml[idc]
             self.ngb = None
 
-        if self.ar is None:
+        if self.ar is 0:
             minx = pos[:, 0].min()
             maxx = pos[:, 0].max()
             miny = pos[:, 1].min()
@@ -120,35 +127,42 @@ class TH_model(object):
             maxz = pos[:, 2].max()
             self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
 
+            Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
             if self.SD == 2:
-                self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml, neighbors=self.ngb)
+                self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
+                                           neighbors=self.ngb, kernel_name=self.sph_kn)
             else:
-                self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml, neighbors=self.ngb)
+                self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml,
+                                           neighbors=self.ngb, kernel_name=self.sph_kn)
         else:
             if self.red <= 0.0:
                 self.red = 0.02
             if simd.cosmology['omega_matter'] != 0:
-                cosmo = FlatLambdaCDM(H0=simd.cosmology['h']
-                                      * 100, Om0=simd.cosmology['omega_matter'])
+                cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100,
+                                      Om0=simd.cosmology['omega_matter'])
             else:
                 cosmo = WMAP7
-            self.pxs = cosmo.arcsec_per_kpc_proper(self.red) * self.ar * simd.cosmology['h']
+            self.pxs = self.ar / cosmo.arcsec_per_kpc_proper(self.red).value * simd.cosmology['h']
+
+            Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
             if self.SD == 2:
                 self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
-                                           neighbors=self.ngb, pxln=self.npl)
+                                           neighbors=self.ngb, pxln=self.npl,
+                                           kernel_name=self.sph_kn)
             else:
                 self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml,
-                                           neighbors=self.ngb,  pxln=self.npl)
+                                           neighbors=self.ngb,  pxln=self.npl,
+                                           kernel_name=self.sph_kn)
                 self.ydata = np.sum(self.ydata, axis=2)
 
-        self.ydata *= self.pxs * Kpc / simd.cosmology["h"]
+        # self.ydata /=
 
     def _cal_yt(self, simd):
         # from yt.units import cm
         Ptype = simd.prep_yt_TH()
         if self.red is None:
             self.red = simd.yt_ds.current_redshift
-        if self.ar is None:
+        if self.ar is 0:
             rr = 2. * simd.radius
         else:
             if self.red <= 0.0:
@@ -167,8 +181,30 @@ class TH_model(object):
             FRB = projection.to_frb(rr, self.npl)
             self.ydata = FRB[('deposit', Ptype + '_smoothed_Tsz')]
 
-    # else:
-    #     raise ValueError("Do not accept this data type %s"
-    #                      "Please try to use load_data to get the data" % simd.data_type)
+    def write_fits_image(self, fname, clobber=False):
+        r"""
+        Generate a image by binning X-ray counts and write it to a FITS file.
 
-    # return ydata
+        Parameters
+        ----------
+        imagefile : string
+            The name of the image file to write.
+        clobber : boolean, optional
+            Set to True to overwrite a previous file.
+        """
+        import pyfits as pf
+
+        if fname[-5:] != ".fits":
+            fname = fname + ".fits"
+
+        hdu = pf.PrimaryHDU(self.ydata)
+        hdu.header["RCVAL1"] = float(self.cc[0])
+        hdu.header["RCVAL2"] = float(self.cc[1])
+        hdu.header["RCVAL3"] = float(self.cc[2])
+        hdu.header["UNITS"] = "kpc/h"
+        hdu.header["ORAD"] = float(self.rr)
+        hdu.header["REDSHIFT"] = float(self.red)
+        hdu.header["PSIZE"] = float(self.pxs)
+        hdu.header["AGLRES"] = float(self.ar)
+        hdu.header["NOTE"] = ""
+        hdu.writeto(fname, clobber=clobber)
