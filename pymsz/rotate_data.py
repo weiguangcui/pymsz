@@ -19,11 +19,18 @@ def rotate_data(pos, axis):
 
     if isinstance(axis, type('')):
         if axis.lower() == 'y':  # x-z plane
-            return pos[:, ::2]
+            npos = np.copy(pos)
+            npos[:, 1] = pos[:, 2]
+            npos[:, 2] = pos[:, 1]
+            return npos
         elif axis.lower() == 'x':  # y - z plane
-            return pos[:, 1:]
+            npos = np.copy(pos)
+            npos[:, 0] = pos[:, 1]
+            npos[:, 1] = pos[:, 2]
+            npos[:, 2] = pos[:, 0]
+            return npos
         elif axis.lower() == 'z':
-            return pos[:, :2]
+            return pos
         else:
             # if axis != 'z':  # project to xy plane
             raise ValueError("Do not accept this value %s for projection" % axis)
