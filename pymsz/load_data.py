@@ -4,6 +4,7 @@ from pymsz.readsnapsgl import readsnapsgl
 try:
     from yt.utilities.physical_constants import mp, kb, cross_section_thompson_cgs, \
         solar_mass, mass_electron_cgs, speed_of_light_cgs, Tcmb, hcgs
+    from yt.utilities.physical_ratios import cm_per_kpc as Kpc
 except ImportError:
     Mp = 1.67373522381e-24  # proton mass in g
     Kb = 1.3806488e-16      # Boltzman constants in erg/K
@@ -24,7 +25,6 @@ else:
     c = speed_of_light_cgs.v
     tcmb = Tcmb.v
     Hcgs = hcgs.v
-    from yt.utilities.physical_ratios import cm_per_kpc as Kpc
     from yt.units import sr
     I0 = (2 * (kb * Tcmb)**3 / ((hcgs * speed_of_light_cgs)**2) / sr).in_units("MJy/steradian")
     I0 = I0.v
@@ -76,7 +76,7 @@ class load_data(object):
                     value of n_ref to 32 or 16.
 
     rawdata     : Is it raw data? Default : False
-                  Please look at (or change) the reading function in this file to load the raw data.
+                  Please look at/change the reading function in this file to load the raw data.
 
     ---------- If you only need parts of loaded data. Specify center and radius
     center      : The center of a sphere for the data you want to get.
@@ -121,8 +121,17 @@ class load_data(object):
             self.ne = 0
             self.hsml = 0
             self.cosmology = {}  # default wmap7
-            self.Tszdata = np.array([])
 
+            self.Tszdata = np.array([])  # prep_ss_TH
+
+            self.tau = np.array([])  # prep_ss_SZ
+            self.Te = np.array([])
+            self.bpar = np.array([])
+            self.omega = np.array([])
+            self.sigma = np.array([])
+            self.kappa = np.array([])
+            self.bperp = np.array([])
+            self.mmw = None  # mean_molecular_weight
             # self.currenta = 1.0  # z = 0
             # self.z = 0.0
             # self.Uage = 0.0  # university age in Gyrs
@@ -163,11 +172,6 @@ class load_data(object):
             self.center = np.median(spos, axis=0)
             self.pos = spos - self.center
 
-        # Electron fraction
-        self.ne = readsnapsgl(self.filename, "NE  ", quiet=True)
-        if self.ne is not 0:
-            self.ne = self.ne[ids]
-
         # Temperature
         if self.mu is None:
             self.temp = readsnapsgl(self.filename, "TEMP", quiet=True)
@@ -202,20 +206,27 @@ class load_data(object):
             if self.metal is not 0:
                 self.metal = self.metal[ids]
 
-        # Change NE (electron fraction to number density in simulation code/mp)
+        # Electron fraction
+        self.ne = readsnapsgl(self.filename, "NE  ", quiet=True)
+        yhelium = 0.07894736842105263  # ( 1. - xH ) / ( 4 * xH )hydrogen mass-fraction (xH)
+        if self.ne is not 0:
+            self.ne = self.ne[ids]
+            self.mmw = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
+        else:
+            self.mmw = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # full ionized
+            if self.mu is None:
+                # full ionized without taking metal into account. What about metal?
+                self.ne = np.ones(self.rho.size) * (4.0 / self.mmw - 3.28) / 3.04
+                # (4.0 / self.mmw - 3.0 * 0.76 - 1.0) / 4.0 / 0.76
+            else:
+                self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
+
+        # Change NE (electron number fraction respected to H number density in simulation)
         Zs = readsnapsgl(self.filename, "Zs  ", quiet=True)
         if Zs is not 0:
-            self.ne *= self.rho * (1 - self.metal - Zs[ids, 0])
+            self.ne *= (1 - self.metal - Zs[ids, 0])
         else:
-            if self.ne is not 0:
-                self.ne *= self.rho * (1 - self.metal - 0.24)  # assume constant Y = 0.24
-            else:
-                if self.mu is None:
-                    # full ionized without taking metal into account
-                    self.ne = 1.157894736842105 * self.rho * (1 - self.metal - 0.24)
-                else:
-                    ae = (4.0 / self.mu - 3.0 * 0.76 - 1.0) / 4.0 / 0.76
-                    self.ne = ae * self.rho * (1 - self.metal - 0.24)
+            self.ne *= (1 - self.metal - 0.24)  # assume constant Y = 0.24
 
         # we need to remove some spurious particles.... if there is a MHI or SRF block
         # see Klaus's doc or Borgani et al. 2003 for detials.
@@ -251,6 +262,8 @@ class load_data(object):
                 self.hsml = self.hsml[ids_ex]
             else:
                 self.hsml = (3 * self.mass / self.pos / 4 / np.pi)**(1. / 3.)  # approximate
+            if self.mmw is not None:
+                self.mmw = self.mmw[ids_ex]
 
     def _load_yt(self, specified_field):
         try:
@@ -321,15 +334,17 @@ class load_data(object):
     #     self.mass = self.filename['mass'][ids]
     #     self.metal = self.filename['metal'][ids]
 
-    def prep_ss_TH(self):  # Now everything need to be in physical
-        if len(self.Tszdata) == 0:  # only need to prepare once
-            self.Tszdata = self.ne / Mp * \
-                (1.0e10 * M_sun * self.cosmology["h"]**2 / Kpc**3)  # now in cm^-3
-            self.Tszdata *= Kb * self.temp * cs / me / c**2  # now in cm^-1
+    def prep_ss_TH(self, force_redo=False):  # Now everything need to be in physical
+        if len(self.Tszdata) is 0 or force_redo:  # only need to prepare once
+            if self.mu is None:
+                self.Tszdata = self.ne*self.mass/self.mmw/Mp*(1.0e10*M_sun)  # now in number
+            else:
+                self.Tszdata = self.ne*self.mass/self.mu/Mp*(1.0e10*M_sun)  # now in number
+            self.Tszdata *= Kb * self.temp * cs / me / c**2  # now in cm^2
 
-    def prep_ss_SZ(self):
-        if len(self._t_squared) == 0:
-            self._t_squared = 0
+    def prep_ss_SZ(self, force_redo=False):
+        if len(self.tau) is 0 or force_redo:
+            self.tau = cs * self.rho * self.mueinv / Mp
 
     def prep_yt_TH(self, conserved_smooth=False, force_redo=False):
         if 'PGas' in self.yt_ds.particle_types:
@@ -352,7 +367,7 @@ class load_data(object):
 
             def Temp_SZ(field, data):
                 const = kb * cross_section_thompson_cgs / mass_electron_cgs / speed_of_light_cgs**2 / mp
-                end = data[field.name[0], "Density"] * data[field.name[0], "ElectronAbundance"] * \
+                end = data[field.name[0], "Mass"] * data[field.name[0], "ElectronAbundance"] * \
                     (1 - data[field.name[0], "Z"] - 0.24)
                 return end * data[field.name[0], 'Temperature'] * const
 
@@ -368,7 +383,7 @@ class load_data(object):
             # self.yt_ds.add_field(("Gas", "END"), function=Ele_num_den,
             #                      sampling_type="particle", units="cm**(-3)")
             self.yt_ds.add_field(("Gas", "Tsz"), function=Temp_SZ,
-                                 sampling_type="particle", units="1/cm", force_override=True)
+                                 sampling_type="particle", units="cm**2", force_override=True)
             if conserved_smooth:
                 print("conserved smoothing...")
                 self.yt_ds.add_field(("Gas", "MTsz"), function=MTsz,
