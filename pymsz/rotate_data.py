@@ -343,32 +343,36 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
             if SD == 2:
                 for i in np.arange(pos.shape[0]):
                     ids = mtree.query_ball_point(pos[i], hsml[i])
-                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                    wsph = sphkernel(dist/hsml[i])
-                    ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+                    if len(ids) != 0:
+                        dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                        wsph = sphkernel(dist/hsml[i])
+                        ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
             elif SD == 3:
                 for i in np.arange(pos.shape[0]):
                     ids = mtree.query_ball_point(pos[i], hsml[i])
-                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                    wsph = sphkernel(dist/hsml[i])
-                    ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
+                    if len(ids) != 0:
+                        dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                        wsph = sphkernel(dist/hsml[i])
+                        ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
             else:
                 raise ValueError("Don't accept this data dimension %d" % SD)
         else:
             if SD == 2:
                 for i in np.arange(pos.shape[0]):
                     ids = mtree.query_ball_point(pos[i], hsml[i])
-                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                    wsph = sphkernel(dist/hsml[i])
-                    for j in range(len(wdata)):
-                        ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+                    if len(ids) != 0:
+                        dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                        wsph = sphkernel(dist/hsml[i])
+                        for j in range(len(wdata)):
+                            ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
             elif SD == 3:
                 for i in np.arange(pos.shape[0]):
                     ids = mtree.query_ball_point(pos[i], hsml[i])
-                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                    wsph = sphkernel(dist/hsml[i])
-                    for j in range(len(wdata)):
-                        ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
+                    if len(ids) != 0:
+                        dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                        wsph = sphkernel(dist/hsml[i])
+                        for j in range(len(wdata)):
+                            ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
             else:
                 raise ValueError("Don't accept this data dimension %d" % SD)
 
