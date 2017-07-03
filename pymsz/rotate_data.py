@@ -246,16 +246,16 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
     #         maxz = pos[:, 2].max()
     # else:  # use pos center
     #     # medpos = np.median(pos, axis=0)
-    minx = -pxls * (pxln + 1)/ 2
-    maxx = +pxls * (pxln + 1)/ 2
-    miny = -pxls * (pxln + 1)/ 2
-    maxy = +pxls * (pxln + 1)/ 2
+    minx = -pxls * pxln/ 2
+    maxx = +pxls * pxln/ 2
+    miny = -pxls * pxln/ 2
+    maxy = +pxls * pxln/ 2
     if (minx > pos[:, 0].min()) or (maxx < pos[:, 0].max()) or \
        (miny > pos[:, 1].min()) or (maxy < pos[:, 1].max()):
         print("Warning, mesh is small for SPH data!")
     if SD == 3:
-        minz = -pxls * (pxln + 1)/ 2
-        maxz = +pxls * (pxln + 1)/ 2
+        minz = -pxls * pxln / 2
+        maxz = +pxls * pxln / 2
 
     if SD == 2:
         pos = (pos - [minx, miny]) / pxls  # in units of pixel size
