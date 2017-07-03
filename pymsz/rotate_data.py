@@ -8,7 +8,7 @@ def rotate_data(pos, axis):
     Parameter:
     ----------
     pos     : input data points in 3D.
-    axis    : can be 'x', 'y', 'z', or a list of degrees [alpha, beta, gamma],
+    axis    : can be 'x', 'y', 'z' (must be 2D), or a list of degrees [alpha, beta, gamma],
               which will rotate the data points by $\alpha$ around the x-axis,
               $\beta$ around the y-axis, and $\gamma$ around the z-axis
 
@@ -18,15 +18,15 @@ def rotate_data(pos, axis):
     """
 
     if isinstance(axis, type('')):
-        if axis == 'y':  # x-z plane
-            pos[:, 1] = pos[:, 2]
-        elif axis == 'x':  # y - z plane
-            pos[:, 0] = pos[:, 1]
-            pos[:, 1] = pos[:, 2]
+        if axis.lower() == 'y':  # x-z plane
+            return pos[:, ::2]
+        elif axis.lower() == 'x':  # y - z plane
+            return pos[:, 1:]
+        elif axis.lower() == 'z':
+            return pos[:, :2]
         else:
-            if axis != 'z':  # project to xy plane
-                raise ValueError(
-                    "Do not accept this value %s for projection" % axis)
+            # if axis != 'z':  # project to xy plane
+            raise ValueError("Do not accept this value %s for projection" % axis)
     elif isinstance(axis, type([])):
         if len(axis) == 3:
             sa, ca = np.sin(axis[0] / 180. *
@@ -41,11 +41,11 @@ def rotate_data(pos, axis):
                 [[cb * cg, cg * sa * sb - ca * sg, ca * cg * sb + sa * sg],
                  [cb * sg, ca * cg + sa * sb * sg, ca * sb * sg - cg * sa],
                  [-sb,     cb * sa,                ca * cb]], dtype=np.float64)
-            pos = np.dot(pos, Rxyz)
+            return np.dot(pos, Rxyz)
         else:
-            raise ValueError(
-                "Do not accept this value %s for projection" % axis)
-    return pos
+            raise ValueError("Do not accept this value %s for projection" % axis)
+    else:
+        raise ValueError("Do not accept this value %s for projection" % axis)
 
     # Now grid the data
     # pmax, pmin = np.max(pos, axis=0), np.min(pos, axis=0)
@@ -227,7 +227,7 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
 
     SD = pos.shape[1]
     if SD not in [2, 3]:
-        raise ValueError("pos shape %d not correct, the second dimension must be 2 or 3" % pos.shape)
+        raise ValueError("pos shape %d is not correct, the second dimension must be 2 or 3" % pos.shape)
 
     if pxln is None:  # use min max
         minx = pos[:, 0].min()
@@ -238,17 +238,17 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
             minz = pos[:, 2].min()
             maxz = pos[:, 2].max()
     else:  # use pos center
-        medpos = np.median(pos, axis=0)
-        minx = medpos[0] - pxls * pxln / 2
-        maxx = medpos[0] + pxls * pxln / 2
-        miny = medpos[1] - pxls * pxln / 2
-        maxy = medpos[1] + pxls * pxln / 2
+        # medpos = np.median(pos, axis=0)
+        minx = -pxls * pxln / 2
+        maxx = +pxls * pxln / 2
+        miny = -pxls * pxln / 2
+        maxy = +pxls * pxln / 2
         if (minx > pos[:, 0].min()) or (maxx < pos[:, 0].max()) or \
            (miny > pos[:, 1].min()) or (maxy < pos[:, 1].max()):
             print("Warning, mesh is small for SPH data!")
         if SD == 3:
-            minz = medpos[2] - pxls * pxln / 2
-            maxz = medpos[2] + pxls * pxln / 2
+            minz = -pxls * pxln / 2
+            maxz = +pxls * pxln / 2
 
     if SD == 2:
         pos = (pos - [minx, miny]) / pxls  # in units of pixel size
@@ -256,9 +256,9 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
         ny = np.int32(np.ceil((maxy - miny) / pxls)) + 1
         x, y = np.meshgrid(np.arange(nx), np.arange(ny), indexing='ij')
         indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
-        if isinstance(wdata, type(np.array([1]))):
+        if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
             ydata = np.zeros((nx, ny), dtype=np.float32)
-        else:
+        elif isinstance(wdata, type({})):
             if len(wdata) > 20:
                 raise ValueError("Too many data to be smoothed %d" % len(wdata))
             else:
@@ -284,25 +284,86 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
                     ydata[str(i)] = np.zeros((nx, ny, nz), dtype=np.float32)
 
     # Federico's method
-    if hsml is not None:
-        hsml /= pxls
-    for i in np.arange(pos.shape[0]):
-        x = np.arange(np.int32(pos[i, 0] - hsml[i]), np.int32(pos[i, 0] + hsml[i]), 1)
-        y = np.arange(np.int32(pos[i, 1] - hsml[i]), np.int32(pos[i, 1] + hsml[i]), 1)
-        x, y = np.meshgrid(x, y, indexing='ij')
-        xyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
-        dist = np.sqrt(np.sum((xyz - pos[i])**2, axis=1)) / hsml[i]
-        if len(dist[dist < 1]) >= 1:
-            wsph = sphkernel(dist)
-            ids = (xyz[:, 0] >= 0) & (xyz[:, 0] < nx) & (xyz[:, 1] >= 0) & (xyz[:, 1] < ny)
-            if wsph[ids].sum() > 0:
-                ydata[xyz[ids, 0], xyz[ids, 1]] += wdata[i] * wsph[ids] / wsph[ids].sum()
-
-    # mtree = cKDTree(indxyz)
-    # if hsml is None:
-    #     dist, idst = mtree.query(pos, neighbors)
-    # else:
+    # if hsml is not None:
     #     hsml /= pxls
+    # for i in np.arange(pos.shape[0]):
+    #     x = np.arange(np.int32(pos[i, 0] - hsml[i]), np.int32(pos[i, 0] + hsml[i]), 1)
+    #     y = np.arange(np.int32(pos[i, 1] - hsml[i]), np.int32(pos[i, 1] + hsml[i]), 1)
+    #     x, y = np.meshgrid(x, y, indexing='ij')
+    #     xyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
+    #     dist = np.sqrt(np.sum((xyz - pos[i])**2, axis=1)) / hsml[i]
+    #     if len(dist[dist < 1]) >= 1:
+    #         wsph = sphkernel(dist)
+    #         ids = (xyz[:, 0] >= 0) & (xyz[:, 0] < nx) & (xyz[:, 1] >= 0) & (xyz[:, 1] < ny)
+    #         if wsph[ids].sum() > 0:
+    #             ydata[xyz[ids, 0], xyz[ids, 1]] += wdata[i] * wsph[ids] / wsph[ids].sum()
+
+    mtree = cKDTree(indxyz)
+    if hsml is None:  # nearest neighbors
+        dist, idst = mtree.query(pos, neighbors)
+        if isinstance(wdata, type(np.array([1]))):
+            if SD == 2:
+                for i in np.arange(pos.shape[0]):
+                    ids = idst[i]
+                    wsph = sphkernel(dist[i]/dist[i].max())
+                    ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+            elif SD == 3:
+                for i in np.arange(pos.shape[0]):
+                    ids = idst[i]
+                    wsph = sphkernel(dist[i]/dist[i].max())
+                    ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
+            else:
+                raise ValueError("Don't accept this data dimension %d" % SD)
+        else:
+            if SD == 2:
+                for i in np.arange(pos.shape[0]):
+                    ids = idst[i]
+                    wsph = sphkernel(dist[i]/dist[i].max())
+                    for j in range(len(wdata)):
+                        ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+            elif SD == 3:
+                for i in np.arange(pos.shape[0]):
+                    ids = idst[i]
+                    wsph = sphkernel(dist[i]/dist[i].max())
+                    for j in range(len(wdata)):
+                        ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
+            else:
+                raise ValueError("Don't accept this data dimension %d" % SD)
+    else:  # use hsml
+        hsml /= pxls
+        if isinstance(wdata, type(np.array([1]))):
+            if SD == 2:
+                for i in np.arange(pos.shape[0]):
+                    ids = mtree.query_ball_point(pos[i], hsml[i])
+                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                    wsph = sphkernel(dist/hsml[i])
+                    ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+            elif SD == 3:
+                for i in np.arange(pos.shape[0]):
+                    ids = mtree.query_ball_point(pos[i], hsml[i])
+                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                    wsph = sphkernel(dist/hsml[i])
+                    ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
+            else:
+                raise ValueError("Don't accept this data dimension %d" % SD)
+        else:
+            if SD == 2:
+                for i in np.arange(pos.shape[0]):
+                    ids = mtree.query_ball_point(pos[i], hsml[i])
+                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                    wsph = sphkernel(dist/hsml[i])
+                    for j in range(len(wdata)):
+                        ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+            elif SD == 3:
+                for i in np.arange(pos.shape[0]):
+                    ids = mtree.query_ball_point(pos[i], hsml[i])
+                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                    wsph = sphkernel(dist/hsml[i])
+                    for j in range(len(wdata)):
+                        ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
+            else:
+                raise ValueError("Don't accept this data dimension %d" % SD)
+
     # for i in np.arange(pos.shape[0]):
     #     if hsml is not None:
     #         ids = mtree.query_ball_point(pos[i], hsml[i])
@@ -310,6 +371,17 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
     #             dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
     #             wsph = sphkernel(dist/hsml[i])
     #         else:
+    #             if isinstance(wdata, type(np.array([1]))):
+    #                 if SD == 2:
+    #                     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i]
+    #                 else:
+    #                     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i]
+    #             else:
+    #                 for j in range(len(wdata)):
+    #                     if SD == 2:
+    #                         ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i]
+    #                     else:
+    #                         ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i]
     #             continue
     #     else:
     #         ids = idst[i]
