@@ -127,13 +127,13 @@ class TH_model(object):
             maxz = pos[:, 2].max()
             self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
 
-            Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
-            if self.SD == 2:
-                self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
-                                           neighbors=self.ngb, kernel_name=self.sph_kn)
-            else:
-                self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml,
-                                           neighbors=self.ngb, kernel_name=self.sph_kn)
+            # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
+            # if self.SD == 2:
+            #     self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
+            #                                neighbors=self.ngb, kernel_name=self.sph_kn)
+            # else:
+            #     self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml,
+            #                                neighbors=self.ngb, kernel_name=self.sph_kn)
         else:
             if self.red <= 0.0:
                 self.red = 0.02
@@ -144,16 +144,16 @@ class TH_model(object):
                 cosmo = WMAP7
             self.pxs = self.ar / cosmo.arcsec_per_kpc_proper(self.red).value * simd.cosmology['h']
 
-            Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
-            if self.SD == 2:
-                self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
-                                           neighbors=self.ngb, pxln=self.npl,
-                                           kernel_name=self.sph_kn)
-            else:
-                self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml,
-                                           neighbors=self.ngb,  pxln=self.npl,
-                                           kernel_name=self.sph_kn)
-                self.ydata = np.sum(self.ydata, axis=2)
+        Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
+        if self.SD == 2:
+            self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
+                                       neighbors=self.ngb, pxln=self.npl,
+                                       kernel_name=self.sph_kn)
+        else:
+            self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml,
+                                       neighbors=self.ngb,  pxln=self.npl,
+                                       kernel_name=self.sph_kn)
+            self.ydata = np.sum(self.ydata, axis=2)
 
         # self.ydata /=
 
