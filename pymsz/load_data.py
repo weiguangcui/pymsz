@@ -208,29 +208,18 @@ class load_data(object):
 
         # Electron fraction
         self.ne = readsnapsgl(self.filename, "NE  ", quiet=True)
-<<<<<<< HEAD
         yhelium = 0.07894736842105263  # ( 1. - xH ) / ( 4 * xH )hydrogen mass-fraction (xH)
-=======
-        yhelium = 0.07894736842105263
->>>>>>> 389eb6efc1049d016a464ec61858237fbc53b7c0
         if self.ne is not 0:
             self.ne = self.ne[ids]
             self.mmw = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
         else:
             self.mmw = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # full ionized
             if self.mu is None:
-<<<<<<< HEAD
                 # full ionized without taking metal into account. What about metal?
                 self.ne = np.ones(self.rho.size) * (4.0 / self.mmw - 3.28) / 3.04
                 # (4.0 / self.mmw - 3.0 * 0.76 - 1.0) / 4.0 / 0.76
             else:
                 self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
-=======
-                # full ionized without taking metal into account
-                self.ne = np.ones(self.rho.size) * (4.0 / self.mmw - 3.0 * 0.76 - 1.0) / 4.0 / 0.76
-            else:
-                self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.0 * 0.76 - 1.0) / 4.0 / 0.76
->>>>>>> 389eb6efc1049d016a464ec61858237fbc53b7c0
 
         # Change NE (electron number fraction respected to H number density in simulation)
         Zs = readsnapsgl(self.filename, "Zs  ", quiet=True)
@@ -351,11 +340,7 @@ class load_data(object):
                 self.Tszdata = self.ne*self.mass/self.mmw/Mp*(1.0e10*M_sun)  # now in number
             else:
                 self.Tszdata = self.ne*self.mass/self.mu/Mp*(1.0e10*M_sun)  # now in number
-<<<<<<< HEAD
             self.Tszdata *= Kb * self.temp * cs / me / c**2  # now in cm^2
-=======
-            self.Tszdata *= Kb * self.temp * cs / me / c**2  # now in cm^-1
->>>>>>> 389eb6efc1049d016a464ec61858237fbc53b7c0
 
     def prep_ss_SZ(self, force_redo=False):
         if len(self.tau) is 0 or force_redo:
