@@ -142,7 +142,7 @@ class TH_model(object):
                                       Om0=simd.cosmology['omega_matter'])
             else:
                 cosmo = WMAP7
-            self.pxs = self.ar / cosmo.arcsec_per_kpc_proper(self.red).value * simd.cosmology['h']
+            self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']
 
         Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
         if self.SD == 2:
