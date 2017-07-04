@@ -246,50 +246,50 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
     #         maxz = pos[:, 2].max()
     # else:  # use pos center
     #     # medpos = np.median(pos, axis=0)
-    minx = -pxls * pxln/ 2
-    maxx = +pxls * pxln/ 2
-    miny = -pxls * pxln/ 2
-    maxy = +pxls * pxln/ 2
-    if (minx > pos[:, 0].min()) or (maxx < pos[:, 0].max()) or \
-       (miny > pos[:, 1].min()) or (maxy < pos[:, 1].max()):
-        print("Warning, mesh is small for SPH data!")
+    minx = miny = -pxls * pxln / 2
+    # maxx = maxy = +pxls * pxln / 2
+    # miny = -pxls * pxln / 2
+    # maxy = +pxls * pxln / 2
+    # if (minx > pos[:, 0].min()) or (maxx < pos[:, 0].max()) or \
+    #    (miny > pos[:, 1].min()) or (maxy < pos[:, 1].max()):
+    #     print("Warning, mesh is small for SPH data!")
     if SD == 3:
-        minz = -pxls * pxln / 2
-        maxz = +pxls * pxln / 2
+        minz = minx
+        # maxz = maxx  # +pxls * pxln / 2
 
     if SD == 2:
         pos = (pos - [minx, miny]) / pxls  # in units of pixel size
-        nx = np.int32(np.ceil((maxx - minx) / pxls))
-        ny = np.int32(np.ceil((maxy - miny) / pxls))
-        x, y = np.meshgrid(np.arange(0.5, nx, 1.0), np.arange(0.5, ny, 1.0), indexing='ij')
+        # nx = np.int32(np.ceil((maxx - minx) / pxls))
+        # ny = np.int32(np.ceil((maxy - miny) / pxls))
+        x, y = np.meshgrid(np.arange(0.5, pxln, 1.0), np.arange(0.5, pxln, 1.0), indexing='ij')
         indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
         if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
-            ydata = np.zeros((nx, ny), dtype=np.float32)
+            ydata = np.zeros((pxln, pxln), dtype=np.float32)
         elif isinstance(wdata, type({})):
             if len(wdata) > 20:
                 raise ValueError("Too many data to be smoothed %d" % len(wdata))
             else:
                 ydata = {}
                 for i in range(len(wdata)):
-                    ydata[str(i)] = np.zeros((nx, ny), dtype=np.float32)
+                    ydata[str(i)] = np.zeros((pxln, pxln), dtype=np.float32)
     else:
         pos = (pos - [minx, miny, minz]) / pxls
-        nx = np.int32(np.ceil((maxx - minx) / pxls))
-        ny = np.int32(np.ceil((maxy - miny) / pxls))
-        nz = np.int32(np.ceil((maxz - minz) / pxls))
-        x, y, z = np.meshgrid(np.arange(0.5, nx, 1.0), np.arange(0.5, ny, 1.0),
-                              np.arange(0.5, nz, 1.0), indexing='ij')
+        # nx = np.int32(np.ceil((maxx - minx) / pxls))
+        # ny = np.int32(np.ceil((maxy - miny) / pxls))
+        # nz = np.int32(np.ceil((maxz - minz) / pxls))
+        x, y, z = np.meshgrid(np.arange(0.5, pxln, 1.0), np.arange(0.5, pxln, 1.0),
+                              np.arange(0.5, pxln, 1.0), indexing='ij')
         indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1),
                                 z.reshape(z.size, 1)), axis=1)
         if isinstance(wdata, type(np.array([1]))):
-            ydata = np.zeros((nx, ny, nz), dtype=np.float32)
+            ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
         else:
             if len(wdata) > 20:
                 raise ValueError("Too many data to be smoothed %d" % len(wdata))
             else:
                 ydata = {}
                 for i in range(len(wdata)):
-                    ydata[str(i)] = np.zeros((nx, ny, nz), dtype=np.float32)
+                    ydata[str(i)] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
 
     # Federico's method
     # if hsml is not None:
@@ -373,7 +373,7 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
                         dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
                         wsph = sphkernel(dist/hsml[i])
                         for j in range(len(wdata)):
-                            ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
+                            ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i]*wsph/wsph.sum()
             else:
                 raise ValueError("Don't accept this data dimension %d" % SD)
 
