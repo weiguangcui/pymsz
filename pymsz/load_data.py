@@ -340,7 +340,7 @@ class load_data(object):
                 self.Tszdata = self.ne*self.mass/self.mmw/Mp*(1.0e10*M_sun)  # now in number
             else:
                 self.Tszdata = self.ne*self.mass/self.mu/Mp*(1.0e10*M_sun)  # now in number
-            self.Tszdata *= Kb * self.temp * cs / me / c**2  # now in cm^2
+            self.Tszdata *= Kb * self.temp * cs / me / c**2 / (Kpc / self.cosmology["h"])**2   # now in (kpc/h)^2
 
     def prep_ss_SZ(self, force_redo=False):
         if len(self.tau) is 0 or force_redo:
