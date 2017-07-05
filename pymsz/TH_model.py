@@ -124,7 +124,8 @@ class TH_model(object):
             self.ngb = 27
             hsml = None
         else:
-            hsml = simd.hsml[idc]
+            if self.zthick is not None:
+                hsml = simd.hsml[idc]
             self.ngb = None
 
         if self.ar is 0:
