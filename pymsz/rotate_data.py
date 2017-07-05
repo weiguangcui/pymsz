@@ -282,14 +282,14 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
         indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1),
                                 z.reshape(z.size, 1)), axis=1)
         if isinstance(wdata, type(np.array([1]))):
-            ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
+            ydata = np.zeros((pxln, pxln, pxln), dtype=np.float64)
         else:
             if len(wdata) > 20:
                 raise ValueError("Too many data to be smoothed %d" % len(wdata))
             else:
                 ydata = {}
                 for i in range(len(wdata)):
-                    ydata[str(i)] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
+                    ydata[str(i)] = np.zeros((pxln, pxln, pxln), dtype=np.float64)
 
     # Federico's method
     # if hsml is not None:
@@ -348,6 +348,9 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
                         dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
                         wsph = sphkernel(dist/hsml[i])
                         ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+                    else:
+                        dist, ids = mtree.query(pos[i], k=1)
+                        ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i]
             elif SD == 3:
                 for i in np.arange(pos.shape[0]):
                     ids = mtree.query_ball_point(pos[i], hsml[i])
@@ -355,6 +358,9 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
                         dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
                         wsph = sphkernel(dist/hsml[i])
                         ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
+                    else:
+                        dist, ids = mtree.query(pos[i], k=1)
+                        ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i]
             else:
                 raise ValueError("Don't accept this data dimension %d" % SD)
         else:
@@ -366,6 +372,10 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
                         wsph = sphkernel(dist/hsml[i])
                         for j in range(len(wdata)):
                             ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+                    else:
+                        dist, ids = mtree.query(pos[i], k=1)
+                        for j in range(len(wdata)):
+                            ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1]] += wdata[i]
             elif SD == 3:
                 for i in np.arange(pos.shape[0]):
                     ids = mtree.query_ball_point(pos[i], hsml[i])
@@ -374,6 +384,10 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
                         wsph = sphkernel(dist/hsml[i])
                         for j in range(len(wdata)):
                             ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i]*wsph/wsph.sum()
+                    else:
+                        dist, ids = mtree.query(pos[i], k=1)
+                        for j in range(len(wdata)):
+                            ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i]
             else:
                 raise ValueError("Don't accept this data dimension %d" % SD)
 
