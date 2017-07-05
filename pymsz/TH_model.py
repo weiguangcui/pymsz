@@ -109,11 +109,12 @@ class TH_model(object):
             self.red = simd.cosmology['z']
 
         pos = rotate_data(simd.pos, self.ax)
-        Tszdata = simd.Tszdata
         if self.zthick is not None:
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
             pos = pos[idc]
-            Tszdata = Tszdata[idc]
+            Tszdata = simd.Tszdata[idc]
+        else:
+            Tszdata = simd.Tszdata
         # if simd.radius is not None:
         #     idc = (pos[:, 2] > -1 * simd.radius) & (pos[:, 2] <= simd.radius) & \
         #           (pos[:, 0] > -1 * simd.radius) & (pos[:, 0] <= simd.radius) & \
@@ -127,6 +128,8 @@ class TH_model(object):
         else:
             if self.zthick is not None:
                 hsml = simd.hsml[idc]
+            else:
+                hsml = simd.hsml
             self.ngb = None
 
         if self.ar is 0:
