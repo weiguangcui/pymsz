@@ -47,6 +47,10 @@ class TH_model(object):
                 Default : None, we will look it from simulation data.
                 If redshift = 0, it will be automatically put into 0.02,
                 unless AR is set to None.
+    zthick  : The thickness in projection direction. Default: None.
+                If None, use all data from cutting region. Otherwise set a value in simulation
+                length unit (kpc/h normally), then a slice of data [center-zthick, center+zthick]
+                will be used to make the y-map.
     sph_kernel : The kernel used to smoothing the y values. Default : "cubic"
                 Choose from 'cubic': cubic spline; 'quartic': quartic spline;
                 'quintic': quintic spline; 'wendland2': Wendland C2; 'wendland4': Wendland C4;
@@ -70,12 +74,13 @@ class TH_model(object):
     """
 
     def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=0, SD=2,
-                 redshift=None, sph_kernel='cubic'):
+                 redshift=None, zthick=None, sph_kernel='cubic'):
         self.npl = npixel
         self.ngb = neighbours
         self.ax = axis
         self.ar = AR
         self.red = redshift
+        self.zthick = zthick
         self.pxs = 0
         self.SD = SD
         self.ydata = np.array([])
@@ -97,19 +102,23 @@ class TH_model(object):
     # def TH_ymap(simd, npixel=500, neighbours=None, axis='z', AR=None, redshift=None):
 
     def _cal_snap(self, simd):
-        Kpc = 3.0856775809623245e+21  # cm
+        # Kpc = 3.0856775809623245e+21  # cm
         simd.prep_ss_TH()
 
         if self.red is None:
             self.red = simd.cosmology['z']
 
         pos = rotate_data(simd.pos, self.ax)
-        if simd.radius is not None:
-            idc = (pos[:, 2] > -1 * simd.radius) & (pos[:, 2] <= simd.radius) & \
-                  (pos[:, 0] > -1 * simd.radius) & (pos[:, 0] <= simd.radius) & \
-                  (pos[:, 1] > -1 * simd.radius) & (pos[:, 1] <= simd.radius)
+        if self.zthick is not None:
+            idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
             pos = pos[idc]
-        Tszdata = simd.Tszdata[idc]
+            Tszdata = simd.Tszdata[idc]
+        # if simd.radius is not None:
+        #     idc = (pos[:, 2] > -1 * simd.radius) & (pos[:, 2] <= simd.radius) & \
+        #           (pos[:, 0] > -1 * simd.radius) & (pos[:, 0] <= simd.radius) & \
+        #           (pos[:, 1] > -1 * simd.radius) & (pos[:, 1] <= simd.radius)
+        #     pos = pos[idc]
+        # Tszdata = simd.Tszdata[idc]
 
         if isinstance(simd.hsml, type(0)):
             self.ngb = 27
