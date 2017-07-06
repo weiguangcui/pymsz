@@ -169,7 +169,7 @@ class TH_model(object):
                                        kernel_name=self.sph_kn)
             self.ydata = np.sum(self.ydata, axis=2)
 
-        self.ydata /= self.pxs
+        self.ydata /= self.pxs**2
 
     def _cal_yt(self, simd):
         # from yt.units import cm
