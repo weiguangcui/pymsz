@@ -337,10 +337,15 @@ class load_data(object):
     def prep_ss_TH(self, force_redo=False):  # Now everything need to be in physical
         if len(self.Tszdata) is 0 or force_redo:  # only need to prepare once
             if self.mu is None:
-                self.Tszdata = self.ne*self.mass/self.mmw/Mp*(1.0e10*M_sun)  # now in number
+                self.Tszdata = self.ne*self.mass*1.0e10*M_sun/self.mmw/Mp/self.cosmology["h"] * \
+                    Kb * self.temp * cs / me / c**2 / (Kpc / self.cosmology["h"])**2
             else:
-                self.Tszdata = self.ne*self.mass/self.mu/Mp*(1.0e10*M_sun)  # now in number
-            self.Tszdata *= Kb * self.temp * cs / me / c**2 / (Kpc / self.cosmology["h"])**2   # now in (kpc/h)^2
+                self.Tszdata = self.ne*self.mass*1.0e10*M_sun/self.mu/Mp/self.cosmology["h"] * \
+                    Kb * self.temp * cs / me / c**2 / (Kpc / self.cosmology["h"])**2
+            # 1st row: electron in number
+            # 2nd row: dimensionless quantity.
+            # now Tszdata is dimensionless y_i, and can divided pixel size in kpc/h directly later
+            # self.Tszdata = N_e Kb * self.temp * cs / me / c**2 / (Kpc / self.cosmology["h"])**2
 
     def prep_ss_SZ(self, force_redo=False):
         if len(self.tau) is 0 or force_redo:
