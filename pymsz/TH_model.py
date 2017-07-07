@@ -156,9 +156,11 @@ class TH_model(object):
                                       Om0=simd.cosmology['omega_matter'])
             else:
                 cosmo = WMAP7
-            self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']
+            self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']  # in kpc/h
 
         # Tszdata /= (Kpc / simd.cosmology["h"])**2
+        self.ydata /= self.pxs**2
+
         if self.SD == 2:
             self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
                                        neighbors=self.ngb, pxln=self.npl,
