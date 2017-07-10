@@ -158,11 +158,10 @@ class TT_model(object):
                 cosmo = WMAP7
             self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']  # in kpc/h
 
-        # Tszdata /= (Kpc / simd.cosmology["h"])**2
-        self.Tszdata /= self.pxs**2
+        # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
 
         if self.SD == 2:
-            self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
+            self.ydata = SPH_smoothing(Tszdata/self.pxs**2, pos[:, :2], self.pxs, hsml=hsml,
                                        neighbors=self.ngb, pxln=self.npl,
                                        kernel_name=self.sph_kn)
         else:
