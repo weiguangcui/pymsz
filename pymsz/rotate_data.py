@@ -193,9 +193,9 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
                 If it is None, then the neighbours will be used to do the smoothing.
     neighbors: how many nearby mesh points the SPH particles smoothed into.
                 Type: int. Default: 64
-    pxln     : number of pixels for the mesh. Type: int.
-                If it is None (Default), it will calculate from the particle positions.
-                I.E. pxln = (max(pos)-min(pos))/pxls
+    pxln     : number of pixels for the mesh. Type: int. Must be set.
+                # If it is None (Default), it will calculate from the particle positions.
+                # I.E. pxln = (max(pos)-min(pos))/pxls
     kernel_name : the SPH kernel used to make the smoothing. Type: str.
                 Default : 'cubic'. Since a normalization will applied in the
                 smoothing, the constants in the kernel are always ignored.

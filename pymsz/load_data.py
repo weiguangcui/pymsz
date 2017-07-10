@@ -334,7 +334,7 @@ class load_data(object):
     #     self.mass = self.filename['mass'][ids]
     #     self.metal = self.filename['metal'][ids]
 
-    def prep_ss_TH(self, force_redo=False):  # Now everything need to be in physical
+    def prep_ss_TT(self, force_redo=False):  # Now everything need to be in physical
         if len(self.Tszdata) is 0 or force_redo:  # only need to prepare once
             if self.mu is None:
                 self.Tszdata = self.ne*self.mass*1.0e10*M_sun/self.mmw/Mp/self.cosmology["h"] * \
@@ -347,11 +347,11 @@ class load_data(object):
             # now Tszdata is dimensionless y_i, and can divided pixel size in kpc/h directly later
             # self.Tszdata = N_e Kb * self.temp * cs / me / c**2 / (Kpc / self.cosmology["h"])**2
 
-    def prep_ss_SZ(self, force_redo=False):
+    def prep_ss_SZT(self, force_redo=False):
         if len(self.tau) is 0 or force_redo:
             self.tau = cs * self.rho * self.mueinv / Mp
 
-    def prep_yt_TH(self, conserved_smooth=False, force_redo=False):
+    def prep_yt_TT(self, conserved_smooth=False, force_redo=False):
         if 'PGas' in self.yt_ds.particle_types:
             Ptype = 'PGas'
         else:
@@ -419,7 +419,7 @@ class load_data(object):
 
         return Ptype
 
-    def prep_yt_SZ(self, conserved_smooth=False, force_redo=False):
+    def prep_yt_SZT(self, conserved_smooth=False, force_redo=False):
         def _t_squared(field, data):
             return data["gas", "density"] * data["gas", "kT"] * data["gas", "kT"]
         self.yt_ds.add_field(("gas", "t_squared"), function=_t_squared,

@@ -10,8 +10,8 @@ __email__ = 'cuiweiguang@gmail.com'
 __ver__ = 'beta'
 
 # import numpy as np  # For modern purposes
-from pymsz.TH_model import TH_model
+from pymsz.Theoretical_models import TT_model, TK_model
 from pymsz.load_data import load_data
-# from pymgal.SZ_models import SZ_models
+from pymgal.SZpack_model import SZT_model, SZK_model
 # from pymgal import utils
 # from pymgal import dusts
