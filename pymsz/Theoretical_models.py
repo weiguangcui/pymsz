@@ -161,7 +161,7 @@ class TT_model(object):
         # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
 
         if self.SD == 2:
-            self.ydata = SPH_smoothing(Tszdata/self.pxs**2, pos[:, :2], self.pxs, hsml=hsml,
+            self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
                                        neighbors=self.ngb, pxln=self.npl,
                                        kernel_name=self.sph_kn)
         else:
@@ -169,8 +169,7 @@ class TT_model(object):
                                        neighbors=self.ngb,  pxln=self.npl,
                                        kernel_name=self.sph_kn)
             self.ydata = np.sum(self.ydata, axis=2)
-
-        # self.ydata /= self.pxs**2
+        self.ydata /= self.pxs**2
 
     def _cal_yt(self, simd):
         # from yt.units import cm
