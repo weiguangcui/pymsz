@@ -12,6 +12,6 @@ __ver__ = 'beta'
 # import numpy as np  # For modern purposes
 from pymsz.Theoretical_models import TT_model, TK_model
 from pymsz.load_data import load_data
-from pymsz.SZpack_model import SZT_model, SZK_model
+from pymsz.SZpack_models import SZT_model, SZK_model
 # from pymgal import utils
 # from pymgal import dusts
