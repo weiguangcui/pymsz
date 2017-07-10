@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.spatial import cKDTree
+from multiprocessing import Process, Array, cpu_count
 
 
 def rotate_data(pos, axis):
@@ -177,6 +178,20 @@ def sph_kernel_wendland6(x):
     return kernel
 
 
+def cal_sph_2d(n, mtree, pos, hsml, indxyz, sphkernel, wdata, ydata):
+    if np.max(n) >= pos.shape[0]:
+        n = n[n < pos.shape[0]]
+    for i in n:
+        ids = mtree.query_ball_point(pos[i], hsml[i])
+        if len(ids) != 0:
+            dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+            wsph = sphkernel(dist/hsml[i])
+            ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+        else:
+            dist, ids = mtree.query(pos[i], k=1)
+            ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i]
+
+
 def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
                   kernel_name='cubic'):
     r"""SPH smoothing for given data
@@ -264,7 +279,8 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
         x, y = np.meshgrid(np.arange(0.5, pxln, 1.0), np.arange(0.5, pxln, 1.0), indexing='ij')
         indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
         if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
-            ydata = np.zeros((pxln, pxln), dtype=np.float32)
+            # ydata = np.zeros((pxln, pxln), dtype=np.float32)
+            ydata = Array('d', [0.0]*pxln**2)
         elif isinstance(wdata, type({})):
             if len(wdata) > 20:
                 raise ValueError("Too many data to be smoothed %d" % len(wdata))
@@ -342,15 +358,21 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
         hsml /= pxls
         if isinstance(wdata, type(np.array([1]))):
             if SD == 2:
-                for i in np.arange(pos.shape[0]):
-                    ids = mtree.query_ball_point(pos[i], hsml[i])
-                    if len(ids) != 0:
-                        dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                        wsph = sphkernel(dist/hsml[i])
-                        ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
-                    else:
-                        dist, ids = mtree.query(pos[i], k=1)
-                        ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i]
+                N = np.int32(np.ceil(pos.shape[0]/cpu_count()))
+                for i in range(0, cpu_count()):
+                    p = Process(target=cal_sph_2d, args=(range(i*N, (i+1)*N), mtree, pos, hsml,
+                                                         indxyz, sphkernel, wdata, ydata))
+                    p.start()
+                p.join()
+                # for i in np.arange(pos.shape[0]):
+                #     ids = mtree.query_ball_point(pos[i], hsml[i])
+                #     if len(ids) != 0:
+                #         dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                #         wsph = sphkernel(dist/hsml[i])
+                #         ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+                #     else:
+                #         dist, ids = mtree.query(pos[i], k=1)
+                #         ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i]
             elif SD == 3:
                 for i in np.arange(pos.shape[0]):
                     ids = mtree.query_ball_point(pos[i], hsml[i])
@@ -425,4 +447,4 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
     #                 ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
     #             else:
     #                 ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
-    return ydata
+    return np.asarray(ydata).reshape(pxln, pxln)
