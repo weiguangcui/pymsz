@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.spatial import cKDTree
 from multiprocessing import Process, Array, cpu_count
+import ctypes
 
 
 def rotate_data(pos, axis):
@@ -186,11 +187,12 @@ def cal_sph_2d(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata, ydata):
         if len(ids) != 0:
             dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
             wsph = sphkernel(dist/hsml[i])
-            for j, indx in enumerate(indxyz[ids, 0]*pxln+indxyz[ids, 1]):
-                ydata[indx] += wdata[i] * wsph[j] / wsph.sum()
+            ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+            # for j, indx in enumerate(indxyz[ids, 0]*pxln+indxyz[ids, 1]):
+            #     ydata[indx] += wdata[i] * wsph[j] / wsph.sum()
         else:
             dist, ids = mtree.query(pos[i], k=1)
-            ydata[indxyz[ids, 0]*pxln+indxyz[ids, 1]] += wdata[i]
+            ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i]
 
 
 def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
@@ -281,7 +283,9 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
         indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
         if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
             # ydata = np.zeros((pxln, pxln), dtype=np.float32)
-            ydata = Array('d', [0.0]*pxln**2)
+            ydata_base = Array(ctypes.c_double, pxln**2)
+            ydata = np.ctypeslib.as_array(ydata_base.get_obj())
+            ydata = ydata.reshape(10, 10)
         elif isinstance(wdata, type({})):
             if len(wdata) > 20:
                 raise ValueError("Too many data to be smoothed %d" % len(wdata))
@@ -365,6 +369,7 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
                                                          pxln, indxyz, sphkernel, wdata, ydata))
                     p.start()
                 p.join()
+                # @@@Try to set new ydata as return and gethar them togarther.
                 # for i in np.arange(pos.shape[0]):
                 #     ids = mtree.query_ball_point(pos[i], hsml[i])
                 #     if len(ids) != 0:
