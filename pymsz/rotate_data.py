@@ -186,9 +186,10 @@ def worker(input, output):
 
 
 def calculate(func, args):
-    result = func(*args)
-    return '%s says that %s%s = %s' % \
-        (current_process().name, func.__name__, args, result)
+    return func(*args)
+    # result = func(*args)
+    # return '%s says that %s%s = %s' % \
+    #     (current_process().name, func.__name__, args, result)
 
 
 def cal_sph_2d(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
