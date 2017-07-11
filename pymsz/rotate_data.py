@@ -193,7 +193,7 @@ def calculate(func, args):
 
 
 def cal_sph_2d(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
-    ydata = np.zeros((pxln, pxln), dtype=np.float32)
+    ydata = np.zeros((pxln, pxln), dtype=np.float64)
     if np.max(n) >= pos.shape[0]:
         n = n[n < pos.shape[0]]
     for i in n:
@@ -297,7 +297,7 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
         x, y = np.meshgrid(np.arange(0.5, pxln, 1.0), np.arange(0.5, pxln, 1.0), indexing='ij')
         indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
         if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
-            ydata = np.zeros((pxln, pxln), dtype=np.float32)
+            ydata = np.zeros((pxln, pxln), dtype=np.float64)
             # ydata_base = Array(ctypes.c_double, pxln**2)
             # ydata = np.ctypeslib.as_array(ydata_base.get_obj())
             # ydata = ydata.reshape(pxln, pxln)
@@ -396,7 +396,7 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
                     Process(target=worker, args=(task_queue, done_queue)).start()
 
                 # Get and print results
-                print 'Unordered results:'
+                # print 'Unordered results:'
                 for i in range(len(Tasks)):
                     ydata += done_queue.get()
 
