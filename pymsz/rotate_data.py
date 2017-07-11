@@ -340,7 +340,7 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
             elif SD == 3:
                 for i in np.arange(pos.shape[0]):
                     ids = idst[i]
-                    wsph = sphkerneindxyz[ids, 0], indxyz[ids, 1l(dist[i]/dist[i].max())
+                    wsph = sphkernel(dist[i]/dist[i].max())
                     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
             else:
                 raise ValueError("Don't accept this data dimension %d" % SD)
