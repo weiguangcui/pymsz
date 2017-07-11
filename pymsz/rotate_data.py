@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.spatial import cKDTree
-from multiprocessing import Process, Array, cpu_count
+from multiprocessing import Process, Array, cpu_count, Queue, freeze_support, current_process
 import ctypes
 
 
@@ -179,7 +179,20 @@ def sph_kernel_wendland6(x):
     return kernel
 
 
-def cal_sph_2d(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata, ydata):
+def worker(input, output):
+    for func, args in iter(input.get, 'STOP'):
+        result = calculate(func, args)
+        output.put(result)
+
+
+def calculate(func, args):
+    result = func(*args)
+    return '%s says that %s%s = %s' % \
+        (current_process().name, func.__name__, args, result)
+
+
+def cal_sph_2d(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
+    ydata = np.zeros((pxln, pxln), dtype=np.float32)
     if np.max(n) >= pos.shape[0]:
         n = n[n < pos.shape[0]]
     for i in n:
@@ -193,6 +206,7 @@ def cal_sph_2d(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata, ydata):
         else:
             dist, ids = mtree.query(pos[i], k=1)
             ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i]
+    return ydata
 
 
 def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
@@ -282,10 +296,10 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
         x, y = np.meshgrid(np.arange(0.5, pxln, 1.0), np.arange(0.5, pxln, 1.0), indexing='ij')
         indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
         if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
-            # ydata = np.zeros((pxln, pxln), dtype=np.float32)
-            ydata_base = Array(ctypes.c_double, pxln**2)
-            ydata = np.ctypeslib.as_array(ydata_base.get_obj())
-            ydata = ydata.reshape(pxln, pxln)
+            ydata = np.zeros((pxln, pxln), dtype=np.float32)
+            # ydata_base = Array(ctypes.c_double, pxln**2)
+            # ydata = np.ctypeslib.as_array(ydata_base.get_obj())
+            # ydata = ydata.reshape(pxln, pxln)
         elif isinstance(wdata, type({})):
             if len(wdata) > 20:
                 raise ValueError("Too many data to be smoothed %d" % len(wdata))
@@ -364,12 +378,37 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
         if isinstance(wdata, type(np.array([1]))):
             if SD == 2:
                 N = np.int32(np.ceil(pos.shape[0]/cpu_count()))
-                for i in range(0, 6):
-                    p = Process(target=cal_sph_2d, args=(range(i*N, (i+1)*N), mtree, pos, hsml,
-                                                         pxln, indxyz, sphkernel, wdata, ydata))
-                    p.start()
-                p.join()
-                # @@@Try to set new ydata as return and gethar them togarther.
+                NUMBER_OF_PROCESSES = 6
+                Tasks = [(cal_sph_2d, (range(i*N, (i+1)*N), mtree, pos, hsml, pxln, indxyz,
+                         sphkernel, wdata)) for i in range(NUMBER_OF_PROCESSES)]
+
+                # Create queues
+                task_queue = Queue()
+                done_queue = Queue()
+
+                # Submit tasks
+                for task in Tasks:
+                    task_queue.put(task)
+
+                # Start worker processes
+                for i in range(NUMBER_OF_PROCESSES):
+                    Process(target=worker, args=(task_queue, done_queue)).start()
+
+                # Get and print results
+                print 'Unordered results:'
+                for i in range(len(Tasks)):
+                    ydata += done_queue.get()
+
+                # Tell child processes to stop
+                for i in range(NUMBER_OF_PROCESSES):
+                    task_queue.put('STOP')
+
+                # for i in range(0, 6):
+                #     p = Process(target=cal_sph_2d, args=(range(i*N, (i+1)*N), mtree, pos, hsml,
+                #                                          pxln, indxyz, sphkernel, wdata, ydata))
+                #     p.start()
+                # p.join()
+
                 # for i in np.arange(pos.shape[0]):
                 #     ids = mtree.query_ball_point(pos[i], hsml[i])
                 #     if len(ids) != 0:
