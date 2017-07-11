@@ -378,8 +378,8 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
         hsml /= pxls
         if isinstance(wdata, type(np.array([1]))):
             if SD == 2:
-                N = np.int32(np.ceil(pos.shape[0]/cpu_count()))
-                NUMBER_OF_PROCESSES = 6
+                NUMBER_OF_PROCESSES = 6  # cpu_count()
+                N = np.int32(np.ceil(pos.shape[0]/NUMBER_OF_PROCESSES))
                 Tasks = [(cal_sph_2d, (range(i*N, (i+1)*N), mtree, pos, hsml, pxln, indxyz,
                          sphkernel, wdata)) for i in range(NUMBER_OF_PROCESSES)]
 
