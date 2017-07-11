@@ -290,7 +290,7 @@ def cal_sph_neib(n, idst, dist, pos, pxln, indxyz, sphkernel, wdata):
     return ydata
 
 
-def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
+def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=None,
                   kernel_name='cubic'):
     r"""SPH smoothing for given data
 
@@ -309,6 +309,8 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
     pxln     : number of pixels for the mesh. Type: int. Must be set.
                 # If it is None (Default), it will calculate from the particle positions.
                 # I.E. pxln = (max(pos)-min(pos))/pxls
+    Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
+                computer will be used.
     kernel_name : the SPH kernel used to make the smoothing. Type: str.
                 Default : 'cubic'. Since a normalization will applied in the
                 smoothing, the constants in the kernel are always ignored.
@@ -407,7 +409,10 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
     mtree = cKDTree(indxyz)
     indxyz = np.int32(indxyz)
 
-    NUMBER_OF_PROCESSES = 6  # cpu_count()
+    if Ncpu is None:
+        NUMBER_OF_PROCESSES = cpu_count()
+    else:
+        NUMBER_OF_PROCESSES = Ncpu
     N = np.int32(np.ceil(pos.shape[0]/NUMBER_OF_PROCESSES))
     # Create queues
     task_queue = Queue()
