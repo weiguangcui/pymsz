@@ -285,7 +285,7 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None,
             # ydata = np.zeros((pxln, pxln), dtype=np.float32)
             ydata_base = Array(ctypes.c_double, pxln**2)
             ydata = np.ctypeslib.as_array(ydata_base.get_obj())
-            ydata = ydata.reshape(10, 10)
+            ydata = ydata.reshape(pxln, pxln)
         elif isinstance(wdata, type({})):
             if len(wdata) > 20:
                 raise ValueError("Too many data to be smoothed %d" % len(wdata))
