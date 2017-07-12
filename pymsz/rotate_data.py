@@ -219,8 +219,8 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                     wsph = sphkernel(dist/hsml[i])
                     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
                 else:
-                    dist, ids = mtree.query(pos[i], k=1)
-                    ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i]
+                    dist, ids = mtree.query(pos[i], k=8)
+                    ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i]*(1 - dist/np.sum(dist))/7.
     else:
         ydata = {}
         if pos.shape[1] == 2:
@@ -234,9 +234,9 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                     for j in wdata.keys():
                         ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
                 else:
-                    dist, ids = mtree.query(pos[i], k=1)
+                    dist, ids = mtree.query(pos[i], k=4)
                     for j in wdata.keys():
-                        ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i]
+                        ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * (1 - dist/np.sum(dist))/3.
         elif pos.shape[1] == 3:
             for i in wdata.keys():
                 # There is a problem using multiprocessing with (return) really big objects
@@ -250,9 +250,9 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                     for j in wdata.keys():
                         ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
                 else:
-                    dist, ids = mtree.query(pos[i], k=1)
+                    dist, ids = mtree.query(pos[i], k=8)
                     for j in wdata.keys():
-                        ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i]
+                        ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i]*(1-dist/np.sum(dist))/7.
 
     return ydata
 
