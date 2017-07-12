@@ -268,7 +268,7 @@ def cal_sph_neib(n, idst, dist, pos, pxln, indxyz, sphkernel, wdata):
                 wsph = sphkernel(dist[i]/dist[i].max())
                 ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
         elif pos.shape[1] == 3:
-            ydata = np.zeros((pxln, pxln, pxln), dtype=np.float64)
+            ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in np.arange(pos.shape[0]):
                 ids = idst[i]
                 wsph = sphkernel(dist[i]/dist[i].max())
@@ -284,7 +284,7 @@ def cal_sph_neib(n, idst, dist, pos, pxln, indxyz, sphkernel, wdata):
                     ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
         elif pos.shape[1] == 3:
             for i in wdata.keys():
-                ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float64)
+                ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in np.arange(pos.shape[0]):
                 ids = idst[i]
                 wsph = sphkernel(dist[i]/dist[i].max())
