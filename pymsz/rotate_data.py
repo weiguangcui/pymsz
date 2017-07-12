@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial import cKDTree
-from multiprocessing import Process, Array, cpu_count, Queue, freeze_support, current_process
-import ctypes
+from multiprocessing import Process, cpu_count, Queue, freeze_support  # , current_process, Array
+# import ctypes
 
 
 def rotate_data(pos, axis):
@@ -192,6 +192,7 @@ def calculate(func, args):
     #     (current_process().name, func.__name__, args, result)
 
 
+# No boundary effects are taken into account!
 def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
     if np.max(n) >= pos.shape[0]:
         n = n[n < pos.shape[0]]
@@ -209,7 +210,7 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                     dist, ids = mtree.query(pos[i], k=1)
                     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i]
         elif pos.shape[1] == 3:
-            ydata = np.zeros((pxln, pxln, pxln), dtype=np.float64)
+            ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in n:
                 ids = mtree.query_ball_point(pos[i], hsml[i])
                 if len(ids) != 0:
@@ -237,7 +238,9 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                         ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i]
         elif pos.shape[1] == 3:
             for i in wdata.keys():
-                ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float64)
+                # There is a problem using multiprocessing with (return) really big objects
+                # https://bugs.python.org/issue17560
+                ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in n:
                 ids = mtree.query_ball_point(pos[i], hsml[i])
                 if len(ids) != 0:
@@ -409,6 +412,7 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=Non
     mtree = cKDTree(indxyz)
     indxyz = np.int32(indxyz)
 
+    freeze_support()
     if Ncpu is None:
         NUMBER_OF_PROCESSES = cpu_count()
     else:
@@ -504,38 +508,4 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=Non
         #     else:
         #         raise ValueError("Don't accept this data dimension %d" % SD)
 
-    # for i in np.arange(pos.shape[0]):
-    #     if hsml is not None:
-    #         ids = mtree.query_ball_point(pos[i], hsml[i])
-    #         if len(ids) != 0:
-    #             dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-    #             wsph = sphkernel(dist/hsml[i])
-    #         else:
-    #             if isinstance(wdata, type(np.array([1]))):
-    #                 if SD == 2:
-    #                     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i]
-    #                 else:
-    #                     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i]
-    #             else:
-    #                 for j in range(len(wdata)):
-    #                     if SD == 2:
-    #                         ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i]
-    #                     else:
-    #                         ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i]
-    #             continue
-    #     else:
-    #         ids = idst[i]
-    #         wsph = sphkernel(dist[i]/dist[i].max())
-    #
-    #     if isinstance(wdata, type(np.array([1]))):
-    #     if SD == 2:
-    #         ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
-    #     else:
-    #         ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
-    #     else:
-    #         for j in range(len(wdata)):
-    #             if SD == 2:
-    #                 ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
-    #             else:
-    #                 ydata[str(j)][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
     return ydata
