@@ -206,9 +206,9 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                     dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
                     wsph = sphkernel(dist/hsml[i])
                     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
-                else:
-                    dist, ids = mtree.query(pos[i], k=1)
-                    ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i]
+                # else:
+                #     dist, ids = mtree.query(pos[i], k=1)
+                #     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i]
         elif pos.shape[1] == 3:
             ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in n:
@@ -395,63 +395,63 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=Non
                     ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float64)
 
     # Federico's method
-    if hsml is not None:
-        hsml /= pxls
-    for i in np.arange(pos.shape[0]):
-        x = np.arange(np.int32(pos[i, 0] - hsml[i]), np.int32(pos[i, 0] + hsml[i]), 1)
-        y = np.arange(np.int32(pos[i, 1] - hsml[i]), np.int32(pos[i, 1] + hsml[i]), 1)
-        x, y = np.meshgrid(x, y, indexing='ij')
-        xyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
-        dist = np.sqrt(np.sum((xyz - pos[i])**2, axis=1)) / hsml[i]
-        if len(dist[dist < 1]) >= 1:
-            wsph = sphkernel(dist)
-            ids = (xyz[:, 0] >= 0) & (xyz[:, 0] < pxln) & (xyz[:, 1] >= 0) & (xyz[:, 1] < pxln)
-            if wsph[ids].sum() > 0:
-                ydata[xyz[ids, 0], xyz[ids, 1]] += wdata[i] * wsph[ids] / wsph[ids].sum()
-
-    # mtree = cKDTree(indxyz)
-    # indxyz = np.int32(indxyz)
-    #
-    # freeze_support()
-    # if Ncpu is None:
-    #     NUMBER_OF_PROCESSES = cpu_count()
-    # else:
-    #     NUMBER_OF_PROCESSES = Ncpu
-    # N = np.int32(np.ceil(pos.shape[0]/NUMBER_OF_PROCESSES))
-    # # Create queues
-    # task_queue = Queue()
-    # done_queue = Queue()
-    #
-    # if hsml is None:  # nearest neighbors
-    #     dist, idst = mtree.query(pos, neighbors)
-    #
-    #     Tasks = [(cal_sph_neib, (range(i*N, (i+1)*N), idst, dist, pos, pxln, indxyz,
-    #              sphkernel, wdata)) for i in range(NUMBER_OF_PROCESSES)]
-    # else:  # use hsml
+    # if hsml is not None:
     #     hsml /= pxls
-    #
-    #     Tasks = [(cal_sph_hsml, (range(i*N, (i+1)*N), mtree, pos, hsml, pxln, indxyz,
-    #              sphkernel, wdata)) for i in range(NUMBER_OF_PROCESSES)]
-    #
-    # # Submit tasks
-    # for task in Tasks:
-    #     task_queue.put(task)
-    #
-    # # Start worker processes
-    # for i in range(NUMBER_OF_PROCESSES):
-    #     Process(target=worker, args=(task_queue, done_queue)).start()
-    #
-    # # Get results
-    # for i in range(len(Tasks)):
-    #     if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
-    #         ydata += done_queue.get()
-    #     else:
-    #         for j in wdata.keys():
-    #             ydata[j] = done_queue.get()[j]
-    #
-    # # Tell child processes to stop
-    # for i in range(NUMBER_OF_PROCESSES):
-    #     task_queue.put('STOP')
+    # for i in np.arange(pos.shape[0]):
+    #     x = np.arange(np.int32(pos[i, 0] - hsml[i]), np.int32(pos[i, 0] + hsml[i]), 1)
+    #     y = np.arange(np.int32(pos[i, 1] - hsml[i]), np.int32(pos[i, 1] + hsml[i]), 1)
+    #     x, y = np.meshgrid(x, y, indexing='ij')
+    #     xyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1)), axis=1)
+    #     dist = np.sqrt(np.sum((xyz - pos[i])**2, axis=1)) / hsml[i]
+    #     if len(dist[dist < 1]) >= 1:
+    #         wsph = sphkernel(dist)
+    #         ids = (xyz[:, 0] >= 0) & (xyz[:, 0] < pxln) & (xyz[:, 1] >= 0) & (xyz[:, 1] < pxln)
+    #         if wsph[ids].sum() > 0:
+    #             ydata[xyz[ids, 0], xyz[ids, 1]] += wdata[i] * wsph[ids] / wsph[ids].sum()
+
+    mtree = cKDTree(indxyz)
+    indxyz = np.int32(indxyz)
+    
+    freeze_support()
+    if Ncpu is None:
+        NUMBER_OF_PROCESSES = cpu_count()
+    else:
+        NUMBER_OF_PROCESSES = Ncpu
+    N = np.int32(np.ceil(pos.shape[0]/NUMBER_OF_PROCESSES))
+    # Create queues
+    task_queue = Queue()
+    done_queue = Queue()
+
+    if hsml is None:  # nearest neighbors
+        dist, idst = mtree.query(pos, neighbors)
+
+        Tasks = [(cal_sph_neib, (range(i*N, (i+1)*N), idst, dist, pos, pxln, indxyz,
+                 sphkernel, wdata)) for i in range(NUMBER_OF_PROCESSES)]
+    else:  # use hsml
+        hsml /= pxls
+
+        Tasks = [(cal_sph_hsml, (range(i*N, (i+1)*N), mtree, pos, hsml, pxln, indxyz,
+                 sphkernel, wdata)) for i in range(NUMBER_OF_PROCESSES)]
+
+    # Submit tasks
+    for task in Tasks:
+        task_queue.put(task)
+
+    # Start worker processes
+    for i in range(NUMBER_OF_PROCESSES):
+        Process(target=worker, args=(task_queue, done_queue)).start()
+
+    # Get results
+    for i in range(len(Tasks)):
+        if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
+            ydata += done_queue.get()
+        else:
+            for j in wdata.keys():
+                ydata[j] = done_queue.get()[j]
+
+    # Tell child processes to stop
+    for i in range(NUMBER_OF_PROCESSES):
+        task_queue.put('STOP')
 
         #         # for i in range(0, 6):
         #         #     p = Process(target=cal_sph_2d, args=(range(i*N, (i+1)*N), mtree, pos, hsml,
