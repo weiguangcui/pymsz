@@ -206,9 +206,10 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                     dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
                     wsph = sphkernel(dist/hsml[i])
                     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
-                # else:
-                #     dist, ids = mtree.query(pos[i], k=1)
-                #     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i]
+                else:  # we also add particles with hsml < pixel size to its nearest four pixels.
+                    #    Then, the y-map looks no smoothed (with some noisy pixels).
+                    dist, ids = mtree.query(pos[i], k=4)
+                    ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * (1 - dist/np.sum(dist))/3.
         elif pos.shape[1] == 3:
             ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in n:
@@ -411,7 +412,7 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=Non
 
     mtree = cKDTree(indxyz)
     indxyz = np.int32(indxyz)
-    
+
     freeze_support()
     if Ncpu is None:
         NUMBER_OF_PROCESSES = cpu_count()
