@@ -290,7 +290,7 @@ class TK_model(object):
         self.zthick = zthick
         self.pxs = 0
         self.SD = SD
-        self.ydata = np.array([])
+        self.bdata = np.array([])
         self.sph_kn = sph_kernel
 
         if self.SD not in [2, 3]:
@@ -307,5 +307,82 @@ class TK_model(object):
                              "Please try to use load_data to get the data" % simudata.data_type)
 
     def _cal_snap(self, simd):
-        # Kpc = 3.0856775809623245e+21  # cm
-        simd.prep_ss_TT()
+
+        pos, vel = rotate_data(simd.pos, self.ax, vel=simd.vel)
+        simd.prep_ss_KT(vel)
+
+        if self.red is None:
+            self.red = simd.cosmology['z']
+
+        if self.zthick is not None:
+            idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
+            pos = pos[idc]
+            Kszdata = simd.Kszdata[idc]
+        else:
+            Kszdata = simd.Kszdata
+
+        if isinstance(simd.hsml, type(0)):
+            self.ngb = 27
+            hsml = None
+        else:
+            if self.zthick is not None:
+                hsml = simd.hsml[idc]
+            else:
+                hsml = simd.hsml
+            self.ngb = None
+
+        if self.ar is 0:
+            minx = pos[:, 0].min()
+            maxx = pos[:, 0].max()
+            miny = pos[:, 1].min()
+            maxy = pos[:, 1].max()
+            minz = pos[:, 2].min()
+            maxz = pos[:, 2].max()
+            self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
+        else:
+            if self.red <= 0.0:
+                self.red = 0.02
+            if simd.cosmology['omega_matter'] != 0:
+                cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100,
+                                      Om0=simd.cosmology['omega_matter'])
+            else:
+                cosmo = WMAP7
+            self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']  # in kpc/h
+
+        if self.SD == 2:
+            self.bdata = SPH_smoothing(Kszdata, pos[:, :2], self.pxs, hsml=hsml,
+                                       neighbors=self.ngb, pxln=self.npl, Ncpu=self.ncpu,
+                                       kernel_name=self.sph_kn)
+        else:
+            self.bdata = SPH_smoothing(Kszdata, pos, self.pxs, hsml=hsml, neighbors=self.ngb,
+                                       pxln=self.npl, Ncpu=self.ncpu, kernel_name=self.sph_kn)
+            self.bdata = np.sum(self.bdata, axis=2)
+        self.bdata /= self.pxs**2
+
+    def write_fits_image(self, fname, clobber=False):
+        r"""
+        Generate a image by binning X-ray counts and write it to a FITS file.
+
+        Parameters
+        ----------
+        imagefile : string
+            The name of the image file to write.
+        clobber : boolean, optional
+            Set to True to overwrite a previous file.
+        """
+        import pyfits as pf
+
+        if fname[-5:] != ".fits":
+            fname = fname + ".fits"
+
+        hdu = pf.PrimaryHDU(self.bdata)
+        hdu.header["RCVAL1"] = float(self.cc[0])
+        hdu.header["RCVAL2"] = float(self.cc[1])
+        hdu.header["RCVAL3"] = float(self.cc[2])
+        hdu.header["UNITS"] = "kpc/h"
+        hdu.header["ORAD"] = float(self.rr)
+        hdu.header["REDSHIFT"] = float(self.red)
+        hdu.header["PSIZE"] = float(self.pxs)
+        hdu.header["AGLRES"] = float(self.ar)
+        hdu.header["NOTE"] = ""
+        hdu.writeto(fname, clobber=clobber)
