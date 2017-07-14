@@ -198,11 +198,14 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
         if pos.shape[1] == 2:
             ydata = np.zeros((pxln, pxln), dtype=np.float64)
             for i in n:
-                ids = len(mtree.query_ball_point(pos[i], hsml[i]))
-                if ids < 4:
-                    ids = 4
-                dist, ids = mtree.query(pos[i], k=ids)
-                wsph = sphkernel(dist/hsml[i])
+                idn = len(mtree.query_ball_point(pos[i], hsml[i]))
+                if idn < 4:
+                    idn = 4
+                    hsmli = 1.4142135623730951
+                else:
+                    hsmli = hsml[i]
+                dist, ids = mtree.query(pos[i], k=idn)
+                wsph = sphkernel(dist/hsmli)
                 ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
                 # old no periodic calculation
                 # ids = mtree.query_ball_point(pos[i], hsml[i])
