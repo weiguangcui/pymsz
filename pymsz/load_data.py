@@ -123,7 +123,8 @@ class load_data(object):
             self.hsml = 0
             self.cosmology = {}  # default wmap7
 
-            self.Tszdata = np.array([])  # prep_ss_TH
+            self.Tszdata = np.array([])  # prep_ss_TT
+            self.Kszdata = np.array([])  # prep_ss_KT
 
             self.tau = np.array([])  # prep_ss_SZ
             self.Te = np.array([])
@@ -176,7 +177,7 @@ class load_data(object):
         # velocity
         self.vel = readsnapsgl(self.filename, "VEL ", quiet=True)
         if self.vel is not 0:
-            self.vel = self.vel[ids]
+            self.vel = self.vel[ids] * np.sqrt(self.cosmology["a"])  # to peculiar velocity
         else:
             raise ValueError("Can't get gas velocity, which is required")
 
@@ -343,6 +344,7 @@ class load_data(object):
     #     self.mass = self.filename['mass'][ids]
     #     self.metal = self.filename['metal'][ids]
 
+    # prepare for Theoretical model calculations
     def prep_ss_TT(self, force_redo=False):  # Now everything need to be in physical
         if len(self.Tszdata) is 0 or force_redo:  # only need to prepare once
             constTsz = 1.0e10*M_sun*self.cosmology["h"]*Kb*cs/me/Mp/c**2/Kpc**2
@@ -352,6 +354,15 @@ class load_data(object):
                 self.Tszdata = constTsz*self.ne*self.mass*self.temp/self.mu
             # now Tszdata is dimensionless y_i, and can divided pixel size in kpc/h directly later
 
+    def prep_ss_KT(self, vel, force_redo=False):
+        if len(self.Kszdata) is 0 or force_redo:  # only need to prepare once
+            constKsz = 1.0e15*M_sun*self.cosmology["h"]*cs/Mp/c/Kpc**2  # velocity in km/s -> cm/s
+            if self.mu is None:
+                self.Kszdata = constKsz*self.ne*self.mass*vel/self.mmw
+            else:
+                self.Kszdata = constKsz*self.ne*self.mass*vel/self.mu
+
+    # prepare for mock observation model calculations
     def prep_ss_SZT(self, force_redo=False):
         if len(self.tau) is 0 or force_redo:
             self.tau = cs * self.rho * self.mueinv / Mp
