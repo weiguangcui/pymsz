@@ -187,8 +187,8 @@ class TT_model(object):
                 self.red = 0.02
 
             if simd.yt_ds.omega_matter != 0:
-                cosmo = FlatLambdaCDM(H0=simd.yt_ds.hubble_constant
-                                      * 100, Om0=simd.yt_ds.omega_matter)
+                cosmo = FlatLambdaCDM(H0=simd.yt_ds.hubble_constant * 100,
+                                      Om0=simd.yt_ds.omega_matter)
             else:
                 cosmo = WMAP7
             self.pxs = cosmo.arcsec_per_kpc_proper(self.red) * self.ar * simd.yt_ds.hubble_constant

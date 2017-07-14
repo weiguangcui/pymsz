@@ -407,7 +407,7 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=Non
     #         if wsph[ids].sum() > 0:
     #             ydata[xyz[ids, 0], xyz[ids, 1]] += wdata[i] * wsph[ids] / wsph[ids].sum()
 
-    mtree = cKDTree(indxyz, boxsize=[pxln+1]*pos.shape[1])
+    mtree = cKDTree(indxyz, boxsize=pxln)
     indxyz = np.int32(indxyz)
 
     freeze_support()
