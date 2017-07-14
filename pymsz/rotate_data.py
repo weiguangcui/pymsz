@@ -26,24 +26,24 @@ def rotate_data(pos, axis, vel=None):
             npos = np.copy(pos)
             npos[:, 1] = pos[:, 2]
             npos[:, 2] = pos[:, 1]
-            if vel:
-                return npos, vel[:, 1]
-            else:
+            if vel is None:
                 return npos
+            else:
+                return npos, vel[:, 1]
         elif axis.lower() == 'x':  # y - z plane
             npos = np.copy(pos)
             npos[:, 0] = pos[:, 1]
             npos[:, 1] = pos[:, 2]
             npos[:, 2] = pos[:, 0]
-            if vel:
-                return npos, vel[:, 0]
-            else:
+            if vel is None:
                 return npos
-        elif axis.lower() == 'z':
-            if vel:
-                return pos, vel[:, 2]
             else:
+                return npos, vel[:, 0]
+        elif axis.lower() == 'z':
+            if vel is None:
                 return pos
+            else:
+                return pos, vel[:, 2]
         else:
             # if axis != 'z':  # project to xy plane
             raise ValueError("Do not accept this value %s for projection" % axis)
@@ -61,10 +61,10 @@ def rotate_data(pos, axis, vel=None):
                 [[cb * cg, cg * sa * sb - ca * sg, ca * cg * sb + sa * sg],
                  [cb * sg, ca * cg + sa * sb * sg, ca * sb * sg - cg * sa],
                  [-sb,     cb * sa,                ca * cb]], dtype=np.float64)
-            if vel:
-                return np.dot(pos, Rxyz), np.dot(vel, Rxyz)[:, 2]
-            else:
+            if vel is None:
                 return np.dot(pos, Rxyz)
+            else:
+                return np.dot(pos, Rxyz), np.dot(vel, Rxyz)[:, 2]
         else:
             raise ValueError("Do not accept this value %s for projection" % axis)
     else:
