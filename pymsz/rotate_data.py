@@ -201,7 +201,7 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                 idn = len(mtree.query_ball_point(pos[i], hsml[i]))
                 if idn < 4:
                     idn = 4
-                    hsmli = 1.4142135623730951
+                    hsmli = 1.4142135623730951  # sqrt(2)
                 else:
                     hsmli = hsml[i]
                 dist, ids = mtree.query(pos[i], k=idn)
@@ -223,8 +223,11 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                 ids = len(mtree.query_ball_point(pos[i], hsml[i]))
                 if ids < 8:
                     ids = 8
+                    hsmli = 1.7320508075688772  # sqrt(3)
+                else:
+                    hsmli = hsml[i]
                 dist, ids = mtree.query(pos[i], k=ids)
-                wsph = sphkernel(dist/hsml[i])
+                wsph = sphkernel(dist/hsmli)
                 ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
                 # ids = mtree.query_ball_point(pos[i], hsml[i])
                 # if len(ids) != 0:
@@ -243,8 +246,11 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                 ids = len(mtree.query_ball_point(pos[i], hsml[i]))
                 if ids < 4:
                     ids = 4
+                    hsmli = 1.4142135623730951  # sqrt(2)
+                else:
+                    hsmli = hsml[i]
                 dist, ids = mtree.query(pos[i], k=ids)
-                wsph = sphkernel(dist/hsml[i])
+                wsph = sphkernel(dist/hsmli)
                 for j in wdata.keys():
                     ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
                 # ids = mtree.query_ball_point(pos[i], hsml[i])
@@ -266,8 +272,11 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                 ids = len(mtree.query_ball_point(pos[i], hsml[i]))
                 if ids < 8:
                     ids = 8
+                    hsmli = 1.7320508075688772  # sqrt(3)
+                else:
+                    hsmli = hsml[i]
                 dist, ids = mtree.query(pos[i], k=ids)
-                wsph = sphkernel(dist/hsml[i])
+                wsph = sphkernel(dist/hsmli)
                 for j in wdata.keys():
                     ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
                 # ids = mtree.query_ball_point(pos[i], hsml[i])
@@ -322,7 +331,7 @@ def cal_sph_neib(n, idst, dist, pos, pxln, indxyz, sphkernel, wdata):
 
 
 def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=None,
-                  kernel_name='cubic'):
+                  periodic=False, kernel_name='cubic'):
     r"""SPH smoothing for given data
 
     Parameters
@@ -342,6 +351,9 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=Non
                 # I.E. pxln = (max(pos)-min(pos))/pxls
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
+    periodic : periodic condition for the SPH smoothing region. Tyep: bool. Default: False.
+                periodic condition works for the too fine mesh (which means oversmoothing),
+                you can consider turn this on to avoid boundary effects.
     kernel_name : the SPH kernel used to make the smoothing. Type: str.
                 Default : 'cubic'. Since a normalization will applied in the
                 smoothing, the constants in the kernel are always ignored.
@@ -437,7 +449,10 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=Non
     #         if wsph[ids].sum() > 0:
     #             ydata[xyz[ids, 0], xyz[ids, 1]] += wdata[i] * wsph[ids] / wsph[ids].sum()
 
-    mtree = cKDTree(indxyz, boxsize=pxln)
+    if periodic:
+        mtree = cKDTree(indxyz, boxsize=pxln)
+    else:
+        mtree = cKDTree(indxyz)
     indxyz = np.int32(indxyz)
 
     freeze_support()

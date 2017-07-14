@@ -45,7 +45,10 @@ class TT_model(object):
                 Must be 2 or 3!
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
-                This parallel calculation is only for the SPH smoothing.
+                Note, this parallel calculation is only for the SPH smoothing.
+    periodic : periodic condition for the SPH smoothing region. Tyep: bool. Default: False.
+                periodic condition works for the too fine mesh (which means oversmoothing),
+                you can consider turn this on to avoid boundary effects. So, this is also for SPH.
     redshift : The redshift where the cluster is at.
                 Default : None, we will look it from simulation data.
                 If redshift = 0, it will be automatically put into 0.02,
@@ -77,7 +80,7 @@ class TT_model(object):
     """
 
     def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=0, SD=2,
-                 Ncpu=None, redshift=None, zthick=None, sph_kernel='cubic'):
+                 Ncpu=None, periodic=False, redshift=None, zthick=None, sph_kernel='cubic'):
         self.npl = npixel
         self.ngb = neighbours
         self.ax = axis
@@ -86,6 +89,7 @@ class TT_model(object):
         self.zthick = zthick
         self.pxs = 0
         self.SD = SD
+        self.periodic = periodic
         self.ncpu = Ncpu
         self.ydata = np.array([])
         self.sph_kn = sph_kernel
@@ -167,10 +171,11 @@ class TT_model(object):
         if self.SD == 2:
             self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
                                        neighbors=self.ngb, pxln=self.npl, Ncpu=self.ncpu,
-                                       kernel_name=self.sph_kn)
+                                       periodic=self.periodic, kernel_name=self.sph_kn)
         else:
             self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml, neighbors=self.ngb,
-                                       pxln=self.npl, Ncpu=self.ncpu, kernel_name=self.sph_kn)
+                                       pxln=self.npl, Ncpu=self.ncpu, periodic=self.periodic,
+                                       kernel_name=self.sph_kn)
             self.ydata = np.sum(self.ydata, axis=2)
         self.ydata /= self.pxs**2
 
@@ -252,6 +257,9 @@ class TK_model(object):
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
                 This parallel calculation is only for the SPH smoothing.
+    periodic : periodic condition for the SPH smoothing region. Tyep: bool. Default: False.
+                periodic condition works for the too fine mesh (which means oversmoothing),
+                you can consider turn this on to avoid boundary effects. So, this is also for SPH.
     redshift : The redshift where the cluster is at.
                 Default : None, we will look it from simulation data.
                 If redshift = 0, it will be automatically put into 0.02,
@@ -284,12 +292,13 @@ class TK_model(object):
     """
 
     def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=0, SD=2,
-                 Ncpu=None, redshift=None, zthick=None, sph_kernel='cubic'):
+                 Ncpu=None, periodic=False, redshift=None, zthick=None, sph_kernel='cubic'):
         self.npl = npixel
         self.ngb = neighbours
         self.ax = axis
         self.ar = AR
         self.ncpu = Ncpu
+        self.periodic = periodic
         self.red = redshift
         self.zthick = zthick
         self.pxs = 0
@@ -356,10 +365,11 @@ class TK_model(object):
         if self.SD == 2:
             self.bdata = SPH_smoothing(Kszdata, pos[:, :2], self.pxs, hsml=hsml,
                                        neighbors=self.ngb, pxln=self.npl, Ncpu=self.ncpu,
-                                       kernel_name=self.sph_kn)
+                                       periodic=self.periodic, kernel_name=self.sph_kn)
         else:
             self.bdata = SPH_smoothing(Kszdata, pos, self.pxs, hsml=hsml, neighbors=self.ngb,
-                                       pxln=self.npl, Ncpu=self.ncpu, kernel_name=self.sph_kn)
+                                       pxln=self.npl, Ncpu=self.ncpu, periodic=self.periodic,
+                                       kernel_name=self.sph_kn)
             self.bdata = np.sum(self.bdata, axis=2)
         self.bdata /= self.pxs**2
 
