@@ -198,58 +198,85 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
         if pos.shape[1] == 2:
             ydata = np.zeros((pxln, pxln), dtype=np.float64)
             for i in n:
-                ids = mtree.query_ball_point(pos[i], hsml[i])
-                if len(ids) != 0:
-                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                    wsph = sphkernel(dist/hsml[i])
-                    ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
-                else:  # we also add particles with hsml < pixel size to its nearest four pixels.
-                    #    Then, the y-map looks no smoothed (with some noisy pixels).
-                    dist, ids = mtree.query(pos[i], k=4)
-                    ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * (1 - dist/np.sum(dist))/3.
+                ids = len(mtree.query_ball_point(pos[i], hsml[i]))
+                if ids < 4:
+                    ids = 4
+                dist, ids = mtree.query(pos[i], k=ids)
+                wsph = sphkernel(dist/hsml[i])
+                ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+                # old no periodic calculation
+                # ids = mtree.query_ball_point(pos[i], hsml[i])
+                # if len(ids) != 0:
+                #     dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                #     wsph = sphkernel(dist/hsml[i])
+                #     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+                # else:  # we also add particles with hsml < pixel size to its nearest four pixels.
+                #     #    Then, the y-map looks no smoothed (with some noisy pixels).
+                #     dist, ids = mtree.query(pos[i], k=4)
+                #     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * (1 - dist/np.sum(dist))/3.
         elif pos.shape[1] == 3:
             ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in n:
-                ids = mtree.query_ball_point(pos[i], hsml[i])
-                if len(ids) != 0:
-                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                    wsph = sphkernel(dist/hsml[i])
-                    ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
-                else:
-                    dist, ids = mtree.query(pos[i], k=8)
-                    ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i]*(1 - dist/np.sum(dist))/7.
+                ids = len(mtree.query_ball_point(pos[i], hsml[i]))
+                if ids < 8:
+                    ids = 8
+                dist, ids = mtree.query(pos[i], k=ids)
+                wsph = sphkernel(dist/hsml[i])
+                ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
+                # ids = mtree.query_ball_point(pos[i], hsml[i])
+                # if len(ids) != 0:
+                #     dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                #     wsph = sphkernel(dist/hsml[i])
+                #     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
+                # else:
+                #     dist, ids = mtree.query(pos[i], k=8)
+                #     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i]*(1 - dist/np.sum(dist))/7.
     else:
         ydata = {}
         if pos.shape[1] == 2:
             for i in wdata.keys():
                 ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
             for i in n:
-                ids = mtree.query_ball_point(pos[i], hsml[i])
-                if len(ids) != 0:
-                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                    wsph = sphkernel(dist/hsml[i])
-                    for j in wdata.keys():
-                        ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
-                else:
-                    dist, ids = mtree.query(pos[i], k=4)
-                    for j in wdata.keys():
-                        ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * (1 - dist/np.sum(dist))/3.
+                ids = len(mtree.query_ball_point(pos[i], hsml[i]))
+                if ids < 4:
+                    ids = 4
+                dist, ids = mtree.query(pos[i], k=ids)
+                wsph = sphkernel(dist/hsml[i])
+                for j in wdata.keys():
+                    ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
+                # ids = mtree.query_ball_point(pos[i], hsml[i])
+                # if len(ids) != 0:
+                #     dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                #     wsph = sphkernel(dist/hsml[i])
+                #     for j in wdata.keys():
+                #         ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
+                # else:
+                #     dist, ids = mtree.query(pos[i], k=4)
+                #     for j in wdata.keys():
+                #         ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * (1 - dist/np.sum(dist))/3.
         elif pos.shape[1] == 3:
             for i in wdata.keys():
                 # There is a problem using multiprocessing with (return) really big objects
                 # https://bugs.python.org/issue17560
                 ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in n:
-                ids = mtree.query_ball_point(pos[i], hsml[i])
-                if len(ids) != 0:
-                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                    wsph = sphkernel(dist/hsml[i])
-                    for j in wdata.keys():
-                        ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
-                else:
-                    dist, ids = mtree.query(pos[i], k=8)
-                    for j in wdata.keys():
-                        ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i]*(1-dist/np.sum(dist))/7.
+                ids = len(mtree.query_ball_point(pos[i], hsml[i]))
+                if ids < 8:
+                    ids = 8
+                dist, ids = mtree.query(pos[i], k=ids)
+                wsph = sphkernel(dist/hsml[i])
+                for j in wdata.keys():
+                    ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
+                # ids = mtree.query_ball_point(pos[i], hsml[i])
+                # if len(ids) != 0:
+                #     dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                #     wsph = sphkernel(dist/hsml[i])
+                #     for j in wdata.keys():
+                #         ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
+                # else:
+                #     dist, ids = mtree.query(pos[i], k=8)
+                #     for j in wdata.keys():
+                #         ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i]*(1-dist/np.sum(dist))/7.
 
     return ydata
 
