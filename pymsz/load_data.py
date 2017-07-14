@@ -175,7 +175,7 @@ class load_data(object):
             self.pos = spos - self.center
 
         # velocity
-        self.vel = readsnapsgl(self.filename, "VEL ", quiet=True)
+        self.vel = readsnapsgl(self.filename, "VEL ", ptype=0, quiet=True)
         if self.vel is not 0:
             self.vel = self.vel[ids] * np.sqrt(self.cosmology["a"])  # to peculiar velocity
         else:
