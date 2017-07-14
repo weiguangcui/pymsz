@@ -117,6 +117,7 @@ class load_data(object):
             self.temp = np.array([])
             self.mass = 0.0
             self.pos = np.array([])
+            self.vel = np.array([])
             self.rho = np.array([])
             self.ne = 0
             self.hsml = 0
@@ -171,6 +172,13 @@ class load_data(object):
             ids = np.ones(head[0][0], dtype=bool)
             self.center = np.median(spos, axis=0)
             self.pos = spos - self.center
+
+        # velocity
+        self.vel = readsnapsgl(self.filename, "VEL ", quiet=True)
+        if self.vel is not 0:
+            self.vel = self.vel[ids]
+        else:
+            raise ValueError("Can't get gas velocity, which is required")
 
         # Temperature
         if self.mu is None:
@@ -254,6 +262,7 @@ class load_data(object):
             if not isinstance(self.mass, type(0.0)):
                 self.mass = self.mass[ids_ex]
             self.pos = self.pos[ids_ex]
+            self.vel = self.vel[ids_ex]
             self.rho = self.rho[ids_ex]
             self.ne = self.ne[ids_ex]         # cgs
             if self.metal is not 0:
