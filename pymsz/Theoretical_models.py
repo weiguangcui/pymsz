@@ -169,9 +169,8 @@ class TT_model(object):
                                        neighbors=self.ngb, pxln=self.npl, Ncpu=self.ncpu,
                                        kernel_name=self.sph_kn)
         else:
-            self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml,
-                                       neighbors=self.ngb,  pxln=self.npl, Ncpu=self.ncpu,
-                                       kernel_name=self.sph_kn)
+            self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml, neighbors=self.ngb,
+                                       pxln=self.npl, Ncpu=self.ncpu, kernel_name=self.sph_kn)
             self.ydata = np.sum(self.ydata, axis=2)
         self.ydata /= self.pxs**2
 
