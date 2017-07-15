@@ -199,13 +199,13 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, pxlnz, sphkernel, wdata):
             ydata = np.zeros((pxln, pxln), dtype=np.float64)
             for i in n:
                 idn = len(mtree.query_ball_point(pos[i], hsml[i]))
-                if idn == 0:
+                if idn <= 1:
                     idn = 4
                     hsmli = 1.4142135623730951  # sqrt(2)
                 else:
                     hsmli = hsml[i]
                 dist, ids = mtree.query(pos[i], k=idn)
-                if dist.min() < hsmli:
+                if np.min(dist) < hsmli:
                     wsph = sphkernel(dist/hsmli)
                     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
                 # old no periodic calculation
@@ -222,13 +222,13 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, pxlnz, sphkernel, wdata):
             ydata = np.zeros((pxln, pxln, pxlnz), dtype=np.float32)
             for i in n:
                 idn = len(mtree.query_ball_point(pos[i], hsml[i]))
-                if idn == 0:
+                if idn <= 1:
                     idn = 8
                     hsmli = 1.7320508075688772  # sqrt(3)
                 else:
                     hsmli = hsml[i]
                 dist, ids = mtree.query(pos[i], k=idn)
-                if dist.min() < hsmli:
+                if np.min(dist) < hsmli:
                     wsph = sphkernel(dist/hsmli)
                     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
                 # ids = mtree.query_ball_point(pos[i], hsml[i])
@@ -246,13 +246,13 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, pxlnz, sphkernel, wdata):
                 ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
             for i in n:
                 idn = len(mtree.query_ball_point(pos[i], hsml[i]))
-                if idn == 0:
+                if idn <= 1:
                     idn = 4
                     hsmli = 1.4142135623730951  # sqrt(2)
                 else:
                     hsmli = hsml[i]
                 dist, ids = mtree.query(pos[i], k=idn)
-                if dist.min() < hsmli:
+                if np.min(dist) < hsmli:
                     wsph = sphkernel(dist/hsmli)
                     for j in wdata.keys():
                         ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
@@ -273,13 +273,13 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, pxlnz, sphkernel, wdata):
                 ydata[i] = np.zeros((pxln, pxln, pxlnz), dtype=np.float32)
             for i in n:
                 idn = len(mtree.query_ball_point(pos[i], hsml[i]))
-                if idn == 0:
+                if idn <= 1:
                     idn = 8
                     hsmli = 1.7320508075688772  # sqrt(3)
                 else:
                     hsmli = hsml[i]
                 dist, ids = mtree.query(pos[i], k=idn)
-                if dist.min() < hsmli:
+                if np.min(dist) < hsmli:
                     wsph = sphkernel(dist/hsmli)
                     for j in wdata.keys():
                         ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
@@ -305,14 +305,14 @@ def cal_sph_neib(n, idst, dist, pos, pxln, indxyz, pxlnz, sphkernel, wdata):
         if pos.shape[1] == 2:
             ydata = np.zeros((pxln, pxln), dtype=np.float64)
             for i in np.arange(pos.shape[0]):
-                if dist[i].min() < 1.4142135623730951:  # sqrt(2)
+                if np.min(dist[i]) < 1.4142135623730951:  # sqrt(2)
                     ids = idst[i]
                     wsph = sphkernel(dist[i]/dist[i].max())
                     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
         elif pos.shape[1] == 3:
             ydata = np.zeros((pxln, pxln, pxlnz), dtype=np.float32)
             for i in np.arange(pos.shape[0]):
-                if dist[i].min() < 1.7320508075688772:  # sqrt(2)
+                if np.min(dist[i]) < 1.7320508075688772:  # sqrt(2)
                     ids = idst[i]
                     wsph = sphkernel(dist[i]/dist[i].max())
                     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
@@ -321,7 +321,7 @@ def cal_sph_neib(n, idst, dist, pos, pxln, indxyz, pxlnz, sphkernel, wdata):
             for i in wdata.keys():
                 ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
             for i in np.arange(pos.shape[0]):
-                if dist[i].min() < 1.4142135623730951:
+                if np.min(dist[i]) < 1.4142135623730951:
                     ids = idst[i]
                     wsph = sphkernel(dist[i]/dist[i].max())
                     for j in wdata.keys():
@@ -330,7 +330,7 @@ def cal_sph_neib(n, idst, dist, pos, pxln, indxyz, pxlnz, sphkernel, wdata):
             for i in wdata.keys():
                 ydata[i] = np.zeros((pxln, pxln, pxlnz), dtype=np.float32)
             for i in np.arange(pos.shape[0]):
-                if dist[i].min() < 1.7320508075688772:
+                if np.min(dist[i]) < 1.7320508075688772:
                     ids = idst[i]
                     wsph = sphkernel(dist[i]/dist[i].max())
                     for j in wdata.keys():
