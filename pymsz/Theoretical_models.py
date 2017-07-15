@@ -173,17 +173,19 @@ class TT_model(object):
         idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
             (pos[:, 1] >= -self.npl*self.pxs/2.) & (pos[:, 1] <= self.npl*self.pxs/2.)
         pos = pos[idc]
+        if hsml is not None:
+            hsml = hsml[idc]
 
         # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
 
         if self.SD == 2:
-            self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
+            self.ydata = SPH_smoothing(Tszdata[idc], pos[:, :2], self.pxs, hsml=hsml,
                                        neighbors=self.ngb, pxln=self.npl, Ncpu=self.ncpu,
                                        periodic=self.periodic, kernel_name=self.sph_kn)
         else:
             # be ware that zthick could cause some problems if it is larger than pxs*npl!!
             # This has been taken in care in the rotate_data function.
-            self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml, neighbors=self.ngb,
+            self.ydata = SPH_smoothing(Tszdata[idc], pos, self.pxs, hsml=hsml, neighbors=self.ngb,
                                        pxln=self.npl, Ncpu=self.ncpu, periodic=self.periodic,
                                        kernel_name=self.sph_kn)
             self.ydata = np.sum(self.ydata, axis=2)
@@ -376,13 +378,15 @@ class TK_model(object):
         idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
             (pos[:, 1] >= -self.npl*self.pxs/2.) & (pos[:, 1] <= self.npl*self.pxs/2.)
         pos = pos[idc]
+        if hsml is not None:
+            hsml = hsml[idc]
 
         if self.SD == 2:
-            self.bdata = SPH_smoothing(Kszdata, pos[:, :2], self.pxs, hsml=hsml,
+            self.bdata = SPH_smoothing(Kszdata[idc], pos[:, :2], self.pxs, hsml=hsml,
                                        neighbors=self.ngb, pxln=self.npl, Ncpu=self.ncpu,
                                        periodic=self.periodic, kernel_name=self.sph_kn)
         else:
-            self.bdata = SPH_smoothing(Kszdata, pos, self.pxs, hsml=hsml, neighbors=self.ngb,
+            self.bdata = SPH_smoothing(Kszdata[idc], pos, self.pxs, hsml=hsml, neighbors=self.ngb,
                                        pxln=self.npl, Ncpu=self.ncpu, periodic=self.periodic,
                                        kernel_name=self.sph_kn)
             self.bdata = np.sum(self.bdata, axis=2)
