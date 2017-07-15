@@ -169,6 +169,11 @@ class TT_model(object):
                 cosmo = WMAP7
             self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']  # in kpc/h
 
+        # cut out unused data
+        idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
+            (pos[:, 1] >= -self.npl*self.pxs/2.) & (pos[:, 1] <= self.npl*self.pxs/2.)
+        pos = pos[idc]
+
         # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
 
         if self.SD == 2:
@@ -366,6 +371,11 @@ class TK_model(object):
             else:
                 cosmo = WMAP7
             self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']  # in kpc/h
+
+        # cut out unused data
+        idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
+            (pos[:, 1] >= -self.npl*self.pxs/2.) & (pos[:, 1] <= self.npl*self.pxs/2.)
+        pos = pos[idc]
 
         if self.SD == 2:
             self.bdata = SPH_smoothing(Kszdata, pos[:, :2], self.pxs, hsml=hsml,
