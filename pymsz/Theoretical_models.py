@@ -46,9 +46,9 @@ class TT_model(object):
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
                 Note, this parallel calculation is only for the SPH smoothing.
-    periodic : periodic condition for the SPH smoothing region. Tyep: bool. Default: False.
+    periodic : periodic condition applied for the SPH smoothing region. Tyep: bool. Default: False.
                 periodic condition works for the too fine mesh (which means oversmoothing),
-                you can consider turn this on to avoid boundary effects. So, this is also for SPH.
+                you can turn this on to avoid small boundary effects. So, this is only for SPH.
     redshift : The redshift where the cluster is at.
                 Default : None, we will look it from simulation data.
                 If redshift = 0, it will be automatically put into 0.02,
@@ -145,9 +145,12 @@ class TT_model(object):
             maxx = pos[:, 0].max()
             miny = pos[:, 1].min()
             maxy = pos[:, 1].max()
-            minz = pos[:, 2].min()
-            maxz = pos[:, 2].max()
-            self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
+            # if self.SD == 3:
+            #     minz = pos[:, 2].min()
+            #     maxz = pos[:, 2].max()
+            #     self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
+            # else:
+            self.pxs = np.min([maxx - minx, maxy - miny]) / self.npl  # only for projected plane
 
             # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
             # if self.SD == 2:
@@ -173,6 +176,8 @@ class TT_model(object):
                                        neighbors=self.ngb, pxln=self.npl, Ncpu=self.ncpu,
                                        periodic=self.periodic, kernel_name=self.sph_kn)
         else:
+            # be ware that zthick could cause some problems if it is larger than pxs*npl!!
+            # This has been taken in care in the rotate_data function.
             self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml, neighbors=self.ngb,
                                        pxln=self.npl, Ncpu=self.ncpu, periodic=self.periodic,
                                        kernel_name=self.sph_kn)
