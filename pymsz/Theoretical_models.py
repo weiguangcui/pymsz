@@ -190,6 +190,7 @@ class TT_model(object):
                                        pxln=self.npl, Ncpu=self.ncpu, periodic=self.periodic,
                                        kernel_name=self.sph_kn)
             self.ydata = np.sum(self.ydata, axis=2)
+        self.ydata = self.ydata.T
         self.ydata /= self.pxs**2
 
     def _cal_yt(self, simd):
@@ -232,7 +233,7 @@ class TT_model(object):
         if fname[-5:] != ".fits":
             fname = fname + ".fits"
 
-        hdu = pf.PrimaryHDU(self.ydata.T)
+        hdu = pf.PrimaryHDU(self.ydata)
         hdu.header["RCVAL1"] = float(self.cc[0])
         hdu.header["RCVAL2"] = float(self.cc[1])
         hdu.header["RCVAL3"] = float(self.cc[2])
@@ -391,6 +392,7 @@ class TK_model(object):
                                        pxln=self.npl, Ncpu=self.ncpu, periodic=self.periodic,
                                        kernel_name=self.sph_kn)
             self.bdata = np.sum(self.bdata, axis=2)
+        self.bdata = self.bdata.T
         self.bdata /= self.pxs**2
 
     def write_fits_image(self, fname, clobber=False):
@@ -409,7 +411,7 @@ class TK_model(object):
         if fname[-5:] != ".fits":
             fname = fname + ".fits"
 
-        hdu = pf.PrimaryHDU(self.bdata.T)
+        hdu = pf.PrimaryHDU(self.bdata)
         hdu.header["RCVAL1"] = float(self.cc[0])
         hdu.header["RCVAL2"] = float(self.cc[1])
         hdu.header["RCVAL3"] = float(self.cc[2])
