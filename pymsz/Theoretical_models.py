@@ -166,6 +166,7 @@ class TT_model(object):
                 cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100,
                                       Om0=simd.cosmology['omega_matter'])
             else:
+                print('No cosmology loaded, assume WMAP7')
                 cosmo = WMAP7
             self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']  # in kpc/h
 
