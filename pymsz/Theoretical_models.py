@@ -232,7 +232,7 @@ class TT_model(object):
         if fname[-5:] != ".fits":
             fname = fname + ".fits"
 
-        hdu = pf.PrimaryHDU(self.ydata)
+        hdu = pf.PrimaryHDU(self.ydata.T)
         hdu.header["RCVAL1"] = float(self.cc[0])
         hdu.header["RCVAL2"] = float(self.cc[1])
         hdu.header["RCVAL3"] = float(self.cc[2])
@@ -409,7 +409,7 @@ class TK_model(object):
         if fname[-5:] != ".fits":
             fname = fname + ".fits"
 
-        hdu = pf.PrimaryHDU(self.bdata)
+        hdu = pf.PrimaryHDU(self.bdata.T)
         hdu.header["RCVAL1"] = float(self.cc[0])
         hdu.header["RCVAL2"] = float(self.cc[1])
         hdu.header["RCVAL3"] = float(self.cc[2])
