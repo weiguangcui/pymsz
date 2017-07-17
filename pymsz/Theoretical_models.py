@@ -43,6 +43,8 @@ class TT_model(object):
                 Otherwise, cluster's redshift with AR decides how large the cluster looks.
     SD       : dimensions for SPH smoothing. Type: int. Default: 2.
                 Must be 2 or 3!
+    pxsize   : pixel size of the image. Type: float, unit: kpc/h. Default: None
+                If set, this will invaided the calculation from AR.
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
                 Note, this parallel calculation is only for the SPH smoothing.
@@ -79,7 +81,7 @@ class TT_model(object):
     mm=pymsz.TT_models(simudata, 1024, "z")
     """
 
-    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=0, SD=2,
+    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=0, SD=2, pxsize=None,
                  Ncpu=None, periodic=False, redshift=None, zthick=None, sph_kernel='cubic'):
         self.npl = npixel
         self.ngb = neighbours
@@ -87,7 +89,7 @@ class TT_model(object):
         self.ar = AR
         self.red = redshift
         self.zthick = zthick
-        self.pxs = 0
+        self.pxs = pxsize
         self.SD = SD
         self.periodic = periodic
         self.ncpu = Ncpu
@@ -140,35 +142,36 @@ class TT_model(object):
                 hsml = simd.hsml
             self.ngb = None
 
-        if self.ar is 0:
-            minx = pos[:, 0].min()
-            maxx = pos[:, 0].max()
-            miny = pos[:, 1].min()
-            maxy = pos[:, 1].max()
-            # if self.SD == 3:
-            #     minz = pos[:, 2].min()
-            #     maxz = pos[:, 2].max()
-            #     self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
-            # else:
-            self.pxs = np.min([maxx - minx, maxy - miny]) / self.npl  # only for projected plane
+        if self.pxs is None:
+            if self.ar is 0:
+                minx = pos[:, 0].min()
+                maxx = pos[:, 0].max()
+                miny = pos[:, 1].min()
+                maxy = pos[:, 1].max()
+                # if self.SD == 3:
+                #     minz = pos[:, 2].min()
+                #     maxz = pos[:, 2].max()
+                #     self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
+                # else:
+                self.pxs = np.min([maxx - minx, maxy - miny]) / self.npl  # only for projected plane
 
-            # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
-            # if self.SD == 2:
-            #     self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
-            #                                neighbors=self.ngb, kernel_name=self.sph_kn)
-            # else:
-            #     self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml,
-            #                                neighbors=self.ngb, kernel_name=self.sph_kn)
-        else:
-            if self.red <= 0.0:
-                self.red = 0.02
-            if simd.cosmology['omega_matter'] != 0:
-                cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100,
-                                      Om0=simd.cosmology['omega_matter'])
+                # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
+                # if self.SD == 2:
+                #     self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
+                #                                neighbors=self.ngb, kernel_name=self.sph_kn)
+                # else:
+                #     self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml,
+                #                                neighbors=self.ngb, kernel_name=self.sph_kn)
             else:
-                print('No cosmology loaded, assume WMAP7')
-                cosmo = WMAP7
-            self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']  # in kpc/h
+                if self.red <= 0.0:
+                    self.red = 0.02
+                if simd.cosmology['omega_matter'] != 0:
+                    cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100,
+                                          Om0=simd.cosmology['omega_matter'])
+                else:
+                    print('No cosmology loaded, assume WMAP7')
+                    cosmo = WMAP7
+                self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']  # in kpc/h
 
         # cut out unused data
         idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
@@ -268,6 +271,8 @@ class TK_model(object):
                 Otherwise, cluster's redshift with AR decides how large the cluster looks.
     SD       : dimensions for SPH smoothing. Type: int. Default: 2.
                 Must be 2 or 3!
+    pxsize   : pixel size of the image. Type: float, unit: kpc/h. Default: None
+                If set, this will invaided the calculation from AR.
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
                 This parallel calculation is only for the SPH smoothing.
@@ -305,7 +310,7 @@ class TK_model(object):
     mm.bdata  # this contains the b-map
     """
 
-    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=0, SD=2,
+    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=0, SD=2, pxsize=None,
                  Ncpu=None, periodic=False, redshift=None, zthick=None, sph_kernel='cubic'):
         self.npl = npixel
         self.ngb = neighbours
@@ -315,7 +320,7 @@ class TK_model(object):
         self.periodic = periodic
         self.red = redshift
         self.zthick = zthick
-        self.pxs = 0
+        self.pxs = pxsize
         self.SD = SD
         self.bdata = np.array([])
         self.sph_kn = sph_kernel
@@ -358,23 +363,24 @@ class TK_model(object):
                 hsml = simd.hsml
             self.ngb = None
 
-        if self.ar is 0:
-            minx = pos[:, 0].min()
-            maxx = pos[:, 0].max()
-            miny = pos[:, 1].min()
-            maxy = pos[:, 1].max()
-            minz = pos[:, 2].min()
-            maxz = pos[:, 2].max()
-            self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
-        else:
-            if self.red <= 0.0:
-                self.red = 0.02
-            if simd.cosmology['omega_matter'] != 0:
-                cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100,
-                                      Om0=simd.cosmology['omega_matter'])
+        if self.pxs is None:
+            if self.ar is 0:
+                minx = pos[:, 0].min()
+                maxx = pos[:, 0].max()
+                miny = pos[:, 1].min()
+                maxy = pos[:, 1].max()
+                minz = pos[:, 2].min()
+                maxz = pos[:, 2].max()
+                self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
             else:
-                cosmo = WMAP7
-            self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']  # in kpc/h
+                if self.red <= 0.0:
+                    self.red = 0.02
+                if simd.cosmology['omega_matter'] != 0:
+                    cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100,
+                                          Om0=simd.cosmology['omega_matter'])
+                else:
+                    cosmo = WMAP7
+                self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']  # in kpc/h
 
         # cut out unused data
         idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
