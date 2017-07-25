@@ -104,11 +104,11 @@ def sph_kernel_quartic(x):
     # return kernel * C
     kernel = np.zeros(x.size, dtype=float)
     ids = x < 0.2
-    kernel[ids] = (1.-x[ids])**4 + 10*(0.2-x[ids])**4
+    kernel[ids] = (1.-x[ids])**4 - 5*(0.6-x[ids])**4 + 10*(0.2-x[ids])**4
     ids = (x >= 0.2) & (x < 0.6)
-    kernel[ids] = (1.-x[ids])**4
-    ids = (x >= 0.6) & (x < 1)
     kernel[ids] = (1.-x[ids])**4 - 5*(0.6-x[ids])**4
+    ids = (x >= 0.6) & (x < 1)
+    kernel[ids] = (1.-x[ids])**4
     return kernel
 
 
@@ -126,11 +126,11 @@ def sph_kernel_quintic(x):
     # return kernel * C
     kernel = np.zeros(x.size, dtype=float)
     ids = x < 0.3333333333333
-    kernel[ids] = (1.-x[ids])**5 + 15*(0.3333333333333-x[ids])**5
+    kernel[ids] = (1.-x[ids])**5 - 6*(2./3-x[ids])**5 + 15*(0.3333333333333-x[ids])**5
     ids = (x >= 0.3333333333333) & (x < 0.6666666666666)
-    kernel[ids] = (1.-x[ids])**5
-    ids = (x >= 0.6666666666666) & (x < 1)
     kernel[ids] = (1.-x[ids])**5 - 6*(2./3-x[ids])**5
+    ids = (x >= 0.6666666666666) & (x < 1)
+    kernel[ids] = (1.-x[ids])**5
     return kernel
 
 
@@ -190,7 +190,7 @@ def calculate(func, args):
 
 
 # No boundary effects are taken into account!
-def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, pxlnz, sphkernel, wdata):
+def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
     if np.max(n) >= pos.shape[0]:
         n = n[n < pos.shape[0]]
 
@@ -198,16 +198,7 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, pxlnz, sphkernel, wdata):
         if pos.shape[1] == 2:
             ydata = np.zeros((pxln, pxln), dtype=np.float64)
             for i in n:
-                idn = len(mtree.query_ball_point(pos[i], hsml[i]))
-                if idn <= 1:
-                    idn = 4
-                    hsmli = 1.4142135623730951  # sqrt(2)
-                else:
-                    hsmli = hsml[i]
-                dist, ids = mtree.query(pos[i], k=idn)
-                if np.min(dist) < hsmli:
-                    wsph = sphkernel(dist/hsmli)
-                    ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+                ids = (mtree.query_ball_point(pos[i], hsml[i]))
                 # old no periodic calculation
                 # ids = mtree.query_ball_point(pos[i], hsml[i])
                 # if len(ids) != 0:
@@ -219,85 +210,53 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, pxlnz, sphkernel, wdata):
                 #     dist, ids = mtree.query(pos[i], k=4)
                 #     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * (1 - dist/np.sum(dist))/3.
         elif pos.shape[1] == 3:
-            ydata = np.zeros((pxln, pxln, pxlnz), dtype=np.float32)
+            ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in n:
-                idn = len(mtree.query_ball_point(pos[i], hsml[i]))
-                if idn <= 1:
-                    idn = 8
-                    hsmli = 1.7320508075688772  # sqrt(3)
-                else:
-                    hsmli = hsml[i]
-                dist, ids = mtree.query(pos[i], k=idn)
-                if np.min(dist) < hsmli:
-                    wsph = sphkernel(dist/hsmli)
+                ids = mtree.query_ball_point(pos[i], hsml[i])
+                if len(ids) != 0:
+                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                    wsph = sphkernel(dist/hsml[i])
                     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
-                # ids = mtree.query_ball_point(pos[i], hsml[i])
-                # if len(ids) != 0:
-                #     dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                #     wsph = sphkernel(dist/hsml[i])
-                #     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
-                # else:
-                #     dist, ids = mtree.query(pos[i], k=8)
-                #     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i]*(1 - dist/np.sum(dist))/7.
+                else:
+                    dist, ids = mtree.query(pos[i], k=8)
+                    ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i]*(1 - dist/np.sum(dist))/7.
     else:
         ydata = {}
         if pos.shape[1] == 2:
             for i in wdata.keys():
                 ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
             for i in n:
-                idn = len(mtree.query_ball_point(pos[i], hsml[i]))
-                if idn <= 1:
-                    idn = 4
-                    hsmli = 1.4142135623730951  # sqrt(2)
-                else:
-                    hsmli = hsml[i]
-                dist, ids = mtree.query(pos[i], k=idn)
-                if np.min(dist) < hsmli:
-                    wsph = sphkernel(dist/hsmli)
+                ids = mtree.query_ball_point(pos[i], hsml[i])
+                if len(ids) != 0:
+                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                    wsph = sphkernel(dist/hsml[i])
                     for j in wdata.keys():
                         ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
-                # ids = mtree.query_ball_point(pos[i], hsml[i])
-                # if len(ids) != 0:
-                #     dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                #     wsph = sphkernel(dist/hsml[i])
-                #     for j in wdata.keys():
-                #         ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
-                # else:
-                #     dist, ids = mtree.query(pos[i], k=4)
-                #     for j in wdata.keys():
-                #         ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * (1 - dist/np.sum(dist))/3.
+                else:
+                    dist, ids = mtree.query(pos[i], k=4)
+                    for j in wdata.keys():
+                        ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * (1 - dist/np.sum(dist))/3.
         elif pos.shape[1] == 3:
             for i in wdata.keys():
                 # There is a problem using multiprocessing with (return) really big objects
                 # https://bugs.python.org/issue17560
-                ydata[i] = np.zeros((pxln, pxln, pxlnz), dtype=np.float32)
+                ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in n:
-                idn = len(mtree.query_ball_point(pos[i], hsml[i]))
-                if idn <= 1:
-                    idn = 8
-                    hsmli = 1.7320508075688772  # sqrt(3)
-                else:
-                    hsmli = hsml[i]
-                dist, ids = mtree.query(pos[i], k=idn)
-                if np.min(dist) < hsmli:
-                    wsph = sphkernel(dist/hsmli)
+                ids = mtree.query_ball_point(pos[i], hsml[i])
+                if len(ids) != 0:
+                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                    wsph = sphkernel(dist/hsml[i])
                     for j in wdata.keys():
                         ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
-                # ids = mtree.query_ball_point(pos[i], hsml[i])
-                # if len(ids) != 0:
-                #     dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                #     wsph = sphkernel(dist/hsml[i])
-                #     for j in wdata.keys():
-                #         ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
-                # else:
-                #     dist, ids = mtree.query(pos[i], k=8)
-                #     for j in wdata.keys():
-                #         ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i]*(1-dist/np.sum(dist))/7.
+                else:
+                    dist, ids = mtree.query(pos[i], k=8)
+                    for j in wdata.keys():
+                        ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i]*(1-dist/np.sum(dist))/7.
 
     return ydata
 
 
-def cal_sph_neib(n, idst, dist, pos, pxln, indxyz, pxlnz, sphkernel, wdata):
+def cal_sph_neib(n, idst, dist, pos, pxln, indxyz, sphkernel, wdata):
     if np.max(n) >= pos.shape[0]:
         n = n[n < pos.shape[0]]
 
@@ -305,41 +264,37 @@ def cal_sph_neib(n, idst, dist, pos, pxln, indxyz, pxlnz, sphkernel, wdata):
         if pos.shape[1] == 2:
             ydata = np.zeros((pxln, pxln), dtype=np.float64)
             for i in np.arange(pos.shape[0]):
-                if np.min(dist[i]) < 1.4142135623730951:  # sqrt(2)
-                    ids = idst[i]
-                    wsph = sphkernel(dist[i]/dist[i].max())
-                    ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+                ids = idst[i]
+                wsph = sphkernel(dist[i]/dist[i].max())
+                ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
         elif pos.shape[1] == 3:
-            ydata = np.zeros((pxln, pxln, pxlnz), dtype=np.float32)
+            ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in np.arange(pos.shape[0]):
-                if np.min(dist[i]) < 1.7320508075688772:  # sqrt(2)
-                    ids = idst[i]
-                    wsph = sphkernel(dist[i]/dist[i].max())
-                    ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
+                ids = idst[i]
+                wsph = sphkernel(dist[i]/dist[i].max())
+                ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
     else:
         if pos.shape[1] == 2:
             for i in wdata.keys():
                 ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
             for i in np.arange(pos.shape[0]):
-                if np.min(dist[i]) < 1.4142135623730951:
-                    ids = idst[i]
-                    wsph = sphkernel(dist[i]/dist[i].max())
-                    for j in wdata.keys():
-                        ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
+                ids = idst[i]
+                wsph = sphkernel(dist[i]/dist[i].max())
+                for j in wdata.keys():
+                    ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
         elif pos.shape[1] == 3:
             for i in wdata.keys():
-                ydata[i] = np.zeros((pxln, pxln, pxlnz), dtype=np.float32)
+                ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in np.arange(pos.shape[0]):
-                if np.min(dist[i]) < 1.7320508075688772:
-                    ids = idst[i]
-                    wsph = sphkernel(dist[i]/dist[i].max())
-                    for j in wdata.keys():
-                        ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
+                ids = idst[i]
+                wsph = sphkernel(dist[i]/dist[i].max())
+                for j in wdata.keys():
+                    ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
     return ydata
 
 
 def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=None,
-                  periodic=False, kernel_name='cubic'):
+                  kernel_name='cubic'):
     r"""SPH smoothing for given data
 
     Parameters
@@ -359,9 +314,6 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=Non
                 # I.E. pxln = (max(pos)-min(pos))/pxls
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
-    periodic : periodic condition for the SPH smoothing region. Tyep: bool. Default: False.
-                periodic condition works for the too fine mesh (which means oversmoothing),
-                you can consider turn this on to avoid boundary effects.
     kernel_name : the SPH kernel used to make the smoothing. Type: str.
                 Default : 'cubic'. Since a normalization will applied in the
                 smoothing, the constants in the kernel are always ignored.
@@ -410,7 +362,6 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=Non
 
     if SD == 2:
         pos = (pos - [minx, minx]) / pxls  # in units of pixel size
-        pxlnz = 0
         # nx = np.int32(np.ceil((maxx - minx) / pxls))
         # ny = np.int32(np.ceil((maxy - miny) / pxls))
         x, y = np.meshgrid(np.arange(0.5, pxln, 1.0), np.arange(0.5, pxln, 1.0), indexing='ij')
@@ -428,22 +379,20 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=Non
                 for i in wdata.keys():
                     ydata[i] = np.zeros((pxln, pxln), dtype=np.float32)
     else:
-        # all z-direction data are taken into account
-        pos = (pos - [minx, minx, pos[:, 2].min()]) / pxls
-        pxlnz = np.int32(np.ceil(pos[:, 2].max()))
+        pos = (pos - [minx, minx, minx]) / pxls
         x, y, z = np.meshgrid(np.arange(0.5, pxln, 1.0), np.arange(0.5, pxln, 1.0),
-                              np.arange(0.5, pxlnz, 1.0), indexing='ij')
+                              np.arange(0.5, pxln, 1.0), indexing='ij')
         indxyz = np.concatenate((x.reshape(x.size, 1), y.reshape(y.size, 1),
                                 z.reshape(z.size, 1)), axis=1)
         if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
-            ydata = np.zeros((pxln, pxln, pxlnz), dtype=np.float64)
+            ydata = np.zeros((pxln, pxln, pxln), dtype=np.float64)
         else:
             if len(wdata) > 20:
                 raise ValueError("Too many data to be smoothed %d" % len(wdata))
             else:
                 ydata = {}
                 for i in wdata.keys():
-                    ydata[i] = np.zeros((pxln, pxln, pxlnz), dtype=np.float64)
+                    ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float64)
 
     # Federico's method
     # if hsml is not None:
@@ -460,10 +409,7 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=Non
     #         if wsph[ids].sum() > 0:
     #             ydata[xyz[ids, 0], xyz[ids, 1]] += wdata[i] * wsph[ids] / wsph[ids].sum()
 
-    if periodic:
-        mtree = cKDTree(indxyz, boxsize=pxln)
-    else:
-        mtree = cKDTree(indxyz)
+    mtree = cKDTree(indxyz, boxsize=pxln)
     indxyz = np.int32(indxyz)
 
     freeze_support()
@@ -479,12 +425,12 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=Non
     if hsml is None:  # nearest neighbors
         dist, idst = mtree.query(pos, neighbors)
 
-        Tasks = [(cal_sph_neib, (range(i*N, (i+1)*N), idst, dist, pos, pxln, indxyz, pxlnz,
+        Tasks = [(cal_sph_neib, (range(i*N, (i+1)*N), idst, dist, pos, pxln, indxyz,
                  sphkernel, wdata)) for i in range(NUMBER_OF_PROCESSES)]
     else:  # use hsml
         hsml /= pxls
 
-        Tasks = [(cal_sph_hsml, (range(i*N, (i+1)*N), mtree, pos, hsml, pxln, indxyz,  pxlnz,
+        Tasks = [(cal_sph_hsml, (range(i*N, (i+1)*N), mtree, pos, hsml, pxln, indxyz,
                  sphkernel, wdata)) for i in range(NUMBER_OF_PROCESSES)]
 
     # Submit tasks
@@ -507,6 +453,12 @@ def SPH_smoothing(wdata, pos, pxls, hsml=None, neighbors=64, pxln=None, Ncpu=Non
     for i in range(NUMBER_OF_PROCESSES):
         task_queue.put('STOP')
 
+        #         # for i in range(0, 6):
+        #         #     p = Process(target=cal_sph_2d, args=(range(i*N, (i+1)*N), mtree, pos, hsml,
+        #         #                                          pxln, indxyz, sphkernel, wdata, ydata))
+        #         #     p.start()
+        #         # p.join()
+        #
         #         # for i in np.arange(pos.shape[0]):
         #         #     ids = mtree.query_ball_point(pos[i], hsml[i])
         #         #     if len(ids) != 0:
