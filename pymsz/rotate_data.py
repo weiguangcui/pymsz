@@ -192,7 +192,7 @@ def calculate(func, args):
 # No boundary effects are taken into account!
 def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
     if np.max(n) >= pos.shape[0]:
-        n = n[n < pos.shape[0]]
+        n = np.asarray(n)[np.asarray(n) < pos.shape[0]]
 
     if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
         if pos.shape[1] == 2:
@@ -258,7 +258,7 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
 
 def cal_sph_neib(n, idst, dist, pos, pxln, indxyz, sphkernel, wdata):
     if np.max(n) >= pos.shape[0]:
-        n = n[n < pos.shape[0]]
+        n = np.asarray(n)[np.asarray(n) < pos.shape[0]]
 
     if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
         if pos.shape[1] == 2:
