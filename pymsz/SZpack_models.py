@@ -10,18 +10,6 @@ Chluba, Switzer, Nagai, Nelson, MNRAS, 2012, arXiv:1211.3206
 Many thanks to John ZuHone, who wrote the yt part of this model.
 """
 
-from yt.config import \
-    ytcfg
-from yt.utilities.physical_constants import sigma_thompson, clight, mh
-#  kboltz, Tcmb, hcgs,
-from yt.funcs import fix_axis, get_pbar
-from yt.visualization.volume_rendering.off_axis_projection import \
-    off_axis_projection
-from yt.utilities.parallel_tools.parallel_analysis_interface import \
-    communication_system, parallel_root_only
-# from yt import units
-from yt.utilities.on_demand_imports import _astropy
-
 import numpy as np
 
 # I0 = (2 * (kboltz * Tcmb)**3 / ((hcgs * clight)**2) / units.sr).in_units("MJy/steradian")
@@ -30,15 +18,6 @@ try:
     import SZpack
 except ImportError:
     pass
-
-
-def generate_beta_par(L):
-    def _beta_par(field, data):
-        vpar = data["density"] * (data["velocity_x"] * L[0] +
-                                  data["velocity_y"] * L[1] +
-                                  data["velocity_z"] * L[2])
-        return vpar / clight
-    return _beta_par
 
 
 class SZT_model(object):
@@ -85,7 +64,8 @@ class SZT_model(object):
     >>> szprj = SZProjection(ds, freqs, high_order=True)
     """
 
-    def __init__(self, simudata, freqs, npixel=500, neighbours=None, axis='z', AR=None, redshift=None):
+    def __init__(self, simudata, freqs, npixel=500, neighbours=None, axis='z', AR=None,
+                 redshift=None):
         self.npl = npixel
         self.ngb = neighbours
         self.ax = axis
@@ -108,6 +88,24 @@ class SZT_model(object):
         simd.prep_ss_SZ()
 
     def _cal_yt(self, simd):
+        from yt.config import ytcfg
+        from yt.utilities.physical_constants import sigma_thompson, clight, mh
+        #  kboltz, Tcmb, hcgs,
+        from yt.funcs import fix_axis, get_pbar
+        from yt.visualization.volume_rendering.off_axis_projection import \
+            off_axis_projection
+        from yt.utilities.parallel_tools.parallel_analysis_interface import \
+            communication_system, parallel_root_only
+        # from yt import units
+        from yt.utilities.on_demand_imports import _astropy
+
+        def generate_beta_par(L):
+            def _beta_par(field, data):
+                vpar = data["density"] * (data["velocity_x"] * L[0] +
+                                          data["velocity_y"] * L[1] +
+                                          data["velocity_z"] * L[2])
+                return vpar / clight
+            return _beta_par
         Ptype = simd.prep_yt_SZ()
 
         #     self.ds = ds
