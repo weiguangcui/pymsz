@@ -43,7 +43,8 @@ class TT_model(object):
                 Otherwise, cluster's redshift with AR decides how large the cluster looks.
     SD       : dimensions for SPH smoothing. Type: int. Default: 2.
                 Must be 2 or 3!
-    pxsize   : pixel size of the image. Type: float, unit: kpc/h. Default: None
+    pxsize   : physical/proper pixel size of the image. Type: float, unit: kpc.
+                Default: None
                 If set, this will invaided the calculation from AR.
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
@@ -53,12 +54,14 @@ class TT_model(object):
                 you can turn this on to avoid small boundary effects. So, this is only for SPH.
     redshift : The redshift where the cluster is at.
                 Default : None, we will look it from simulation data.
+                Note : change the cluster redshift will affect the pixel size,
+                etc., which are all in physical units now.
                 If redshift = 0, it will be automatically put into 0.02,
                 unless AR is set to None.
     zthick  : The thickness in projection direction. Default: None.
-                If None, use all data from cutting region. Otherwise set a value in simulation
-                length unit (kpc/h normally), then a slice of data [center-zthick, center+zthick]
-                will be used to make the y-map.
+                If None, use all data from cutting region.
+                Otherwise set a value in simulation length unit (kpc in physical/proper),
+                then a slice of data [center-zthick, center+zthick] will be used to make the y-map.
     sph_kernel : The kernel used to smoothing the y values. Default : "cubic"
                 Choose from 'cubic': cubic spline; 'quartic': quartic spline;
                 'quintic': quintic spline; 'wendland2': Wendland C2; 'wendland4': Wendland C4;
@@ -100,8 +103,6 @@ class TT_model(object):
             raise ValueError("smoothing dimension must be 2 or 3" % SD)
 
         if simudata.data_type == "snapshot":
-            self.cc = simudata.center
-            self.rr = simudata.radius
             self._cal_snap(simudata)
         elif simudata.data_type == "yt_data":
             self._cal_yt(simudata)
@@ -118,7 +119,9 @@ class TT_model(object):
         if self.red is None:
             self.red = simd.cosmology['z']
 
-        pos = rotate_data(simd.pos, self.ax)
+        self.cc = simudata.center/simd.cosmology['h']/(1+self.red)
+        self.rr = simudata.radius/simd.cosmology['h']/(1+self.red)
+        pos = rotate_data(simd.pos/simd.cosmology['h']/(1+self.red), self.ax)  # to proper distance
         if self.zthick is not None:
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
             pos = pos[idc]
@@ -140,6 +143,7 @@ class TT_model(object):
                 hsml = simd.hsml[idc]
             else:
                 hsml = simd.hsml
+            hsml = hsml/simd.cosmology['h']/(1+self.red)
             self.ngb = None
 
         if self.pxs is None:
@@ -153,7 +157,7 @@ class TT_model(object):
                 #     maxz = pos[:, 2].max()
                 #     self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
                 # else:
-                self.pxs = np.min([maxx - minx, maxy - miny]) / self.npl  # only for projected plane
+                self.pxs = np.min([maxx-minx, maxy-miny]) / self.npl  # only for projected plane
 
                 # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
                 # if self.SD == 2:
@@ -171,7 +175,7 @@ class TT_model(object):
                 else:
                     print('No cosmology loaded, assume WMAP7')
                     cosmo = WMAP7
-                self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']  # in kpc/h
+                self.pxs = self.ar/cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
 
         # cut out unused data
         idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
@@ -183,13 +187,15 @@ class TT_model(object):
         # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
 
         if self.SD == 2:
-            self.ydata = SPH_smoothing(Tszdata[idc], pos[:, :2], self.pxs, hsml=hsml,
-                                       neighbors=self.ngb, pxln=self.npl, Ncpu=self.ncpu,
+            self.ydata = SPH_smoothing(Tszdata[idc], pos[:, :2], self.pxs,
+                                       hsml=hsml, neighbors=self.ngb,
+                                       pxln=self.npl, Ncpu=self.ncpu,
                                        periodic=self.periodic, kernel_name=self.sph_kn)
         else:
             # be ware that zthick could cause some problems if it is larger than pxs*npl!!
             # This has been taken in care in the rotate_data function.
-            self.ydata = SPH_smoothing(Tszdata[idc], pos, self.pxs, hsml=hsml, neighbors=self.ngb,
+            self.ydata = SPH_smoothing(Tszdata[idc], pos, self.pxs, hsml=hsml,
+                                       neighbors=self.ngb,
                                        pxln=self.npl, Ncpu=self.ncpu, periodic=self.periodic,
                                        kernel_name=self.sph_kn)
             self.ydata = np.sum(self.ydata, axis=2)
@@ -240,7 +246,7 @@ class TT_model(object):
         hdu.header["RCVAL1"] = float(self.cc[0])
         hdu.header["RCVAL2"] = float(self.cc[1])
         hdu.header["RCVAL3"] = float(self.cc[2])
-        hdu.header["UNITS"] = "kpc/h"
+        hdu.header["UNITS"] = "kpc"
         hdu.header["ORAD"] = float(self.rr)
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header["PSIZE"] = float(self.pxs)
@@ -271,7 +277,7 @@ class TK_model(object):
                 Otherwise, cluster's redshift with AR decides how large the cluster looks.
     SD       : dimensions for SPH smoothing. Type: int. Default: 2.
                 Must be 2 or 3!
-    pxsize   : pixel size of the image. Type: float, unit: kpc/h. Default: None
+    pxsize   : pixel size of the image. Type: float, unit: kpc. Default: None
                 If set, this will invaided the calculation from AR.
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
@@ -285,7 +291,7 @@ class TK_model(object):
                 unless AR is set to None.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region. Otherwise set a value in simulation
-                length unit (kpc/h normally), then a slice of data [center-zthick, center+zthick]
+                length unit (kpc normally), then a slice of data [center-zthick, center+zthick]
                 will be used to make the y-map.
     sph_kernel : The kernel used to smoothing the y values. Default : "cubic"
                 Choose from 'cubic': cubic spline; 'quartic': quartic spline;
@@ -329,8 +335,6 @@ class TK_model(object):
             raise ValueError("smoothing dimension must be 2 or 3" % SD)
 
         if simudata.data_type == "snapshot":
-            self.cc = simudata.center
-            self.rr = simudata.radius
             self._cal_snap(simudata)
         elif simudata.data_type == "yt_data":
             self._cal_yt(simudata)
@@ -346,9 +350,11 @@ class TK_model(object):
         if self.red is None:
             self.red = simd.cosmology['z']
 
+        self.cc = simudata.center/simd.cosmology['h']/(1+self.red)
+        self.rr = simudata.radius/simd.cosmology['h']/(1+self.red)
         if self.zthick is not None:
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
-            pos = pos[idc]
+            pos = pos[idc]/simd.cosmology['h']/(1+self.red)
             Kszdata = simd.Kszdata[idc]
         else:
             Kszdata = simd.Kszdata
@@ -361,6 +367,7 @@ class TK_model(object):
                 hsml = simd.hsml[idc]
             else:
                 hsml = simd.hsml
+            hsml = hsml/simd.cosmology['h']/(1+self.red)
             self.ngb = None
 
         if self.pxs is None:
@@ -380,7 +387,7 @@ class TK_model(object):
                                           Om0=simd.cosmology['omega_matter'])
                 else:
                     cosmo = WMAP7
-                self.pxs = self.ar / cosmo.arcsec_per_kpc_comoving(self.red).value * simd.cosmology['h']  # in kpc/h
+                self.pxs = self.ar / cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc/h
 
         # cut out unused data
         idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
@@ -421,7 +428,7 @@ class TK_model(object):
         hdu.header["RCVAL1"] = float(self.cc[0])
         hdu.header["RCVAL2"] = float(self.cc[1])
         hdu.header["RCVAL3"] = float(self.cc[2])
-        hdu.header["UNITS"] = "kpc/h"
+        hdu.header["UNITS"] = "kpc"
         hdu.header["ORAD"] = float(self.rr)
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header["PSIZE"] = float(self.pxs)
