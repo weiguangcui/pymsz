@@ -126,7 +126,7 @@ class load_data(object):
             self.Tszdata = np.array([])  # prep_ss_TT
             self.Kszdata = np.array([])  # prep_ss_KT
 
-            self.tau = np.array([])  # prep_ss_SZ
+            self.tau = np.array([])  # prep_ss_SZT
             self.Te = np.array([])
             self.bpar = np.array([])
             self.omega = np.array([])
@@ -363,7 +363,7 @@ class load_data(object):
                 self.Kszdata = constKsz*self.ne*self.mass*vel/self.mu
 
     # prepare for mock observation model calculations
-    def prep_ss_SZT(self, force_redo=False):
+    def prep_ss_SZ(self, force_redo=False):
         if len(self.tau) is 0 or force_redo:
             self.tau = cs * self.rho * self.mueinv / Mp
 
@@ -435,7 +435,7 @@ class load_data(object):
 
         return Ptype
 
-    def prep_yt_SZT(self, conserved_smooth=False, force_redo=False):
+    def prep_yt_SZ(self, conserved_smooth=False, force_redo=False):
         def _t_squared(field, data):
             return data["gas", "density"] * data["gas", "kT"] * data["gas", "kT"]
         self.yt_ds.add_field(("gas", "t_squared"), function=_t_squared,
