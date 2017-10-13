@@ -227,22 +227,20 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
         if pos.shape[1] == 2:
             ydata = np.zeros((pxln, pxln), dtype=np.float64)
             for i in n:
-                ids = (mtree.query_ball_point(pos[i], hsml[i]))
-                # old no periodic calculation
-                # ids = mtree.query_ball_point(pos[i], hsml[i])
-                # if len(ids) != 0:
-                #     dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-                #     wsph = sphkernel(dist/hsml[i])
-                #     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
-                # else:  # we also add particles with hsml < pixel size to its nearest four pixels.
-                #     #    Then, the y-map looks no smoothed (with some noisy pixels).
-                #     dist, ids = mtree.query(pos[i], k=4)
-                #     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * (1 - dist/np.sum(dist))/3.
+                ids = mtree.query_ball_point(pos[i], hsml[i])
+                if len(ids) < 4:
+                    dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
+                    wsph = sphkernel(dist/hsml[i])
+                    ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
+                else:  # we also add particles with hsml < pixel size to its nearest four pixels.
+                    #    Then, the y-map looks no smoothed (with some noisy pixels).
+                    dist, ids = mtree.query(pos[i], k=4)
+                    ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * (1 - dist/np.sum(dist))/3.
         elif pos.shape[1] == 3:
             ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in n:
                 ids = mtree.query_ball_point(pos[i], hsml[i])
-                if len(ids) != 0:
+                if len(ids) < 8:
                     dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
                     wsph = sphkernel(dist/hsml[i])
                     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
@@ -256,7 +254,7 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                 ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
             for i in n:
                 ids = mtree.query_ball_point(pos[i], hsml[i])
-                if len(ids) != 0:
+                if len(ids) < 4:
                     dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
                     wsph = sphkernel(dist/hsml[i])
                     for j in wdata.keys():
@@ -272,7 +270,7 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                 ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in n:
                 ids = mtree.query_ball_point(pos[i], hsml[i])
-                if len(ids) != 0:
+                if len(ids) < 4:
                     dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
                     wsph = sphkernel(dist/hsml[i])
                     for j in wdata.keys():
@@ -281,7 +279,6 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                     dist, ids = mtree.query(pos[i], k=8)
                     for j in wdata.keys():
                         ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]] += wdata[j][i]*(1-dist/np.sum(dist))/7.
-
     return ydata
 
 
