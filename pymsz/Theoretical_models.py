@@ -119,8 +119,8 @@ class TT_model(object):
         if self.red is None:
             self.red = simd.cosmology['z']
 
-        self.cc = simudata.center/simd.cosmology['h']/(1+self.red)
-        self.rr = simudata.radius/simd.cosmology['h']/(1+self.red)
+        self.cc = simd.center/simd.cosmology['h']/(1+self.red)
+        self.rr = simd.radius/simd.cosmology['h']/(1+self.red)
         pos = rotate_data(simd.pos/simd.cosmology['h']/(1+self.red), self.ax)  # to proper distance
         if self.zthick is not None:
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
@@ -350,8 +350,8 @@ class TK_model(object):
         if self.red is None:
             self.red = simd.cosmology['z']
 
-        self.cc = simudata.center/simd.cosmology['h']/(1+self.red)
-        self.rr = simudata.radius/simd.cosmology['h']/(1+self.red)
+        self.cc = simd.center/simd.cosmology['h']/(1+self.red)
+        self.rr = simd.radius/simd.cosmology['h']/(1+self.red)
         if self.zthick is not None:
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
             pos = pos[idc]/simd.cosmology['h']/(1+self.red)
