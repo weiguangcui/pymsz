@@ -10,9 +10,10 @@ def rotate_data(pos, axis, vel=None):
     Parameter:
     ----------
     pos     : input data points in 3D.
-    axis    : can be 'x', 'y', 'z' (must be 2D), or a list of degrees [alpha, beta, gamma],
-              which will rotate the data points by $\alpha$ around the x-axis,
-              $\beta$ around the y-axis, and $\gamma$ around the z-axis
+    axis    : can be 'x', 'y', 'z' (must be 2D), or a list or numpy array of degrees
+              [alpha, beta, gamma], which will rotate the data points by $\alpha$ around
+              the x-axis, $\beta$ around the y-axis, and $\gamma$ around the z-axis.
+              or a numpy arrya with the rotation matrix directly, must be 3x3 matrix.
     vel     : 3D velocity of the input data points. Default: None
                 Otherwise, rotate_data will also return the velocity in the axis direction.
     Notes:
@@ -67,8 +68,36 @@ def rotate_data(pos, axis, vel=None):
                 return np.dot(pos, Rxyz), np.dot(vel, Rxyz)[:, 2]
         else:
             raise ValueError("Do not accept this value %s for projection" % axis)
+    elif isinstance(axis, type(np.array([]))):
+        if len(axis.shape) == 1:
+            sa, ca = np.sin(axis[0] / 180. *
+                            np.pi), np.cos(axis[0] / 180. * np.pi)
+            sb, cb = np.sin(axis[1] / 180. *
+                            np.pi), np.cos(axis[1] / 180. * np.pi)
+            sg, cg = np.sin(axis[2] / 180. *
+                            np.pi), np.cos(axis[2] / 180. * np.pi)
+            # ratation matrix from
+            # http://inside.mines.edu/fs_home/gmurray/ArbitraryAxisRotation/
+            Rxyz = np.array(
+                [[cb * cg, cg * sa * sb - ca * sg, ca * cg * sb + sa * sg],
+                 [cb * sg, ca * cg + sa * sb * sg, ca * sb * sg - cg * sa],
+                 [-sb,     cb * sa,                ca * cb]], dtype=np.float64)
+            if vel is None:
+                return np.dot(pos, Rxyz)
+            else:
+                return np.dot(pos, Rxyz), np.dot(vel, Rxyz)[:, 2]
+        elif len(axis.shape) == 2:
+            if axis.shape[0] == axis.shape[1] == 3:
+                if vel is None:
+                    return np.dot(pos, axis)
+                else:
+                    return np.dot(pos, axis), np.dot(vel, axis)[:, 2]
+            else:
+                ValueError("Axis shape is not 3x3: ", axis.shape)
+        else:
+            raise ValueError("Do not accept this shape of axis %s for projection!" % axis)
     else:
-        raise ValueError("Do not accept this value %s for projection" % axis)
+        raise ValueError("Do not accept this value %s for projection!" % axis)
 
 
 # For SPH kernels, we always use the total weights = 1,
