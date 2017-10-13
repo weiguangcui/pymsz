@@ -93,7 +93,7 @@ def rotate_data(pos, axis, vel=None):
                 else:
                     return np.dot(pos, axis), np.dot(vel, axis)[:, 2]
             else:
-                ValueError("Axis shape is not 3x3: ", axis.shape)
+                raise ValueError("Axis shape is not 3x3: ", axis.shape)
         else:
             raise ValueError("Do not accept this shape of axis %s for projection!" % axis)
     else:
