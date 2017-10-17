@@ -182,7 +182,7 @@ class load_data(object):
         else:
             raise ValueError("Can't get gas velocity, which is required")
         r = np.sqrt(np.sum(self.pos**2, axis=1))
-        self.vel -= np.mean(self.vel[r < 30.], axis=1)  # remove halo motion
+        self.vel -= np.mean(self.vel[r < 30.], axis=0)  # remove halo motion
 
         # Temperature
         if self.mu is None:
