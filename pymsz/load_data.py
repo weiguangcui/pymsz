@@ -220,12 +220,12 @@ class load_data(object):
 
         # Electron fraction
         self.ne = readsnapsgl(self.filename, "NE  ", quiet=True)
-        yhelium = 0.07894736842105263  # ( 1. - xH ) / ( 4 * xH )hydrogen mass-fraction (xH)
+        yhelium = 0.07894736842105263  # ( 1. - xH ) / ( 4 * xH )hydrogen mass-fraction (xH) = n_He/n_H
         if self.ne is not 0:
             self.ne = self.ne[ids]
             self.mmw = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
         else:
-            self.mmw = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # full ionized
+            self.mmw = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
             if self.mu is None:
                 # full ionized without taking metal into account. What about metal?
                 self.ne = np.ones(self.rho.size) * (4.0 / self.mmw - 3.28) / 3.04
@@ -234,11 +234,9 @@ class load_data(object):
                 self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
 
         # Change NE (electron number fraction respected to H number density in simulation)
-        Zs = readsnapsgl(self.filename, "Zs  ", quiet=True)
-        if Zs is not 0:
-            self.ne *= (1 - self.metal - Zs[ids, 0])
-        else:
-            self.ne *= (1 - self.metal - 0.24)  # assume constant Y = 0.24
+        # M/mmw/mp gives the total nH+nHe+ne! To get the ne, which = self.ne*nH, we reexpress this as ne*Q_NE.
+        # Q_NE is given in self.ne in below.
+        self.ne = (1. + yhelium + self.ne)/self.ne
 
         # we need to remove some spurious particles.... if there is a MHI or SRF block
         # see Klaus's doc or Borgani et al. 2003 for detials.
@@ -352,18 +350,18 @@ class load_data(object):
         if len(self.Tszdata) is 0 or force_redo:  # only need to prepare once
             constTsz = 1.0e10*M_sun*self.cosmology["h"]*Kb*cs/me/Mp/c**2/Kpc**2
             if self.mu is None:
-                self.Tszdata = constTsz*self.ne*self.mass*self.temp/self.mmw
+                self.Tszdata = constTsz*self.mass*self.temp/self.mmw/self.ne
             else:
-                self.Tszdata = constTsz*self.ne*self.mass*self.temp/self.mu
+                self.Tszdata = constTsz*self.mass*self.temp/self.mu/self.ne
             # now Tszdata is dimensionless y_i, and can divided pixel size in kpc/h directly later
 
     def prep_ss_KT(self, vel, force_redo=False):
         if len(self.Kszdata) is 0 or force_redo:  # only need to prepare once
             constKsz = 1.0e15*M_sun*self.cosmology["h"]*cs/Mp/c/Kpc**2  # velocity in km/s -> cm/s
             if self.mu is None:
-                self.Kszdata = constKsz*self.ne*self.mass*vel/self.mmw
+                self.Kszdata = constKsz*self.mass*vel/self.mmw/self.ne
             else:
-                self.Kszdata = constKsz*self.ne*self.mass*vel/self.mu
+                self.Kszdata = constKsz*self.mass*vel/self.mu/self.ne
 
     # prepare for mock observation model calculations
     def prep_ss_SZ(self, force_redo=False):
