@@ -181,7 +181,7 @@ class load_data(object):
             self.vel = self.vel[ids] * np.sqrt(self.cosmology["a"])  # to peculiar velocity
         else:
             raise ValueError("Can't get gas velocity, which is required")
-        r = np.sqrt(np.sum((self.pos - self.center)**2, axis=1))
+        r = np.sqrt(np.sum(self.pos**2, axis=1))
         self.vel -= np.mean(self.vel[r < 30.], axis=1)  # remove halo motion
 
         # Temperature
