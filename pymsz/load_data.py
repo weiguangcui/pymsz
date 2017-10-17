@@ -173,6 +173,7 @@ class load_data(object):
             ids = np.ones(head[0][0], dtype=bool)
             self.center = np.median(spos, axis=0)
             self.pos = spos - self.center
+            ids = np.ones(self.pos.shape[0], dtype=np.bool)
 
         # velocity
         self.vel = readsnapsgl(self.filename, "VEL ", ptype=0, quiet=True)
@@ -180,6 +181,8 @@ class load_data(object):
             self.vel = self.vel[ids] * np.sqrt(self.cosmology["a"])  # to peculiar velocity
         else:
             raise ValueError("Can't get gas velocity, which is required")
+        r = np.sqrt(np.sum((self.pos - self.center)**2, axis=1))
+        self.vel -= np.mean(self.vel[r < 30.], axis=1)  # remove halo motion
 
         # Temperature
         if self.mu is None:
