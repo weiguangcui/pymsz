@@ -169,9 +169,9 @@ class load_data(object):
             # r = np.sqrt(np.sum((spos - self.center)**2, axis=1))
             # ids = r <= self.radius  # increase to get all the projected data
             # Now using cubic box to get the data
-            ids = (spos[:,0]>=self.center[0]-self.radius)&(spos[:,0]<=self.center[0]+self.radius) &
-                  (spos[:,1]>=self.center[1]-self.radius)&(spos[:,1]<=self.center[1]+self.radius) &
-                  (spos[:,2]>=self.center[2]-self.radius)&(spos[:,2]<=self.center[2]+self.radius)
+            ids = (spos[:,0]>=self.center[0]-self.radius) & (spos[:,0]<=self.center[0]+self.radius) &
+                    (spos[:,1]>=self.center[1]-self.radius) & (spos[:,1]<=self.center[1]+self.radius) &
+                    (spos[:,2]>=self.center[2]-self.radius) & (spos[:,2]<=self.center[2]+self.radius)
             self.pos = spos[ids] - self.center
         else:
             ids = np.ones(head[0][0], dtype=bool)
