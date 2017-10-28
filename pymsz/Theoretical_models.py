@@ -29,7 +29,9 @@ class TT_model(object):
     ----------
     simudata : the simulation data from load_data
     npixel   : number of pixels for your image, int.
-                Assume that x-y have the same number of pixels
+                Assume that x-y always have the same number of pixels.
+                It can be set to 'AUTO', then it will be decided by the halo radius and AR.
+                Therefore, npixel='AUTO' and AR=0 / pxsize=None can not be set at the same time!
     axis     : can be 'x', 'y', 'z', or a list of degrees [alpha, beta, gamma],
                which will rotate the data points by $\alpha$ around the x-axis,
                $\beta$ around the y-axis, and $\gamma$ around the z-axis
@@ -38,7 +40,7 @@ class TT_model(object):
                 neighbours, HSML from the simulation will be ignored.
                 If no HSML provided in the simulation, neighbours = 27
     AR       : angular resolution in arcsec.
-                Default : 0, which gives npixel = 2 * cluster radius
+                Default : 0, which gives pixel size = 2 * cluster radius/npixel
                 and ignores the cluster's redshift.
                 Otherwise, cluster's redshift with AR decides how large the cluster looks.
     SD       : dimensions for SPH smoothing. Type: int. Default: 2.
@@ -127,7 +129,7 @@ class TT_model(object):
             pos = pos[idc]
             Tszdata = simd.Tszdata[idc]
         else:
-            Tszdata = simd.Tszdata
+            Tszdata = np.copy(simd.Tszdata)
         # if simd.radius is not None:
         #     idc = (pos[:, 2] > -1 * simd.radius) & (pos[:, 2] <= simd.radius) & \
         #           (pos[:, 0] > -1 * simd.radius) & (pos[:, 0] <= simd.radius) & \
@@ -142,7 +144,7 @@ class TT_model(object):
             if self.zthick is not None:
                 hsml = simd.hsml[idc]
             else:
-                hsml = simd.hsml
+                hsml = np.copy(simd.hsml)
             hsml = hsml/simd.cosmology['h']/(1+self.red)
             self.ngb = None
 
@@ -157,7 +159,10 @@ class TT_model(object):
                 #     maxz = pos[:, 2].max()
                 #     self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
                 # else:
-                self.pxs = np.min([maxx-minx, maxy-miny]) / self.npl  # only for projected plane
+                if self.npl == 'AUTO'
+                    raise ValueError("npixel size can not be set to AUTO with AR=0!")
+                else:
+                    self.pxs = np.min([maxx-minx, maxy-miny]) / self.npl  # only for projected plane
 
                 # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
                 # if self.SD == 2:
@@ -176,24 +181,28 @@ class TT_model(object):
                     print('No cosmology loaded, assume WMAP7')
                     cosmo = WMAP7
                 self.pxs = self.ar/cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
+                if self.npl == 'AUTO':
+                    self.npl = np.int32(self.rr/self.pxs)+1
 
         # cut out unused data
-        idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
-            (pos[:, 1] >= -self.npl*self.pxs/2.) & (pos[:, 1] <= self.npl*self.pxs/2.)
-        pos = pos[idc]
-        if hsml is not None:
-            hsml = hsml[idc]
+        if self.npl != 'AUTO':
+            idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
+                (pos[:, 1] >= -self.npl*self.pxs/2.) & (pos[:, 1] <= self.npl*self.pxs/2.)
+            pos = pos[idc]
+            Tszdata = Tszdata[idc]
+            if hsml is not None:
+                hsml = hsml[idc]
 
         # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
 
         if self.SD == 2:
-            self.ydata = SPH_smoothing(Tszdata[idc], pos[:, :2], self.pxs, hsml=hsml,
+            self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
                                        neighbors=self.ngb, pxln=self.npl, Ncpu=self.ncpu,
                                        kernel_name=self.sph_kn)
         else:
             # be ware that zthick could cause some problems if it is larger than pxs*npl!!
             # This has been taken in care in the rotate_data function.
-            self.ydata = SPH_smoothing(Tszdata[idc], pos, self.pxs, hsml=hsml,
+            self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml,
                                        neighbors=self.ngb, pxln=self.npl,
                                        Ncpu=self.ncpu, kernel_name=self.sph_kn)
             self.ydata = np.sum(self.ydata, axis=2)
@@ -261,7 +270,9 @@ class TK_model(object):
     ----------
     simudata : the simulation data from load_data
     npixel   : number of pixels for your image, int.
-                Assume that x-y have the same number of pixels
+                Assume that x-y always have the same number of pixels.
+                It can be set to 'AUTO', then it will be decided by the halo radius and AR.
+                Therefore, npixel='AUTO' and AR=0 / pxsize=None can not be set at the same time!
     axis     : can be 'x', 'y', 'z', or a list of degrees [alpha, beta, gamma],
                which will rotate the data points by $\alpha$ around the x-axis,
                $\beta$ around the y-axis, and $\gamma$ around the z-axis
@@ -270,7 +281,7 @@ class TK_model(object):
                 neighbours, HSML from the simulation will be ignored.
                 If no HSML provided in the simulation, neighbours = 27
     AR       : angular resolution in arcsec.
-                Default : 0, which gives npixel = 2 * cluster radius
+                Default : 0, which gives pixel size = 2 * cluster radius/npixel
                 and ignores the cluster's redshift.
                 Otherwise, cluster's redshift with AR decides how large the cluster looks.
     SD       : dimensions for SPH smoothing. Type: int. Default: 2.
@@ -355,7 +366,7 @@ class TK_model(object):
             pos = pos[idc]/simd.cosmology['h']/(1+self.red)
             Kszdata = simd.Kszdata[idc]
         else:
-            Kszdata = simd.Kszdata
+            Kszdata = np.copy(simd.Kszdata)
 
         if isinstance(simd.hsml, type(0)):
             self.ngb = 27
@@ -364,7 +375,7 @@ class TK_model(object):
             if self.zthick is not None:
                 hsml = simd.hsml[idc]
             else:
-                hsml = simd.hsml
+                hsml = np.copy(simd.hsml)
             hsml = hsml/simd.cosmology['h']/(1+self.red)
             self.ngb = None
 
@@ -376,7 +387,10 @@ class TK_model(object):
                 maxy = pos[:, 1].max()
                 minz = pos[:, 2].min()
                 maxz = pos[:, 2].max()
-                self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
+                if self.npl == 'AUTO'
+                    raise ValueError("npixel size can not be set to AUTO with AR=0!")
+                else:
+                    self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
             else:
                 if self.red <= 0.0:
                     self.red = 0.02
@@ -385,21 +399,25 @@ class TK_model(object):
                                           Om0=simd.cosmology['omega_matter'])
                 else:
                     cosmo = WMAP7
-                self.pxs = self.ar / cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc/h
+                self.pxs = self.ar / cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
+                if self.npl == 'AUTO':
+                    self.npl = np.int32(self.rr/self.pxs)+1
 
         # cut out unused data
-        idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
-            (pos[:, 1] >= -self.npl*self.pxs/2.) & (pos[:, 1] <= self.npl*self.pxs/2.)
-        pos = pos[idc]
-        if hsml is not None:
-            hsml = hsml[idc]
+        if self.npl != 'AUTO':
+            idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
+                (pos[:, 1] >= -self.npl*self.pxs/2.) & (pos[:, 1] <= self.npl*self.pxs/2.)
+            pos = pos[idc]
+            Kszdata = Kszdata[idc]
+            if hsml is not None:
+                hsml = hsml[idc]
 
         if self.SD == 2:
-            self.bdata = SPH_smoothing(Kszdata[idc], pos[:, :2], self.pxs, hsml=hsml,
+            self.bdata = SPH_smoothing(Kszdata, pos[:, :2], self.pxs, hsml=hsml,
                                        neighbors=self.ngb, pxln=self.npl, Ncpu=self.ncpu,
                                        kernel_name=self.sph_kn)
         else:
-            self.bdata = SPH_smoothing(Kszdata[idc], pos, self.pxs, hsml=hsml, neighbors=self.ngb,
+            self.bdata = SPH_smoothing(Kszdata, pos, self.pxs, hsml=hsml, neighbors=self.ngb,
                                        pxln=self.npl, Ncpu=self.ncpu, kernel_name=self.sph_kn)
             self.bdata = np.sum(self.bdata, axis=2)
         self.bdata = self.bdata.T
