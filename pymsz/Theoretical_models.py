@@ -159,7 +159,7 @@ class TT_model(object):
                 #     maxz = pos[:, 2].max()
                 #     self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
                 # else:
-                if self.npl == 'AUTO'
+                if self.npl == 'AUTO':
                     raise ValueError("npixel size can not be set to AUTO with AR=0!")
                 else:
                     self.pxs = np.min([maxx-minx, maxy-miny]) / self.npl  # only for projected plane
@@ -387,7 +387,7 @@ class TK_model(object):
                 maxy = pos[:, 1].max()
                 minz = pos[:, 2].min()
                 maxz = pos[:, 2].max()
-                if self.npl == 'AUTO'
+                if self.npl == 'AUTO':
                     raise ValueError("npixel size can not be set to AUTO with AR=0!")
                 else:
                     self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
