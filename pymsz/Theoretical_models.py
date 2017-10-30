@@ -39,10 +39,8 @@ class TT_model(object):
                 If this is set, it will force the SPH particles smoothed into nearby N
                 neighbours, HSML from the simulation will be ignored.
                 If no HSML provided in the simulation, neighbours = 27
-    AR       : angular resolution in arcsec.
-                Default : 0, which gives pixel size = 2 * cluster radius/npixel
-                and ignores the cluster's redshift.
-                Otherwise, cluster's redshift with AR decides how large the cluster looks.
+    AR       : angular resolution in arcsec. Default : None.
+                Cluster's redshift with AR decides the image pixel size.
     SD       : dimensions for SPH smoothing. Type: int. Default: 2.
                 Must be 2 or 3!
     pxsize   : physical/proper pixel size of the image. Type: float, unit: kpc.
@@ -58,8 +56,8 @@ class TT_model(object):
                 Default : None, we will look it from simulation data.
                 Note : change the cluster redshift will affect the pixel size,
                 etc., which are all in physical units now.
-                If redshift = 0, it will be automatically put into 0.02,
-                unless AR is set to None.
+                If redshift = 0, the returning results will be y_int, i.e. y*d^2_A,
+                takes out the angular diameter distance.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region.
                 Otherwise set a value in simulation length unit (kpc in physical/proper),
@@ -79,14 +77,15 @@ class TT_model(object):
 
     Notes
     -----
-
+    If AR and pxsize are None or redshift == 0, the image pixel size = 2 * cluster radius/npixel.
+    This program does not accpte both AR and pxsize != None.
 
     Example
     -------
     mm=pymsz.TT_models(simudata, 1024, "z")
     """
 
-    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=0, SD=2, pxsize=None,
+    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=None, SD=2, pxsize=None,
                  Ncpu=None, redshift=None, zthick=None, sph_kernel='cubic'):
         self.npl = npixel
         self.ngb = neighbours
@@ -100,6 +99,7 @@ class TT_model(object):
         self.ncpu = Ncpu
         self.ydata = np.array([])
         self.sph_kn = sph_kernel
+        self.ad = 1.  # angular diameter distance
 
         if self.SD not in [2, 3]:
             raise ValueError("smoothing dimension must be 2 or 3" % SD)
@@ -182,7 +182,7 @@ class TT_model(object):
                     cosmo = WMAP7
                 self.pxs = self.ar/cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
                 if self.npl == 'AUTO':
-                    self.npl = np.int32(self.rr/self.pxs)+1
+                    self.npl = np.int32(self.rr*2/self.pxs)+1
 
         # cut out unused data
         if self.npl != 'AUTO':
