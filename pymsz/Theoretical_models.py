@@ -61,7 +61,7 @@ class TT_model(object):
                 2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region.
-                Otherwise set a value in simulation length unit (kpc in physical/proper),
+                Otherwise set a value in simulation length unit kpc/h normally,
                 then a slice of data [center-zthick, center+zthick] will be used to make the y-map.
     sph_kernel : The kernel used to smoothing the y values. Default : "cubic"
                 Choose from 'cubic': cubic spline; 'quartic': quartic spline;
@@ -131,6 +131,7 @@ class TT_model(object):
         self.rr = simd.radius/simd.cosmology['h']/(1+self.red)
         pos = rotate_data(simd.pos/simd.cosmology['h']/(1+self.red), self.ax)  # to proper distance
         if self.zthick is not None:
+            self.zthick = self.zthick/simd.cosmology['h']/(1+self.red)
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
             pos = pos[idc]
             Tszdata = simd.Tszdata[idc]
@@ -299,7 +300,7 @@ class TK_model(object):
                 2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region. Otherwise set a value in simulation
-                length unit (kpc normally), then a slice of data [center-zthick, center+zthick]
+                length unit (kpc/h normally), then a slice of data [center-zthick, center+zthick]
                 will be used to make the y-map.
     sph_kernel : The kernel used to smoothing the y values. Default : "cubic"
                 Choose from 'cubic': cubic spline; 'quartic': quartic spline;
@@ -358,7 +359,7 @@ class TK_model(object):
 
     def _cal_snap(self, simd):
 
-        pos, vel = rotate_data(simd.pos, self.ax, vel=simd.vel)
+        pos, vel = rotate_data(simd.pos/simd.cosmology['h']/(1+self.red), self.ax, vel=simd.vel)
         simd.prep_ss_KT(vel)
 
         if self.red is None:
@@ -369,8 +370,9 @@ class TK_model(object):
         self.cc = simd.center/simd.cosmology['h']/(1+self.red)
         self.rr = simd.radius/simd.cosmology['h']/(1+self.red)
         if self.zthick is not None:
+            self.zthick = self.zthick/simd.cosmology['h']/(1+self.red)
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
-            pos = pos[idc]/simd.cosmology['h']/(1+self.red)
+            pos = pos[idc]
             Kszdata = simd.Kszdata[idc]
         else:
             Kszdata = np.copy(simd.Kszdata)
