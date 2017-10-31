@@ -356,7 +356,7 @@ class load_data(object):
     # prepare for Theoretical model calculations
     def prep_ss_TT(self, force_redo=False):  # Now everything need to be in physical
         if len(self.Tszdata) is 0 or force_redo:  # only need to prepare once
-            constTsz = 1.0e10 * M_sun * self.cosmology["h"] * Kb * cs / me / Mp / c**2 / Kpc**2
+            constTsz = 1.0e10 * M_sun / self.cosmology["h"] * Kb * cs / me / Mp / c**2
             if self.mu is None:
                 self.Tszdata = constTsz * self.mass * self.temp / self.mmw / self.ne
             else:
@@ -365,8 +365,7 @@ class load_data(object):
 
     def prep_ss_KT(self, vel, force_redo=False):
         if len(self.Kszdata) is 0 or force_redo:  # only need to prepare once
-            constKsz = 1.0e15 * M_sun * self.cosmology["h"] * \
-                cs / Mp / c / Kpc**2  # velocity in km/s -> cm/s
+            constKsz = 1.0e15 * M_sun / self.cosmology["h"] * cs / Mp / c  # velocity in km/s -> cm/s
             if self.mu is None:
                 self.Kszdata = constKsz * self.mass * vel / self.mmw / self.ne
             else:
