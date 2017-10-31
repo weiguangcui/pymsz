@@ -232,7 +232,7 @@ class load_data(object):
         if self.ne is not 0:
             self.ne = self.ne[ids]
             self.mmw = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
-        else:
+        else:  # calculate NE from mean mol weight
             self.mmw = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
             if self.mu is None:
                 # full ionized without taking metal into account. What about metal?
