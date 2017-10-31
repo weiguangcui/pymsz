@@ -169,12 +169,12 @@ class load_data(object):
             # r = np.sqrt(np.sum((spos - self.center)**2, axis=1))
             # ids = r <= self.radius  # increase to get all the projected data
             # Now using cubic box to get the data
-            ids = (spos[:,0]>=self.center[0]-self.radius) & \
-                    (spos[:,0]<=self.center[0]+self.radius) & \
-                    (spos[:,1]>=self.center[1]-self.radius) & \
-                    (spos[:,1]<=self.center[1]+self.radius) & \
-                    (spos[:,2]>=self.center[2]-self.radius) & \
-                    (spos[:,2]<=self.center[2]+self.radius)
+            ids = (spos[:, 0] >= self.center[0] - self.radius) & \
+                (spos[:, 0] <= self.center[0] + self.radius) & \
+                (spos[:, 1] >= self.center[1] - self.radius) & \
+                (spos[:, 1] <= self.center[1] + self.radius) & \
+                (spos[:, 2] >= self.center[2] - self.radius) & \
+                (spos[:, 2] <= self.center[2] + self.radius)
             self.pos = spos[ids] - self.center
         else:
             ids = np.ones(head[0][0], dtype=bool)
@@ -227,7 +227,8 @@ class load_data(object):
 
         # Electron fraction
         self.ne = readsnapsgl(self.filename, "NE  ", quiet=True)
-        yhelium = 0.07894736842105263  # ( 1. - xH ) / ( 4 * xH )hydrogen mass-fraction (xH) = n_He/n_H
+        # ( 1. - xH ) / ( 4 * xH )hydrogen mass-fraction (xH) = n_He/n_H
+        yhelium = 0.07894736842105263
         if self.ne is not 0:
             self.ne = self.ne[ids]
             self.mmw = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
@@ -243,7 +244,7 @@ class load_data(object):
         # Change NE (electron number fraction respected to H number density in simulation)
         # M/mmw/mp gives the total nH+nHe+ne! To get the ne, which = self.ne*nH, we reexpress this as ne*Q_NE.
         # Q_NE is given in self.ne in below.
-        self.ne = (1. + yhelium + self.ne)/self.ne
+        self.ne = (1. + yhelium + self.ne) / self.ne
 
         # we need to remove some spurious particles.... if there is a MHI or SRF block
         # see Klaus's doc or Borgani et al. 2003 for detials.
@@ -355,20 +356,21 @@ class load_data(object):
     # prepare for Theoretical model calculations
     def prep_ss_TT(self, force_redo=False):  # Now everything need to be in physical
         if len(self.Tszdata) is 0 or force_redo:  # only need to prepare once
-            constTsz = 1.0e10*M_sun*self.cosmology["h"]*Kb*cs/me/Mp/c**2/Kpc**2
+            constTsz = 1.0e10 * M_sun * self.cosmology["h"] * Kb * cs / me / Mp / c**2 / Kpc**2
             if self.mu is None:
-                self.Tszdata = constTsz*self.mass*self.temp/self.mmw/self.ne
+                self.Tszdata = constTsz * self.mass * self.temp / self.mmw / self.ne
             else:
-                self.Tszdata = constTsz*self.mass*self.temp/self.mu/self.ne
+                self.Tszdata = constTsz * self.mass * self.temp / self.mu / self.ne
             # now Tszdata is dimensionless y_i, and can divided pixel size in kpc/h directly later
 
     def prep_ss_KT(self, vel, force_redo=False):
         if len(self.Kszdata) is 0 or force_redo:  # only need to prepare once
-            constKsz = 1.0e15*M_sun*self.cosmology["h"]*cs/Mp/c/Kpc**2  # velocity in km/s -> cm/s
+            constKsz = 1.0e15 * M_sun * self.cosmology["h"] * \
+                cs / Mp / c / Kpc**2  # velocity in km/s -> cm/s
             if self.mu is None:
-                self.Kszdata = constKsz*self.mass*vel/self.mmw/self.ne
+                self.Kszdata = constKsz * self.mass * vel / self.mmw / self.ne
             else:
-                self.Kszdata = constKsz*self.mass*vel/self.mu/self.ne
+                self.Kszdata = constKsz * self.mass * vel / self.mu / self.ne
 
     # prepare for mock observation model calculations
     def prep_ss_SZ(self, force_redo=False):
