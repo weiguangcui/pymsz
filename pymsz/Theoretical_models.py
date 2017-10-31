@@ -31,7 +31,7 @@ class TT_model(object):
     npixel   : number of pixels for your image, int.
                 Assume that x-y always have the same number of pixels.
                 It can be set to 'AUTO', then it will be decided by the halo radius and AR.
-                Therefore, npixel='AUTO' and AR=0 / pxsize=None can not be set at the same time!
+                So, npixel='AUTO' and AR=None can not be set at the same time!
     axis     : can be 'x', 'y', 'z', or a list of degrees [alpha, beta, gamma],
                which will rotate the data points by $\alpha$ around the x-axis,
                $\beta$ around the y-axis, and $\gamma$ around the z-axis
@@ -41,11 +41,12 @@ class TT_model(object):
                 If no HSML provided in the simulation, neighbours = 27
     AR       : angular resolution in arcsec. Default : None.
                 Cluster's redshift with AR decides the image pixel size.
+                If None, the whole cluster will be projected to the image with npixel resolution.
     SD       : dimensions for SPH smoothing. Type: int. Default: 2.
                 Must be 2 or 3!
-    pxsize   : physical/proper pixel size of the image. Type: float, unit: kpc.
-                Default: None
-                If set, this will invaided the calculation from AR.
+    # pxsize   : physical/proper pixel size of the image. Type: float, unit: kpc.
+    #             Default: None
+    #             If set, this will invaided the calculation from AR.
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
                 Note, this parallel calculation is only for the SPH smoothing.
@@ -54,10 +55,10 @@ class TT_model(object):
     #             you can turn this on to avoid small boundary effects. So, this is only for SPH.
     redshift : The redshift where the cluster is at.
                 Default : None, we will look it from simulation data.
-                Note : change the cluster redshift will affect the pixel size,
-                etc., which are all in physical units now.
-                If redshift = 0, the returning results will be y_int, i.e. y*d^2_A,
-                takes out the angular diameter distance.
+                Note : If redshift = 0, the returning results will be y_int, i.e. y*d^2_A,
+                which takes out the angular diameter distance.
+                This will also ingore the set of AR. The image pixel size =
+                2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region.
                 Otherwise set a value in simulation length unit (kpc in physical/proper),
@@ -77,15 +78,16 @@ class TT_model(object):
 
     Notes
     -----
-    If AR and pxsize are None or redshift == 0, the image pixel size = 2 * cluster radius/npixel.
-    This program does not accpte both AR and pxsize != None.
+    This program does not accpte redshift=0 or AR == None with npixel = "AUTO".
+    If npixel is "AUTO" and AR != None, then the whole cluster will project to the image with
+    npixel = 2*radius/pixelsize, where pxielsize is given by AR.
 
     Example
     -------
-    mm=pymsz.TT_models(simudata, 1024, "z")
+    mm=pymsz.TT_models(simudata, npixel=1024, "z")
     """
 
-    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=None, SD=2, pxsize=None,
+    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=None, SD=2,
                  Ncpu=None, redshift=None, zthick=None, sph_kernel='cubic'):
         self.npl = npixel
         self.ngb = neighbours
@@ -93,14 +95,16 @@ class TT_model(object):
         self.ar = AR
         self.red = redshift
         self.zthick = zthick
-        self.pxs = pxsize
+        self.pxs = None
         self.SD = SD
         # self.periodic = periodic
         self.ncpu = Ncpu
         self.ydata = np.array([])
         self.sph_kn = sph_kernel
-        self.ad = 1.  # angular diameter distance
+        self.ad = 3.0856775809623245e+21  # angular diameter distance normalized to 1 kpc
 
+        if self.ar is None and self.npl == 'AUTO':
+            raise ValueError("Do not accept AR == None and npixel=='AUTO' !!")
         if self.SD not in [2, 3]:
             raise ValueError("smoothing dimension must be 2 or 3" % SD)
 
@@ -120,6 +124,8 @@ class TT_model(object):
 
         if self.red is None:
             self.red = simd.cosmology['z']
+        if self.red <= 0. and self.npl == 'AUTO':
+            raise ValueError("Do not accept redshift == 0 and npixel=='AUTO' !!")
 
         self.cc = simd.center/simd.cosmology['h']/(1+self.red)
         self.rr = simd.radius/simd.cosmology['h']/(1+self.red)
@@ -148,38 +154,27 @@ class TT_model(object):
             hsml = hsml/simd.cosmology['h']/(1+self.red)
             self.ngb = None
 
-        if self.pxs is None:
-            if self.ar is 0:
-                minx = pos[:, 0].min()
-                maxx = pos[:, 0].max()
-                miny = pos[:, 1].min()
-                maxy = pos[:, 1].max()
-                # if self.SD == 3:
-                #     minz = pos[:, 2].min()
-                #     maxz = pos[:, 2].max()
-                #     self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
-                # else:
-                if self.npl == 'AUTO':
-                    raise ValueError("npixel size can not be set to AUTO with AR=0!")
-                else:
-                    self.pxs = np.min([maxx-minx, maxy-miny]) / self.npl  # only for projected plane
-
-                # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
-                # if self.SD == 2:
-                #     self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
-                #                                neighbors=self.ngb, kernel_name=self.sph_kn)
-                # else:
-                #     self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml,
-                #                                neighbors=self.ngb, kernel_name=self.sph_kn)
+        if self.npl != 'AUTO':
+            minx = pos[:, 0].min()
+            maxx = pos[:, 0].max()
+            miny = pos[:, 1].min()
+            maxy = pos[:, 1].max()
+            # if self.SD == 3:
+            #     minz = pos[:, 2].min()
+            #     maxz = pos[:, 2].max()
+            #     self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
+            # else:
+            self.pxs = np.min([maxx-minx, maxy-miny]) / self.npl  # only for projected plane
+        if self.red > 0.:
+            if simd.cosmology['omega_matter'] != 0:
+                cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100,
+                                      Om0=simd.cosmology['omega_matter'])
             else:
-                if self.red <= 0.0:
-                    self.red = 0.02
-                if simd.cosmology['omega_matter'] != 0:
-                    cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100,
-                                          Om0=simd.cosmology['omega_matter'])
-                else:
-                    print('No cosmology loaded, assume WMAP7')
-                    cosmo = WMAP7
+                print('No cosmology loaded, assume WMAP7!')
+                cosmo = WMAP7
+            self.ad = cosmo.angular_diameter_distance(self.red).to("cm").value  # in cm
+
+            if self.ar is not None:
                 self.pxs = self.ar/cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
                 if self.npl == 'AUTO':
                     self.npl = np.int32(self.rr*2/self.pxs)+1
@@ -207,7 +202,7 @@ class TT_model(object):
                                        Ncpu=self.ncpu, kernel_name=self.sph_kn)
             self.ydata = np.sum(self.ydata, axis=2)
         self.ydata = self.ydata.T
-        self.ydata /= self.pxs**2
+        self.ydata /= self.ad**2
 
     def _cal_yt(self, simd):
         # from yt.units import cm
@@ -254,7 +249,7 @@ class TT_model(object):
         hdu.header["RCVAL2"] = float(self.cc[1])
         hdu.header["RCVAL3"] = float(self.cc[2])
         hdu.header["UNITS"] = "kpc"
-        hdu.header["ORAD"] = float(self.rr)
+        hdu.header["RADIUS"] = float(self.rr)
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header["PSIZE"] = float(self.pxs)
         hdu.header["AGLRES"] = float(self.ar)
@@ -272,7 +267,7 @@ class TK_model(object):
     npixel   : number of pixels for your image, int.
                 Assume that x-y always have the same number of pixels.
                 It can be set to 'AUTO', then it will be decided by the halo radius and AR.
-                Therefore, npixel='AUTO' and AR=0 / pxsize=None can not be set at the same time!
+                So, npixel='AUTO' and AR=None can not be set at the same time!
     axis     : can be 'x', 'y', 'z', or a list of degrees [alpha, beta, gamma],
                which will rotate the data points by $\alpha$ around the x-axis,
                $\beta$ around the y-axis, and $\gamma$ around the z-axis
@@ -280,14 +275,13 @@ class TK_model(object):
                 If this is set, it will force the SPH particles smoothed into nearby N
                 neighbours, HSML from the simulation will be ignored.
                 If no HSML provided in the simulation, neighbours = 27
-    AR       : angular resolution in arcsec.
-                Default : 0, which gives pixel size = 2 * cluster radius/npixel
-                and ignores the cluster's redshift.
-                Otherwise, cluster's redshift with AR decides how large the cluster looks.
+    AR       : angular resolution in arcsec. Default : None.
+                Cluster's redshift with AR decides the image pixel size.
+                If None, the whole cluster will be projected to the image with npixel resolution.
     SD       : dimensions for SPH smoothing. Type: int. Default: 2.
                 Must be 2 or 3!
-    pxsize   : pixel size of the image. Type: float, unit: kpc. Default: None
-                If set, this will invaided the calculation from AR.
+    # pxsize   : pixel size of the image. Type: float, unit: kpc. Default: None
+    #             If set, this will invaided the calculation from AR.
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
                 This parallel calculation is only for the SPH smoothing.
@@ -296,8 +290,10 @@ class TK_model(object):
     #             you can consider turn this on to avoid boundary effects. So, this is also for SPH.
     redshift : The redshift where the cluster is at.
                 Default : None, we will look it from simulation data.
-                If redshift = 0, it will be automatically put into 0.02,
-                unless AR is set to None.
+                Note : If redshift = 0, the returning results will be y_int, i.e. y*d^2_A,
+                which takes out the angular diameter distance.
+                This will also ingore the set of AR. The image pixel size =
+                2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region. Otherwise set a value in simulation
                 length unit (kpc normally), then a slice of data [center-zthick, center+zthick]
@@ -309,7 +305,7 @@ class TK_model(object):
 
     Returns
     -------
-    Theoretical projected b-map in a given direction. 2D mesh data right now.
+    Theoretical projected omega-map in a given direction. 2D mesh data right now.
 
     See also
     --------
@@ -317,15 +313,18 @@ class TK_model(object):
 
     Notes
     -----
-
+    The retrun is omega map, not the delta T_{kSZ}!, which equals omega*T_{cmb} ~ 2.73 k
+    This program does not accpte redshift=0 or AR == None with npixel = "AUTO".
+    If npixel is "AUTO" and AR != None, then the whole cluster will project to the image with
+    npixel = 2*radius/pixelsize, where pxielsize is given by AR.
 
     Example
     -------
-    mm=pymsz.TK_models(simudata, 1024, "z")
+    mm=pymsz.TK_models(simudata, npixel=1024, "z")
     mm.bdata  # this contains the b-map
     """
 
-    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=0, SD=2, pxsize=None,
+    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=0, SD=2,
                  Ncpu=None, redshift=None, zthick=None, sph_kernel='cubic'):
         self.npl = npixel
         self.ngb = neighbours
@@ -335,11 +334,14 @@ class TK_model(object):
         # self.periodic = periodic
         self.red = redshift
         self.zthick = zthick
-        self.pxs = pxsize
+        self.pxs = None
         self.SD = SD
         self.bdata = np.array([])
         self.sph_kn = sph_kernel
+        self.ad = 3.0856775809623245e+21  # angular diameter distance normalized to 1 kpc
 
+        if self.ar is None and self.npl == 'AUTO':
+            raise ValueError("Do not accept AR == None and npixel=='AUTO' !!")
         if self.SD not in [2, 3]:
             raise ValueError("smoothing dimension must be 2 or 3" % SD)
 
@@ -358,6 +360,8 @@ class TK_model(object):
 
         if self.red is None:
             self.red = simd.cosmology['z']
+        if self.red <= 0. and self.npl == 'AUTO':
+            raise ValueError("Do not accept redshift == 0 and npixel=='AUTO' !!")
 
         self.cc = simd.center/simd.cosmology['h']/(1+self.red)
         self.rr = simd.radius/simd.cosmology['h']/(1+self.red)
@@ -379,29 +383,27 @@ class TK_model(object):
             hsml = hsml/simd.cosmology['h']/(1+self.red)
             self.ngb = None
 
-        if self.pxs is None:
-            if self.ar is 0:
-                minx = pos[:, 0].min()
-                maxx = pos[:, 0].max()
-                miny = pos[:, 1].min()
-                maxy = pos[:, 1].max()
-                minz = pos[:, 2].min()
-                maxz = pos[:, 2].max()
-                if self.npl == 'AUTO':
-                    raise ValueError("npixel size can not be set to AUTO with AR=0!")
-                else:
-                    self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
+        if self.npl != 'AUTO':
+            minx = pos[:, 0].min()
+            maxx = pos[:, 0].max()
+            miny = pos[:, 1].min()
+            maxy = pos[:, 1].max()
+            minz = pos[:, 2].min()
+            maxz = pos[:, 2].max()
+            self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
+        if self.red > 0.:
+            if simd.cosmology['omega_matter'] != 0:
+                cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100,
+                                      Om0=simd.cosmology['omega_matter'])
             else:
-                if self.red <= 0.0:
-                    self.red = 0.02
-                if simd.cosmology['omega_matter'] != 0:
-                    cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100,
-                                          Om0=simd.cosmology['omega_matter'])
-                else:
-                    cosmo = WMAP7
+                print('No cosmology loaded, assume WMAP7!')
+                cosmo = WMAP7
+            self.ad = cosmo.angular_diameter_distance(self.red).to("cm").value  # in cm
+
+            if self.ar is not None:
                 self.pxs = self.ar / cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
                 if self.npl == 'AUTO':
-                    self.npl = np.int32(self.rr/self.pxs)+1
+                    self.npl = np.int32(self.rr*2/self.pxs)+1
 
         # cut out unused data
         if self.npl != 'AUTO':
@@ -421,7 +423,7 @@ class TK_model(object):
                                        pxln=self.npl, Ncpu=self.ncpu, kernel_name=self.sph_kn)
             self.bdata = np.sum(self.bdata, axis=2)
         self.bdata = self.bdata.T
-        self.bdata /= self.pxs**2
+        self.bdata /= self.ad**2
 
     def write_fits_image(self, fname, clobber=False):
         r"""
@@ -444,7 +446,7 @@ class TK_model(object):
         hdu.header["RCVAL2"] = float(self.cc[1])
         hdu.header["RCVAL3"] = float(self.cc[2])
         hdu.header["UNITS"] = "kpc"
-        hdu.header["ORAD"] = float(self.rr)
+        hdu.header["RADIUS"] = float(self.rr)
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header["PSIZE"] = float(self.pxs)
         hdu.header["AGLRES"] = float(self.ar)
