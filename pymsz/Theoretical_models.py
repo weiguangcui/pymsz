@@ -252,7 +252,10 @@ class TT_model(object):
         hdu.header["RADIUS"] = float(self.rr)
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header["PSIZE"] = float(self.pxs)
-        hdu.header["AGLRES"] = float(self.ar)
+        if self.ar is None:
+            hdu.header["AGLRES"] = 0
+        else:
+            hdu.header["AGLRES"] = float(self.ar)
         hdu.header["NOTE"] = ""
         hdu.writeto(fname, clobber=clobber)
 
@@ -449,6 +452,9 @@ class TK_model(object):
         hdu.header["RADIUS"] = float(self.rr)
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header["PSIZE"] = float(self.pxs)
-        hdu.header["AGLRES"] = float(self.ar)
+        if self.ar is None:
+            hdu.header["AGLRES"] = 0
+        else:
+            hdu.header["AGLRES"] = float(self.ar)
         hdu.header["NOTE"] = ""
         hdu.writeto(fname, clobber=clobber)
