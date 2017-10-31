@@ -101,7 +101,7 @@ class TT_model(object):
         self.ncpu = Ncpu
         self.ydata = np.array([])
         self.sph_kn = sph_kernel
-        self.ad = 3.0856775809623245e+21  # angular diameter distance normalized to 1 kpc
+        self.ad = 1.  # angular diameter distance normalized to 1 kpc
 
         if self.ar is None and self.npl == 'AUTO':
             raise ValueError("Do not accept AR == None and npixel=='AUTO' !!")
@@ -172,7 +172,7 @@ class TT_model(object):
             else:
                 print('No cosmology loaded, assume WMAP7!')
                 cosmo = WMAP7
-            self.ad = cosmo.angular_diameter_distance(self.red).to("cm").value  # in cm
+            self.ad = cosmo.angular_diameter_distance(self.red).to("kpc").value  # in cm
 
             if self.ar is not None:
                 self.pxs = self.ar/cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
@@ -338,7 +338,7 @@ class TK_model(object):
         self.SD = SD
         self.bdata = np.array([])
         self.sph_kn = sph_kernel
-        self.ad = 3.0856775809623245e+21  # angular diameter distance normalized to 1 kpc
+        self.ad = 1.  # angular diameter distance normalized to 1 kpc
 
         if self.ar is None and self.npl == 'AUTO':
             raise ValueError("Do not accept AR == None and npixel=='AUTO' !!")
@@ -398,7 +398,7 @@ class TK_model(object):
             else:
                 print('No cosmology loaded, assume WMAP7!')
                 cosmo = WMAP7
-            self.ad = cosmo.angular_diameter_distance(self.red).to("cm").value  # in cm
+            self.ad = cosmo.angular_diameter_distance(self.red).to("kpc").value  # in cm
 
             if self.ar is not None:
                 self.pxs = self.ar / cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
