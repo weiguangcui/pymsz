@@ -359,7 +359,7 @@ class TK_model(object):
 
     def _cal_snap(self, simd):
 
-        pos, vel = rotate_data(simd.pos/simd.cosmology['h']/(1+simd.cosmology['z']), self.ax, vel=simd.vel)
+        pos, vel = rotate_data(simd.pos, self.ax, vel=simd.vel)
         simd.prep_ss_KT(vel)
 
         if self.red is None:
@@ -369,6 +369,7 @@ class TK_model(object):
 
         self.cc = simd.center/simd.cosmology['h']/(1+simd.cosmology['z'])
         self.rr = simd.radius/simd.cosmology['h']/(1+simd.cosmology['z'])
+        pos = pos/simd.cosmology['h']/(1+simd.cosmology['z'])
         if self.zthick is not None:
             self.zthick = self.zthick/simd.cosmology['h']/(1+simd.cosmology['z'])
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
