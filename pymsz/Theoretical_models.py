@@ -127,11 +127,11 @@ class TT_model(object):
         if self.red <= 0. and self.npl == 'AUTO':
             raise ValueError("Do not accept redshift == 0 and npixel=='AUTO' !!")
 
-        self.cc = simd.center/simd.cosmology['h']/(1+self.red)
-        self.rr = simd.radius/simd.cosmology['h']/(1+self.red)
-        pos = rotate_data(simd.pos/simd.cosmology['h']/(1+self.red), self.ax)  # to proper distance
+        self.cc = simd.center/simd.cosmology['h']/(1+simd.cosmology['z'])
+        self.rr = simd.radius/simd.cosmology['h']/(1+simd.cosmology['z'])
+        pos = rotate_data(simd.pos/simd.cosmology['h']/(1+simd.cosmology['z']), self.ax)  # to proper distance
         if self.zthick is not None:
-            self.zthick = self.zthick/simd.cosmology['h']/(1+self.red)
+            self.zthick = self.zthick/simd.cosmology['h']/(1+simd.cosmology['z'])
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
             pos = pos[idc]
             Tszdata = simd.Tszdata[idc]
@@ -152,7 +152,7 @@ class TT_model(object):
                 hsml = simd.hsml[idc]
             else:
                 hsml = np.copy(simd.hsml)
-            hsml = hsml/simd.cosmology['h']/(1+self.red)
+            hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
             self.ngb = None
 
         if self.npl != 'AUTO':
@@ -359,7 +359,7 @@ class TK_model(object):
 
     def _cal_snap(self, simd):
 
-        pos, vel = rotate_data(simd.pos/simd.cosmology['h']/(1+self.red), self.ax, vel=simd.vel)
+        pos, vel = rotate_data(simd.pos/simd.cosmology['h']/(1+simd.cosmology['z']), self.ax, vel=simd.vel)
         simd.prep_ss_KT(vel)
 
         if self.red is None:
@@ -367,10 +367,10 @@ class TK_model(object):
         if self.red <= 0. and self.npl == 'AUTO':
             raise ValueError("Do not accept redshift == 0 and npixel=='AUTO' !!")
 
-        self.cc = simd.center/simd.cosmology['h']/(1+self.red)
-        self.rr = simd.radius/simd.cosmology['h']/(1+self.red)
+        self.cc = simd.center/simd.cosmology['h']/(1+simd.cosmology['z'])
+        self.rr = simd.radius/simd.cosmology['h']/(1+simd.cosmology['z'])
         if self.zthick is not None:
-            self.zthick = self.zthick/simd.cosmology['h']/(1+self.red)
+            self.zthick = self.zthick/simd.cosmology['h']/(1+simd.cosmology['z'])
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
             pos = pos[idc]
             Kszdata = simd.Kszdata[idc]
@@ -385,7 +385,7 @@ class TK_model(object):
                 hsml = simd.hsml[idc]
             else:
                 hsml = np.copy(simd.hsml)
-            hsml = hsml/simd.cosmology['h']/(1+self.red)
+            hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
             self.ngb = None
 
         if self.npl != 'AUTO':
