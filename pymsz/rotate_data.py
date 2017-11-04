@@ -232,7 +232,7 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                 dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
                 wsph = sphkernel(dist / hsml[i])
                 # devided by len(ids) is to change N_e to number density
-                ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum() / len(ids)
+                ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * wsph / wsph.sum()
                 # else:  # we also add particles with hsml < pixel size to its nearest four pixels.
                 #     #    Then, the y-map looks no smoothed (with some noisy pixels).
                 #     dist, ids = mtree.query(pos[i], k=4)
@@ -246,7 +246,7 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                 dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
                 wsph = sphkernel(dist / hsml[i])
                 ydata[indxyz[ids, 0], indxyz[ids, 1],
-                      indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum() / len(ids)
+                      indxyz[ids, 2]] += wdata[i] * wsph / wsph.sum()
                 # else:
                 #     dist, ids = mtree.query(pos[i], k=8)
                 #     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]
@@ -262,7 +262,7 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                 dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
                 wsph = sphkernel(dist / hsml[i])
                 for j in wdata.keys():
-                    ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum() / len(ids)
+                    ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * wsph / wsph.sum()
                 # else:
                 #     dist, ids = mtree.query(pos[i], k=4)
                 #     for j in wdata.keys():
@@ -280,7 +280,7 @@ def cal_sph_hsml(n, mtree, pos, hsml, pxln, indxyz, sphkernel, wdata):
                 wsph = sphkernel(dist / hsml[i])
                 for j in wdata.keys():
                     ydata[j][indxyz[ids, 0], indxyz[ids, 1],
-                             indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum() / len(ids)
+                             indxyz[ids, 2]] += wdata[j][i] * wsph / wsph.sum()
                 # else:
                 #     dist, ids = mtree.query(pos[i], k=8)
                 #     for j in wdata.keys():
