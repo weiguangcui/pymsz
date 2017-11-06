@@ -280,7 +280,7 @@ class load_data(object):
             if self.hsml is not 0:
                 self.hsml = self.hsml[ids_ex]
             else:
-                self.hsml = (3 * self.mass / self.pos / 4 / np.pi)**(1. / 3.)  # approximate
+                self.hsml = (3 * self.mass / self.rho / 4 / np.pi)**(1. / 3.)  # approximate
             if self.mmw is not None:
                 self.mmw = self.mmw[ids_ex]
 
