@@ -1,6 +1,6 @@
 # README
 
-This README would normally document whatever steps are necessary to get your application up and running.
+Please note that PyMSZ is still in developing mode.
 
 ### What is this repository for?
 
