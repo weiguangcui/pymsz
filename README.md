@@ -1,6 +1,6 @@
 # README
 
-**__Please note that PyMSZ is still in developing mode.__**
+<span style="color:red">some **Please note that PyMSZ is still in developing mode.** text</span>
 
 ### What is this repository for?
 
