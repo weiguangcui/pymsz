@@ -1,6 +1,6 @@
 # README
 
-This README would normally document whatever steps are necessary to get your application up and running.
+<span style="color:red"> **Please note that PyMSZ is still in developing mode.** </span>
 
 ### What is this repository for?
 
