@@ -80,9 +80,11 @@ class load_data(object):
 
     ---------- If you only need parts of loaded data. Specify center and radius
     center      : The center of a sphere for the data you want to get.
-                  Default : None
+                  Default : None, whole data will load.
     radius      : The radius of a sphere for the data you want to get.
-                  Default : None
+                  Default : None, whole data will be used.
+    hmrad       : Radius for calculation halo motion, which is used for calculating the kSZ effect.
+                  Default : None, the give radius will be used.
 
     Notes
     -----
@@ -98,7 +100,7 @@ class load_data(object):
     """
 
     def __init__(self, filename='', metal=None, mu=None, snapshot=False, yt_load=False,
-                 specified_field=None, n_ref=None, datafile=False, center=None, radius=None):
+                 specified_field=None, n_ref=None, datafile=False, center=None, radius=None, hmrad=None):
         self.center = center
         self.radius = radius
         self.filename = filename
@@ -110,6 +112,7 @@ class load_data(object):
             raise ValueError("Do not accept this metal %f." % metal)
         self.mu = mu
         self.n_ref = n_ref
+        self.hmrad = hmrad
 
         if snapshot:
             self.data_type = "snapshot"
@@ -188,8 +191,13 @@ class load_data(object):
             self.vel = self.vel[ids] * np.sqrt(self.cosmology["a"])  # to peculiar velocity
         else:
             raise ValueError("Can't get gas velocity, which is required")
-        r = np.sqrt(np.sum(self.pos**2, axis=1))
-        self.vel -= np.mean(self.vel[r < 30.], axis=0)  # remove halo motion
+        # Althoug the halo motion should be the mean of all particles
+        # It is very close to only use gas particles. Besides little effect to the final result.
+        if self.hmrad is None:
+            self.vel -= np.mean(self.vel, axis=0)  # remove halo motion
+        else:
+            r = np.sqrt(np.sum(self.pos**2, axis=1))
+            self.vel -= np.mean(self.vel[r<self.hmrad], axis=0)
 
         # Temperature
         if self.mu is None:
