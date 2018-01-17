@@ -381,7 +381,7 @@ class load_data(object):
             #     self.Tszdata = constTsz * self.mass * self.temp / self.mu / self.ne
             # now Tszdata is dimensionless y_i, and can divided pixel size in kpc/h directly later
 
-    def prep_ss_KT(self, vel, force_redo=False):
+    def prep_ss_KT(self, vel):
         # need to calculate Kszdata for each projection, because vel chagnes!!
         constKsz = 1.0e15 * M_sun / self.cosmology["h"] * cs / Mp / c / Kpc**2  # velocity in km/s -> cm/s
         self.Kszdata = constKsz * self.mass * vel * self.X * self.ne
