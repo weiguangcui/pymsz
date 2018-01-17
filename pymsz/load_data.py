@@ -197,7 +197,7 @@ class load_data(object):
             self.vel -= np.mean(self.vel, axis=0)  # remove halo motion
         else:
             r = np.sqrt(np.sum(self.pos**2, axis=1))
-            self.vel -= np.mean(self.vel[r<self.hmrad], axis=0)
+            self.vel -= np.mean(self.vel[r < self.hmrad], axis=0)
 
         # Temperature
         if self.mu is None:
@@ -251,9 +251,9 @@ class load_data(object):
 
         Zs = readsnapsgl(self.filename, "Zs  ", quiet=True)
         if Zs is not 0:
-            self.X = 1 - self.metal - Zs[:,0]/self.mass # hydrogen mass fraction assume Tornatore et al. 2007.
+            self.X = 1 - self.metal - Zs[:, 0]/self.mass  # hydrogen mass fraction assume Tornatore et al. 2007.
         else:
-            self.X = 1 - self.metal - 0.24 # simply assume He=0.24
+            self.X = 1 - self.metal - 0.24  # simply assume He=0.24
             # Now self.X is hydrogen mass fraction, electron number = M*X/m_H*NE
         # else:  # for no matalicity!
         #     # Change NE (electron number fraction respected to H number density in simulation)
@@ -382,13 +382,13 @@ class load_data(object):
             # now Tszdata is dimensionless y_i, and can divided pixel size in kpc/h directly later
 
     def prep_ss_KT(self, vel, force_redo=False):
-        if len(self.Kszdata) is 0 or force_redo:  # only need to prepare once
-            constKsz = 1.0e15 * M_sun / self.cosmology["h"] * cs / Mp / c / Kpc**2  # velocity in km/s -> cm/s
-            self.Kszdata = constKsz * self.mass * vel * self.X * self.ne
-            # if self.mu is None:
-            #     self.Kszdata = constKsz * self.mass * vel / self.mmw / self.ne
-            # else:
-            #     self.Kszdata = constKsz * self.mass * vel / self.mu / self.ne
+        # need to calculate Kszdata for each projection, because vel chagnes!!
+        constKsz = 1.0e15 * M_sun / self.cosmology["h"] * cs / Mp / c / Kpc**2  # velocity in km/s -> cm/s
+        self.Kszdata = constKsz * self.mass * vel * self.X * self.ne
+        # if self.mu is None:
+        #     self.Kszdata = constKsz * self.mass * vel / self.mmw / self.ne
+        # else:
+        #     self.Kszdata = constKsz * self.mass * vel / self.mu / self.ne
 
     # prepare for mock observation model calculations
     def prep_ss_SZ(self, force_redo=False):
