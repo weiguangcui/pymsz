@@ -249,7 +249,7 @@ class load_data(object):
             else:
                 self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
 
-        Zs = readsnapsgl(self.filename, "Zs  ", quiet=True)
+        Zs = readsnapsgl(self.filename, "Zs  ", ptype=0, quiet=True)
         if Zs is not 0:
             self.X = 1 - self.metal - Zs[:, 0]/self.mass  # hydrogen mass fraction assume Tornatore et al. 2007.
         else:
