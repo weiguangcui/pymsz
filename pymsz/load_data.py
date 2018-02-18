@@ -251,7 +251,7 @@ class load_data(object):
 
         Zs = readsnapsgl(self.filename, "Zs  ", ptype=0, quiet=True)
         if Zs is not 0:
-            self.X = 1 - self.metal - Zs[:, 0]/self.mass  # hydrogen mass fraction assume Tornatore et al. 2007.
+            self.X = 1 - self.metal - Zs[:, 0][ids]/self.mass  # hydrogen mass fraction assume Tornatore et al. 2007.
         else:
             self.X = 1 - self.metal - 0.24  # simply assume He=0.24
             # Now self.X is hydrogen mass fraction, electron number = M*X/m_H*NE
