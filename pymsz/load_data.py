@@ -84,7 +84,8 @@ class load_data(object):
     radius      : The radius of a sphere for the data you want to get.
                   Default : None, whole data will be used.
     hmrad       : Radius for calculation halo motion, which is used for calculating the kSZ effect.
-                  Default : None, the give radius will be used.
+                  Default : None, the halo motion are given by the mean of all particles.
+                  0 or nagative value for not removing halo motion.
 
     Notes
     -----
@@ -196,8 +197,9 @@ class load_data(object):
         if self.hmrad is None:
             self.vel -= np.mean(self.vel, axis=0)  # remove halo motion
         else:
-            r = np.sqrt(np.sum(self.pos**2, axis=1))
-            self.vel -= np.mean(self.vel[r < self.hmrad], axis=0)
+            if self.hmrad>0:
+                r = np.sqrt(np.sum(self.pos**2, axis=1))
+                self.vel -= np.mean(self.vel[r < self.hmrad], axis=0)
 
         # Temperature
         if self.mu is None:
