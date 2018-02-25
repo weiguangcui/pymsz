@@ -222,7 +222,8 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                 # no "Z   " in the data, which needs to calculate it from "Zs  " block
                 subdata = read_block(npf, "Zs  ", endian, True, longid, fmt, pty, rawdata)
                 if subdata is None:
-                    raise ValueError("Can't find the 'Zs  ' block for calculate metallicity!")
+                    print("Can't find the 'Zs  ' block for calculate metallicity!")
+                    return(0)
                 if ptype == 0:
                     if masstbl[0] > 0:
                         mass = np.zeros(npart[0], dtype=masstbl.dtype) + masstbl[0]
