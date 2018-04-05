@@ -11,16 +11,11 @@ Many thanks to John ZuHone, who wrote the yt part of this model.
 """
 
 import numpy as np
-
+import SZpack
 # I0 = (2 * (kboltz * Tcmb)**3 / ((hcgs * clight)**2) / units.sr).in_units("MJy/steradian")
 
-try:
-    import SZpack
-except ImportError:
-    pass
 
-
-class SZT_model(object):
+class SZpack_model(object):
     r""" Theoretical calculation of y and T_sz -map for the thermal SZ effect.
     model = TH_model(model_file, npixel, axis)
 

@@ -16,10 +16,10 @@ class InstallSZpack(install, object):
 
     def _compile_and_install_software(self):
         """Used the subprocess module to compile the C software."""
-        src_path = './pymsz/SZpack.v1.1.1/'
+        src_path = './pymsz/SZpacklib/'
 
         print("making SZpack models...")
-        subprocess.check_call('make all; make SZpack.py', cwd=src_path, shell=True)
+        subprocess.check_call('make all; make SZpack.py; ', cwd=src_path, shell=True)
 
 
 def read(fname):
@@ -41,9 +41,10 @@ setup(
              '*README*',
              #  'models/*.model',
              #  'filters/*',
-             #  'refs/*',
-             'SZpack.v1.1.1/SZpack.py',
-             'SZpack.v1.1.1/libSZpack.a']},
+             # 'SZpacklib/__init__.py',
+             # 'SZpacklib/SZpack.py',
+             'SZpacklib/libSZpack.a'
+             ]},
     license="BSD",
     include_package_data=True,
     keywords='astronomy astrophysics hydro-dynamical simulation mock observation',

@@ -197,7 +197,7 @@ class load_data(object):
         if self.hmrad is None:
             self.vel -= np.mean(self.vel, axis=0)  # remove halo motion
         else:
-            if self.hmrad>0:
+            if self.hmrad > 0:
                 r = np.sqrt(np.sum(self.pos**2, axis=1))
                 self.vel -= np.mean(self.vel[r < self.hmrad], axis=0)
 
