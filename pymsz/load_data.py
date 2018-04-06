@@ -126,6 +126,7 @@ class load_data(object):
             self.X = 0
             self.hsml = 0
             self.cosmology = {}  # default wmap7
+            self.bulkvel = np.array([])
 
             self.Tszdata = np.array([])  # prep_ss_TT
             self.Kszdata = np.array([])  # prep_ss_KT
@@ -194,12 +195,14 @@ class load_data(object):
             raise ValueError("Can't get gas velocity, which is required")
         # Althoug the halo motion should be the mean of all particles
         # It is very close to only use gas particles. Besides little effect to the final result.
+        self.bulkvel = np.mean(self.vel, axis=0)  # bulk velocity is given by mean
         if self.hmrad is None:
-            self.vel -= np.mean(self.vel, axis=0)  # remove halo motion
+            self.vel -= self.bulkvel  # remove halo motion
         else:
-            if self.hmrad > 0:
+            if self.hmrad > 0:  # Not remove the halo bulk velocity if hmrad < = 0
                 r = np.sqrt(np.sum(self.pos**2, axis=1))
-                self.vel -= np.mean(self.vel[r < self.hmrad], axis=0)
+                self.bulkvel = np.mean(self.vel[r < self.hmrad], axis=0)
+                self.vel -= self.bulkvel
 
         # Temperature
         if self.mu is None:

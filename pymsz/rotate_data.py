@@ -4,7 +4,7 @@ from multiprocessing import Process, cpu_count, Queue, freeze_support  # , curre
 # import ctypes
 
 
-def rotate_data(pos, axis, vel=None):
+def rotate_data(pos, axis, vel=None, bvel=None):
     r""" rotate the data points (3d) to a given direction. Returns data points (2d) at line of sight.
 
     Parameter:
@@ -23,30 +23,28 @@ def rotate_data(pos, axis, vel=None):
     """
 
     if isinstance(axis, type('')):
+        npos = np.copy(pos)
         if axis.lower() == 'y':  # x-z plane
-            npos = np.copy(pos)
             npos[:, 1] = pos[:, 2]
             npos[:, 2] = pos[:, 1]
-            if vel is None:
-                return npos
-            else:
-                return npos, vel[:, 1]
+            if vel is not None:
+                nvel = vel[:, 1]
+            if bvel is not None:
+                nbvel = bvel[1]
         elif axis.lower() == 'x':  # y - z plane
-            npos = np.copy(pos)
             npos[:, 0] = pos[:, 1]
             npos[:, 1] = pos[:, 2]
             npos[:, 2] = pos[:, 0]
-            if vel is None:
-                return npos
-            else:
-                return npos, vel[:, 0]
+            if vel is not None:
+                nvel = vel[:, 0]
+            if nbvel is not None:
+                nbvel = bvel[0]
         elif axis.lower() == 'z':
-            if vel is None:
-                return pos
-            else:
-                return pos, vel[:, 2]
+            if vel is not None:
+                nvel = vel[:, 2]
+            if nbvel is not None:
+                nbvel = bvel[2]
         else:
-            # if axis != 'z':  # project to xy plane
             raise ValueError("Do not accept this value %s for projection" % axis)
     elif isinstance(axis, type([])):
         if len(axis) == 3:
@@ -62,10 +60,11 @@ def rotate_data(pos, axis, vel=None):
                 [[cb * cg, cg * sa * sb - ca * sg, ca * cg * sb + sa * sg],
                  [cb * sg, ca * cg + sa * sb * sg, ca * sb * sg - cg * sa],
                  [-sb,     cb * sa,                ca * cb]], dtype=np.float64)
-            if vel is None:
-                return np.dot(pos, Rxyz)
-            else:
-                return np.dot(pos, Rxyz), np.dot(vel, Rxyz)[:, 2]
+            npos = np.dot(pos, Rxyz)
+            if vel is not None:
+                nvel = np.dot(vel, Rxyz)[:, 2]
+            if bvel is not None:
+                nbvel = np.dot(bvel, Rxyz)[:, 2]
         else:
             raise ValueError("Do not accept this value %s for projection" % axis)
     elif isinstance(axis, type(np.array([]))):
@@ -82,22 +81,25 @@ def rotate_data(pos, axis, vel=None):
                 [[cb * cg, cg * sa * sb - ca * sg, ca * cg * sb + sa * sg],
                  [cb * sg, ca * cg + sa * sb * sg, ca * sb * sg - cg * sa],
                  [-sb,     cb * sa,                ca * cb]], dtype=np.float64)
-            if vel is None:
-                return np.dot(pos, Rxyz)
-            else:
-                return np.dot(pos, Rxyz), np.dot(vel, Rxyz)[:, 2]
+            npos = np.dot(pos, Rxyz)
+            if vel is not None:
+                nvel = np.dot(vel, Rxyz)[:, 2]
+            if bvel is not None:
+                nbvel = np.dot(bvel, Rxyz)[:, 2]
         elif len(axis.shape) == 2:
             if axis.shape[0] == axis.shape[1] == 3:
-                if vel is None:
-                    return np.dot(pos, axis)
-                else:
-                    return np.dot(pos, axis), np.dot(vel, axis)[:, 2]
+                npos = np.dot(pos, axis)
+                if vel is not None:
+                    nvel = np.dot(vel, axis)[:, 2]
+                if bvel is not None:
+                    nbvel = np.dot(bvel, axis)[:, 2]
             else:
                 raise ValueError("Axis shape is not 3x3: ", axis.shape)
         else:
             raise ValueError("Do not accept this shape of axis %s for projection!" % axis)
     else:
         raise ValueError("Do not accept this value %s for projection!" % axis)
+    return npos, nvel, nbvel
 
 
 # For SPH kernels, we always use the total weights = 1,

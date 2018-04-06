@@ -129,7 +129,7 @@ class TT_model(object):
 
         self.cc = simd.center/simd.cosmology['h']/(1+simd.cosmology['z'])
         self.rr = simd.radius/simd.cosmology['h']/(1+simd.cosmology['z'])
-        pos = rotate_data(simd.pos/simd.cosmology['h']/(1+simd.cosmology['z']), self.ax)  # to proper distance
+        pos = rotate_data(simd.pos/simd.cosmology['h']/(1+simd.cosmology['z']), self.ax)[0]  # to proper distance
         if self.zthick is not None:
             self.zthick = self.zthick/simd.cosmology['h']/(1+simd.cosmology['z'])
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
@@ -358,8 +358,9 @@ class TK_model(object):
 
     def _cal_snap(self, simd):
 
-        pos, vel = rotate_data(simd.pos, self.ax, vel=simd.vel)
+        pos, vel, bvel = rotate_data(simd.pos, self.ax, vel=simd.vel, bvel=simd.bulkvel)
         simd.prep_ss_KT(vel)
+        print("Bulk velocity after rotation: ", bvel)
 
         if self.red is None:
             self.red = simd.cosmology['z']

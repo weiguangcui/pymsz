@@ -2,7 +2,7 @@
 
 ### Weiguang
 
-    * parallel??
+    * --parallel??-- Done in some calculation parts.
 
 #### Sort Term
 
