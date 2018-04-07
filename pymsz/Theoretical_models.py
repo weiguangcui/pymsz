@@ -1,5 +1,5 @@
 import numpy as np
-from rotate_data import rotate_data, SPH_smoothing
+from pymsz.rotate_data import rotate_data, SPH_smoothing
 from astropy.cosmology import FlatLambdaCDM, WMAP7
 # scipy must >= 0.17 to properly use this!
 # from scipy.stats import binned_statistic_2d

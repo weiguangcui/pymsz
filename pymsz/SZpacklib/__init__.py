@@ -9,5 +9,5 @@ More details can be found at http://www.jb.man.ac.uk/~jchluba/Science/SZpack/SZp
 # __email__ = 'Jens@Chluba.de'
 # __ver__ = '1.1.1'
 
-# import SZpack
-# from . import _SZpack
+from pymsz.SZpacklib import SZpack
+from pymsz.SZpacklib import _SZpack

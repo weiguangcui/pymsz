@@ -8,15 +8,15 @@ MAKE_COMMAND = make -f Makefile.in
 #============================================================================================
 # rules
 #============================================================================================
-all: 
+all:
 	$(MAKE_COMMAND) all
 
-lib: 
+lib:
 	$(MAKE_COMMAND) lib
 
-bin: 
+bin:
 	$(MAKE_COMMAND) bin
-	
+
 pub:
 	make -f Makefile.pub all
 
@@ -25,7 +25,7 @@ pubtar:
 
 SZpack.py:
 	cd ./python; make;
-	cp ./python/SZpack.py .
+	cp ./python/build/lib.*/* ./python/SZpack.py ./
 
 #============================================================================================
 # rules to clean up
@@ -35,7 +35,7 @@ clean:
 
 cleanall:
 	rm -f ./src/*.o ./src/*~
-	rm -f *.o *~ run_SZpack run_SZ_moment_method libSZpack.a 
+	rm -f *.o *~ run_SZpack run_SZ_moment_method libSZpack.a
 
 cleanallDEV: cleanall
 	rm -f $(DEV_DIR)/*.o $(DEV_DIR)/*.~
@@ -45,7 +45,7 @@ cleanallDEV: cleanall
 
 cleanpy:
 	cd python; make clean;
-	rm -f SZpack.py*
+	rm -f SZpack.py* _SZpack* ___pycache__ python/build
 
 tidy: cleanallDEV cleanpy
 

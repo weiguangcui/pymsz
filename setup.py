@@ -43,7 +43,7 @@ setup(
              #  'filters/*',
              # 'SZpacklib/__init__.py',
              # 'SZpacklib/SZpack.py',
-             'SZpacklib/libSZpack.a'
+             'SZpacklib/_SZpack*.so'
              ]},
     license="BSD",
     include_package_data=True,

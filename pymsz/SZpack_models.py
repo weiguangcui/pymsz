@@ -11,7 +11,7 @@ Many thanks to John ZuHone, who wrote the yt part of this model.
 """
 
 import numpy as np
-import SZpack
+from pymsz.SZpacklib import SZpack
 # I0 = (2 * (kboltz * Tcmb)**3 / ((hcgs * clight)**2) / units.sr).in_units("MJy/steradian")
 
 

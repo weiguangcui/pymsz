@@ -27,13 +27,14 @@ _SZpack = Extension("_SZpack",
                    )
 
 # NumyTypemapTests setup
-setup(  name        = "SZpack functions",
+setup(  name        = "SZpack",
         description = "This package provides the main SZpack functions for Python",
 
         author      = "E. Switzer & J. Chluba",
         version     = "1.0",
-        ext_modules = [_SZpack]
+        ext_modules = [_SZpack],
+        py_modules  = ["SZpack"],
         )
-        
+
 #===================================================================================================
 #===================================================================================================
