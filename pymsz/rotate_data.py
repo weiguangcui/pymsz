@@ -64,7 +64,7 @@ def rotate_data(pos, axis, vel=None, bvel=None):
             if vel is not None:
                 nvel = np.dot(vel, Rxyz)[:, 2]
             if bvel is not None:
-                nbvel = np.dot(bvel, Rxyz)[:, 2]
+                nbvel = np.dot(bvel, Rxyz)[2]
         else:
             raise ValueError("Do not accept this value %s for projection" % axis)
     elif isinstance(axis, type(np.array([]))):
@@ -85,14 +85,14 @@ def rotate_data(pos, axis, vel=None, bvel=None):
             if vel is not None:
                 nvel = np.dot(vel, Rxyz)[:, 2]
             if bvel is not None:
-                nbvel = np.dot(bvel, Rxyz)[:, 2]
+                nbvel = np.dot(bvel, Rxyz)[2]
         elif len(axis.shape) == 2:
             if axis.shape[0] == axis.shape[1] == 3:
                 npos = np.dot(pos, axis)
                 if vel is not None:
                     nvel = np.dot(vel, axis)[:, 2]
                 if bvel is not None:
-                    nbvel = np.dot(bvel, axis)[:, 2]
+                    nbvel = np.dot(bvel, axis)[2]
             else:
                 raise ValueError("Axis shape is not 3x3: ", axis.shape)
         else:
