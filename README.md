@@ -12,15 +12,15 @@
 
 -   Summary of set up
 
->>  This package includes SZPack v1.1.1 library. It requires gsl (with headers files) and swig installed in your system for building this library. It is very easy with `sudo apt-get install libgsl23 libgsl-dev swig` You may need manually link the libgsl.so.0 (`sudo ln -s  /usr/lib/x86_64-linux-gnu/libgsl.so.23.0.0 /usr/lib/x86_64-linux-gnu/libgsl.so.0`) to solve the `ImportError: libgsl.so.0: cannot open shared object file: No such file or directory`
+    This package includes SZPack v1.1.1 library. It requires gsl (with headers files) and swig installed in your system for building this library. It is very easy with `sudo apt-get install libgsl23 libgsl-dev swig` You may need manually link the libgsl.so.0 (`sudo ln -s  /usr/lib/x86_64-linux-gnu/libgsl.so.23.0.0 /usr/lib/x86_64-linux-gnu/libgsl.so.0`) to solve the `ImportError: libgsl.so.0: cannot open shared object file: No such file or directory`
 
 -   Configuration
 
->>  look at the wiki page for a simple test script. The functions inside this package are always documented.
+    look at the wiki page for a simple test script. The functions inside this package are always documented.
 
 -   Dependencies
 
->>  numpy, scipy, astropy, pyfits. SZpack requires gsl and swig
+    numpy, scipy, astropy, pyfits. SZpack requires gsl and swig
 
 -   How to run tests
 -   Deployment instructions
