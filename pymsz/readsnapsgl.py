@@ -1,6 +1,6 @@
 import numpy as np
 from struct import unpack
-from os import fstat
+from os import fstat, path
 nmets = 11
 
 
@@ -34,6 +34,8 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
     For these snapshots which are more than 4 Gb, i.e. the data size (bytes) indicator,
     which is just ahead of the data block, is negative, you can use `ptype=1` to overcome
     the error in reading the data.
+
+    For the gadget2 snapshots files, please check the order of the reading is correct or not (line 296-324) for you data.
     """
 
     if endian is None:
@@ -304,7 +306,23 @@ def read_block(npf, block, endian, quiet, longid, fmt, pty, rawdata):
                 return read_bdata(npf, 1, np.dtype('float32'), endian)
             elif (block == 'U   ') and (loopnum == 4):
                 return read_bdata(npf, 1, np.dtype('float32'), endian)
-            elif loopnum > 4:
+            elif (block == 'RHO ') and (loopnum == 5):
+                return read_bdata(npf, 1, np.dtype('float32'), endian)
+            elif (block == 'NE  ') and (loopnum == 6):
+                return read_bdata(npf, 1, np.dtype('float32'), endian)
+            elif (block == 'NH  ') and (loopnum == 7):
+                return read_bdata(npf, 1, np.dtype('float32'), endian)
+            elif (block == 'HSML') and (loopnum == 8):
+                return read_bdata(npf, 1, np.dtype('float32'), endian)
+            elif (block == 'SFR ') and (loopnum == 9):
+                return read_bdata(npf, 1, np.dtype('float32'), endian)
+            elif (block == 'DT  ') and (loopnum == 10):  # delayed time
+                return read_bdata(npf, 1, np.dtype('float32'), endian)
+            elif (block == 'AGE ') and (loopnum == 11):
+                return read_bdata(npf, 1, np.dtype('float32'), endian)
+            elif (block == 'Z   ') and (loopnum == 12):
+                return read_bdata(npf, 1, np.dtype('float32'), endian)
+            elif loopnum > 12:
                 return None
             loopnum += 1
 
@@ -530,3 +548,67 @@ def read_bdata(npf, column, dt, endian, pty=None):
         return arr
     else:
         return arr.byteswap()
+
+
+# read all snapshots
+def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
+             fullmass=False, mu=None, rhb=True, fmt=None, ptype=None, rawdata=False):
+    """
+    readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
+             fullmass=False, mu=None, rhb=True, fmt=None, ptype=None, rawdata=False
+        read multiple snapshot files and new subfind files, return any block data in whole simulation.
+
+    Parameters:
+    ---------------
+        filename: path plus full file name. e.g.  /your/dir/snap_009.0
+        block: The block you want to read, e.g. "HEAD". Look for more info with block == "INFO"
+        little endian: ">", big endian : "<", other/default : "=" or "@"
+        longid: Is the particle ID saved in long long (uint64)? Default : False
+        nmet: Specify how many different matels are produced in the simulation, default: 11
+        fullmass: return all mass of particles inorder of saved particle position
+                  False(default): return only mass block
+        mu: mean_molecular_weight. Specify this value for gas temperature.
+                  It will be ignored when you have NE block in your simulatin data.
+        rhb: return header brief. True(default): only return useful head information, else: all
+        fmt: default or 1: G3 format with blocks; 0: G2 format; -1: new subfind results.
+        ptype: read only specified particle type: 0: gas, 1: DM, 2: , 3: , 4: star, 5: bh
+        rawdata: default False. If True, retrun the binary data in str, which need unpack yourself.
+
+    Notes:
+    ------------
+    The old parameter met "z", is deprecated. If you need metal in z instead of elements,
+    simply put 'Z   ' for the block.
+
+    For these snapshots which are more than 4 Gb, i.e. the data size (bytes) indicator,
+    which is just ahead of the data block, is negative, you can use `ptype=1` to overcome
+    the error in reading the data.
+
+    For the gadget2 snapshots files, please check the order of the reading is correct or not (line 296-324) for you data.
+    """
+
+    if path.isfile(filename):
+        filename=filename
+    elif path.isfile(filename+".0"):
+        filename = filename+".0"
+    elif path.isfile(filename+"0"):
+        filename=filename+"0"
+    else:
+        raise ValueError("Can not find file: %s or %s" % (filename,filename+".0"))
+
+    head=readsnapsgl(filename, 'HEAD', endian=endian, quiet=quiet, longid=longid, nmet=nmet,
+                     fullmass=fullmass, mu=mu, rhb=False, fmt=fmt, ptype=ptype, rawdata=rawdata)
+
+    if head[8] <= 1: # only one file
+        return readsnapsgl(filename, block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
+                           fullmass=fullmass, mu=mu, rhb=False, fmt=fmt, ptype=ptype, rawdata=rawdata)
+    else:  # multiple snapshot names
+        fbase=filename[:-1]
+        for i in range(head[8]):
+            if i == 0:
+                data = readsnapsgl(fbase+str(i), block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
+                                   fullmass=fullmass, mu=mu, rhb=False, fmt=fmt, ptype=ptype, rawdata=rawdata)
+            else:
+                tmp = readsnapsgl(fbase+str(i), block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
+                                  fullmass=fullmass, mu=mu, rhb=False, fmt=fmt, ptype=ptype, rawdata=rawdata)
+                data = np.append(data, tmp, axis=0)
+        return(data)

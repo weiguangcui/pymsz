@@ -1,5 +1,5 @@
 import numpy as np
-from pymsz.readsnapsgl import readsnapsgl
+from pymsz.readsnapsgl import readsnap
 # from astropy.cosmology import FlatLambdaCDM
 try:
     from yt.utilities.physical_constants import mp, kb, cross_section_thompson_cgs, \
@@ -93,6 +93,7 @@ class load_data(object):
         kpc/h and 10^10 M_sun
     Raw data set needs to provide the cosmology, Otherwise WMAP7 is used for later calculation...
     center and radius need to set together in the simulation units!
+    No periodical boundery effect is considered yet!
 
     Example
     -------
@@ -157,7 +158,7 @@ class load_data(object):
             raise ValueError("Please sepecify the simulation data type. ")
 
     def _load_snap(self):
-        head = readsnapsgl(self.filename, "HEAD", quiet=True)
+        head = readsnap(self.filename, "HEAD", quiet=True)
         self.cosmology["z"] = head[3] if head[3] > 0 else 0.0
         self.cosmology["a"] = head[2]
         self.cosmology["omega_matter"] = head[-3]
@@ -169,7 +170,7 @@ class load_data(object):
         # self.z = head[3] if head[3] > 0 else 0.0
 
         # positions # only gas particles
-        spos = readsnapsgl(self.filename, "POS ", ptype=0, quiet=True)
+        spos = readsnap(self.filename, "POS ", ptype=0, quiet=True)
         if (self.center is not None) and (self.radius is not None):
             # r = np.sqrt(np.sum((spos - self.center)**2, axis=1))
             # ids = r <= self.radius  # increase to get all the projected data
@@ -188,7 +189,7 @@ class load_data(object):
             ids = np.ones(self.pos.shape[0], dtype=np.bool)
 
         # velocity
-        self.vel = readsnapsgl(self.filename, "VEL ", ptype=0, quiet=True)
+        self.vel = readsnap(self.filename, "VEL ", ptype=0, quiet=True)
         if self.vel is not 0:
             self.vel = self.vel[ids] * np.sqrt(self.cosmology["a"])  # to peculiar velocity
         else:
@@ -206,40 +207,40 @@ class load_data(object):
 
         # Temperature
         if self.mu is None:
-            self.temp = readsnapsgl(self.filename, "TEMP", quiet=True)
+            self.temp = readsnap(self.filename, "TEMP", quiet=True)
         else:
-            self.temp = readsnapsgl(self.filename, "TEMP", mu=self.mu, quiet=True)
+            self.temp = readsnap(self.filename, "TEMP", mu=self.mu, quiet=True)
         if self.temp is not 0:
             self.temp = self.temp[ids]
         else:
             raise ValueError("Can't get gas temperature, which is required for this code.")
 
         # density
-        self.rho = readsnapsgl(self.filename, "RHO ", quiet=True)
+        self.rho = readsnap(self.filename, "RHO ", quiet=True)
         if self.rho is not 0:
             self.rho = self.rho[ids]
         else:
             raise ValueError("Can't get gas density, which is required")
 
         # smoothing length
-        self.hsml = readsnapsgl(self.filename, "HSML", quiet=True)
+        self.hsml = readsnap(self.filename, "HSML", quiet=True)
         if self.hsml is not 0:
             self.hsml = self.hsml[ids]
 
         # mass only gas
-        self.mass = readsnapsgl(self.filename, "MASS", ptype=0, quiet=True)
+        self.mass = readsnap(self.filename, "MASS", ptype=0, quiet=True)
         if not isinstance(self.mass, type(0.0)):
             self.mass = self.mass[ids]
 
         # gas metal if there are
         if self.metal is 0:
-            self.metal = readsnapsgl(self.filename, "Z   ", ptype=0,
+            self.metal = readsnap(self.filename, "Z   ", ptype=0,
                                      quiet=True)  # auto calculate Z
             if self.metal is not 0:
                 self.metal = self.metal[ids]
 
         # Electron fraction
-        self.ne = readsnapsgl(self.filename, "NE  ", quiet=True)
+        self.ne = readsnap(self.filename, "NE  ", quiet=True)
         # ( 1. - xH ) / ( 4 * xH )hydrogen mass-fraction (xH) = n_He/n_H
         yhelium = 0.07894736842105263
         if self.ne is not 0:
@@ -254,7 +255,7 @@ class load_data(object):
             else:
                 self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
 
-        Zs = readsnapsgl(self.filename, "Zs  ", ptype=0, quiet=True)
+        Zs = readsnap(self.filename, "Zs  ", ptype=0, quiet=True)
         if Zs is not 0:
             self.X = 1 - self.metal - Zs[:, 0][ids]/self.mass  # hydrogen mass fraction assume Tornatore et al. 2007.
         else:
@@ -268,10 +269,10 @@ class load_data(object):
 
         # we need to remove some spurious particles.... if there is a MHI or SRF block
         # see Klaus's doc or Borgani et al. 2003 for detials.
-        mhi = readsnapsgl(self.filename, "MHI ", quiet=True)
+        mhi = readsnap(self.filename, "MHI ", quiet=True)
         if mhi is 0:
             # try exclude sfr gas particles
-            sfr = readsnapsgl(self.filename, "SFR ", quiet=True)
+            sfr = readsnap(self.filename, "SFR ", quiet=True)
             if sfr is not 0:
                 sfr = sfr[ids]
                 ids_ex = sfr < 0.1
