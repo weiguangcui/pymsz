@@ -607,8 +607,11 @@ def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
             if i == 0:
                 data = readsnapsgl(fbase+str(i), block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
                                    fullmass=fullmass, mu=mu, rhb=False, fmt=fmt, ptype=ptype, rawdata=rawdata)
+                if (data is 0) or (data is None):
+                    return data
             else:
                 tmp = readsnapsgl(fbase+str(i), block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
                                   fullmass=fullmass, mu=mu, rhb=False, fmt=fmt, ptype=ptype, rawdata=rawdata)
-                data = np.append(data, tmp, axis=0)
+                if tmp is not 0:
+                    data = np.append(data, tmp, axis=0)
         return(data)
