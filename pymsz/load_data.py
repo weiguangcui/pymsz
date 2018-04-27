@@ -72,7 +72,7 @@ class load_data(object):
     n_ref       : It governs how many particles in an oct results in that oct being
                     refined into eight child octs. Only for yt_load = True
                   Type: int. Default: None (use yt setup 64).
-                  It’s recommended that if you want higher-resolution, try reducing the
+                  It is recommended that if you want higher resolution, try reducing the
                     value of n_ref to 32 or 16.
 
     rawdata     : Is it raw data? Default : False
