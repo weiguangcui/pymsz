@@ -161,9 +161,9 @@ class load_data(object):
         head = readsnap(self.filename, "HEAD", quiet=True)
         self.cosmology["z"] = head[3] if head[3] > 0 else 0.0
         self.cosmology["a"] = head[2]
-        self.cosmology["omega_matter"] = head[-3]
-        self.cosmology["omega_lambda"] = head[-2]
-        self.cosmology["h"] = head[-1]
+        self.cosmology["omega_matter"] = head[10]
+        self.cosmology["omega_lambda"] = head[11]
+        self.cosmology["h"] = head[12]
         # self.cosmology = FlatLambdaCDM(head[-1] * 100, head[-3])
         # self.currenta = head[2]
         # self.Uage = self.cosmology.age(1. / self.currenta - 1)
