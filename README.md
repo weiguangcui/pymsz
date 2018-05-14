@@ -13,7 +13,7 @@
 -   Summary of set up
 
     This package includes SZPack v1.1.1 library. It requires gsl (with headers files) and swig installed in your system for building this library. It is very easy with `sudo apt-get install libgsl23 libgsl-dev swig python-dev` You may need manually link the libgsl.so.0 (`sudo ln -s  /usr/lib/x86_64-linux-gnu/libgsl.so.23.0.0 /usr/lib/x86_64-linux-gnu/libgsl.so.0`) to solve the `ImportError: libgsl.so.0: cannot open shared object file: No such file or directory`
-    
+
     **Note for python3**: You may first need to install `python3-dev`. If you don't have the symbol link python to python3, go to the folder `cd pymsz/SZpacklib/python/` and modify the 'Makefile' by replacing 'python' with 'python3'. Then go back to the pymsz folder `cd ../../../` and run `python3 setup.py install --user`.
 
 -   Configuration
@@ -22,7 +22,7 @@
 
 -   Dependencies
 
-    numpy, scipy, astropy, pyfits. SZpack requires gsl and swig
+    numpy, scipy, astropy. SZpack requires gsl and swig
 
 -   How to run tests
 -   Deployment instructions

@@ -5,22 +5,6 @@ from astropy.cosmology import FlatLambdaCDM, WMAP7
 # from scipy.stats import binned_statistic_2d
 
 
-# def SPH(x):  # 3D Cubic
-#     data = np.zeros(x.size, dtype=float)
-#     ids = (x > 0) & (x <= 0.5)
-#     data[ids] = 1 - 6 * x[ids]**2 + 6 * x[ids]**3
-#     ids = (x > 0.5) & (x < 1)
-#     data[ids] = 2 * (1 - x[ids])**3
-#     return data * 2.5464790894703255
-# def SPH(x, h):  # 2D
-#     if (x > 0) and (x <= 0.5):
-#         return 10*(1 - 3*x**2/2. + 3*x**3/4.)/7./np.pi/h**2
-#     elif (x > 1) and (x <= 2):
-#         return 10*(2 - x)**3/4./7./np.pi/h**2
-#     else:
-#         return 0
-
-
 class TT_model(object):
     r""" Theoretical calculation of y and T_sz -map for the thermal SZ effect.
     model = TT_model(model_file, npixel, axis)
@@ -228,7 +212,7 @@ class TT_model(object):
             FRB = projection.to_frb(rr, self.npl)
             self.ydata = FRB[('deposit', Ptype + '_smoothed_Tsz')]
 
-    def write_fits_image(self, fname, clobber=False):
+    def write_fits_image(self, fname, comments="", clobber=False):
         r"""
         Generate a image by binning X-ray counts and write it to a FITS file.
 
@@ -236,10 +220,13 @@ class TT_model(object):
         ----------
         imagefile : string
             The name of the image file to write.
+        comments : string
+            Add your own comments about the fits file.
         clobber : boolean, optional
             Set to True to overwrite a previous file.
         """
-        import pyfits as pf
+        # import pyfits as pf
+        import astropy.io.fits as pf
 
         if fname[-5:] != ".fits":
             fname = fname + ".fits"
@@ -256,7 +243,7 @@ class TT_model(object):
             hdu.header["AGLRES"] = 0
         else:
             hdu.header["AGLRES"] = float(self.ar)
-        hdu.header["NOTE"] = ""
+        hdu.header["NOTE"] = comments
         hdu.writeto(fname, clobber=clobber)
 
 
@@ -334,7 +321,7 @@ class TK_model(object):
         self.ax = axis
         self.ar = AR
         self.ncpu = Ncpu
-        # self.periodic = periodic
+        self.bvel = 0  # bulk velocity after rotation
         self.red = redshift
         self.zthick = zthick
         self.pxs = None
@@ -358,9 +345,9 @@ class TK_model(object):
 
     def _cal_snap(self, simd):
 
-        pos, vel, bvel = rotate_data(simd.pos, self.ax, vel=simd.vel, bvel=simd.bulkvel)
+        pos, vel, self.bvel = rotate_data(simd.pos/simd.cosmology['h']/(1+simd.cosmology['z']),
+                                          self.ax, vel=simd.vel, bvel=simd.bulkvel)  # pos in physical
         simd.prep_ss_KT(vel)
-        print("Bulk velocity after rotation: ", bvel)
 
         if self.red is None:
             self.red = simd.cosmology['z']
@@ -369,7 +356,6 @@ class TK_model(object):
 
         self.cc = simd.center/simd.cosmology['h']/(1+simd.cosmology['z'])
         self.rr = simd.radius/simd.cosmology['h']/(1+simd.cosmology['z'])
-        pos = pos/simd.cosmology['h']/(1+simd.cosmology['z'])
         if self.zthick is not None:
             self.zthick = self.zthick/simd.cosmology['h']/(1+simd.cosmology['z'])
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
@@ -430,7 +416,7 @@ class TK_model(object):
             self.bdata = np.sum(self.bdata, axis=2)
         self.bdata = self.bdata.T / self.pxs**2
 
-    def write_fits_image(self, fname, clobber=False):
+    def write_fits_image(self, fname, comments="", clobber=False):
         r"""
         Generate a image by binning X-ray counts and write it to a FITS file.
 
@@ -438,10 +424,12 @@ class TK_model(object):
         ----------
         imagefile : string
             The name of the image file to write.
+        comments : string
+            Add your own comments about the fits file.
         clobber : boolean, optional
             Set to True to overwrite a previous file.
         """
-        import pyfits as pf
+        import astropy.io.fits as pf
 
         if fname[-5:] != ".fits":
             fname = fname + ".fits"
@@ -458,5 +446,5 @@ class TK_model(object):
             hdu.header["AGLRES"] = 0
         else:
             hdu.header["AGLRES"] = float(self.ar)
-        hdu.header["NOTE"] = ""
+        hdu.header["NOTE"] = comments
         hdu.writeto(fname, clobber=clobber)

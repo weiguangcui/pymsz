@@ -14,14 +14,17 @@ def rotate_data(pos, axis, vel=None, bvel=None):
               [alpha, beta, gamma], which will rotate the data points by $\alpha$ around
               the x-axis, $\beta$ around the y-axis, and $\gamma$ around the z-axis.
               or a numpy arrya with the rotation matrix directly, must be 3x3 matrix.
-    vel     : 3D velocity of the input data points. Default: None
+    vel     : 3D velocity of the input data points. Default: None, will return an empty list.
                 Otherwise, rotate_data will also return the velocity in the axis direction.
+    bvel    : bulk velocity of the cluster in 3D, defualt None, resturn 0 for the bulk velocity
+              along line of sight. If it is not None, bulk velocity along line of sight will be return.
     Notes:
     --------
     When you have vel is not None, the function will return two arrays: pos, vel in axis direction.
     This function does not work with yt data currrently.
     """
 
+    nvel = []; nbvel = 0;
     if isinstance(axis, type('')):
         npos = np.copy(pos)
         if axis.lower() == 'y':  # x-z plane
@@ -37,12 +40,12 @@ def rotate_data(pos, axis, vel=None, bvel=None):
             npos[:, 2] = pos[:, 0]
             if vel is not None:
                 nvel = vel[:, 0]
-            if nbvel is not None:
+            if bvel is not None:
                 nbvel = bvel[0]
         elif axis.lower() == 'z':
             if vel is not None:
                 nvel = vel[:, 2]
-            if nbvel is not None:
+            if bvel is not None:
                 nbvel = bvel[2]
         else:
             raise ValueError("Do not accept this value %s for projection" % axis)
