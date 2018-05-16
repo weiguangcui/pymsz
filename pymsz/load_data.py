@@ -246,7 +246,7 @@ class load_data(object):
 
         # gas metal if there are
         if self.metal is 0:
-            self.metal = readsnap(self.filename, "Z   ", ptype=0, nmets=self.Nmets,
+            self.metal = readsnap(self.filename, "Z   ", ptype=0, nmet=self.Nmets,
                                      quiet=True)  # auto calculate Z
             if self.metal is not 0:
                 self.metal = self.metal[ids]
