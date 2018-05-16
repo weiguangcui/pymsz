@@ -321,7 +321,22 @@ def read_block(npf, block, endian, quiet, longid, fmt, pty, rawdata):
             elif (block == 'AGE ') and (loopnum == 11):
                 return read_bdata(npf, 1, np.dtype('float32'), endian)
             elif (block == 'Z   ') and (loopnum == 12):
-                return read_bdata(npf, 1, np.dtype('float32'), endian)
+                if nmets <= 0:
+                    return None
+                elif nmets == 1:  # suppose to be metallicity z
+                    return read_bdata(npf, 1, np.dtype('float32'), endian)
+                else:
+                    zs = read_bdata(npf, nmets, np.dtype('float32'), endian)
+                    npf.seek(4)
+                    npart = unpack(endian + 'i i i i i i', npf.read(4 * 6))
+                    npf.seek(264)
+                    for i in range(3):
+                        bs1 = unpack(endian + 'i', npf.read(4))[0]
+                        npf.seek(npf.tell()+bs1+4)
+                    bs1 = unpack(endian + 'i', npf.read(4))[0]
+                    mass = read_bdata(npf, 1, np.dtype('float32'), endian)
+                    # note this only return the gas metallicity!!!
+                    return np.sum(zs[:npart[0]], axis=1)/mass[:npart[0]]
             elif loopnum > 12:
                 return None
             loopnum += 1

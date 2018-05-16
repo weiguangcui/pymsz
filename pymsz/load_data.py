@@ -43,6 +43,8 @@ class load_data(object):
                     Type: float or array. Default: None, will try to read from simulation.
                     Otherwise, will use this give metallicity.
                     It must be the same number of gas particles if it is an array.
+    Nmets       : Number of metal elements in the simulation metallicity data block. Defualt : 11
+                    set to 0 for no metals.
     mu          : mean_molecular_weight.
                     Type: float. Default: None.
                     It is used for calculating gas temperature, when there is no NE block
@@ -86,6 +88,12 @@ class load_data(object):
     hmrad       : Radius for calculation halo motion, which is used for calculating the kSZ effect.
                   Default : None, the halo motion are given by the mean of all particles.
                   0 or nagative value for not removing halo motion.
+    ---------- additional data cut to exclude suspicious gas particles.
+    cut_sfr     : All the data lower than this star formation rate are included. Default 0.1.
+                  None for not including this cut. Not working together with rhoT cut.
+    cut_rhoT    : You can also do density and temperature cut. particles with
+                  rho > 6.e-7 and T < 3.0e4 are excluded. None for not including this cut.
+                  Not working together with SFR cut.
 
     Notes
     -----
@@ -101,8 +109,9 @@ class load_data(object):
                      snapshot=True, center=[500000,500000,500000], radius=800)
     """
 
-    def __init__(self, filename='', metal=None, mu=None, snapshot=False, yt_load=False,
-                 specified_field=None, n_ref=None, datafile=False, center=None, radius=None, hmrad=None):
+    def __init__(self, filename='', metal=None, Nmets=11, mu=None, snapshot=False, yt_load=False,
+                 specified_field=None, n_ref=None, datafile=False, center=None, radius=None,
+                 hmrad=None, cut_sfr=0.1, cut_rhoT=[6.e-7, 3.0e4]):
         self.center = center
         self.radius = radius
         self.filename = filename
@@ -112,9 +121,12 @@ class load_data(object):
             self.metal = metal
         else:
             raise ValueError("Do not accept this metal %f." % metal)
+        self.Nmets = Nmets
         self.mu = mu
         self.n_ref = n_ref
         self.hmrad = hmrad
+        self.cut_sfr = cut_sfr
+        self.cot_rhoT = cut_rhoT
 
         if snapshot:
             self.data_type = "snapshot"
@@ -234,7 +246,7 @@ class load_data(object):
 
         # gas metal if there are
         if self.metal is 0:
-            self.metal = readsnap(self.filename, "Z   ", ptype=0,
+            self.metal = readsnap(self.filename, "Z   ", ptype=0, nmets=self.Nmets,
                                      quiet=True)  # auto calculate Z
             if self.metal is not 0:
                 self.metal = self.metal[ids]
@@ -267,23 +279,28 @@ class load_data(object):
         #     # Q_NE is given in self.ne in below.
         #     self.ne = (1. + yhelium + self.ne) / self.ne
 
-        # we need to remove some spurious particles.... if there is a MHI or SRF block
+        # we need to remove some suspicious particles.... if there is a MHI or SRF block
         # see Klaus's doc or Borgani et al. 2003 for detials.
         mhi = readsnap(self.filename, "MHI ", quiet=True)
         if mhi is 0:
             # try exclude sfr gas particles
             sfr = readsnap(self.filename, "SFR ", quiet=True)
-            if sfr is not 0:
+            if (sfr is not 0) and (self.cut_sfr is not None):
                 sfr = sfr[ids]
-                ids_ex = sfr < 0.1
+                ids_ex = sfr < self.cut_sfr
                 if sfr[ids_ex].size == sfr.size:
                     ids_ex = True
+            elif (self.cut_rhoT[0] is not None) and (self.cut_rhoT[1] is not None):
+                ids_ex = (self.temp < self.cut_rhoT[1]) & (self.rho > self.rhoT[0])
             else:
                 ids_ex = None
         else:
             mhi = mhi[ids] / 0.76 / self.mass
-            ids_ex = (self.temp < 3.0e4) & (self.rho > 6.e-7)
-            ids_ex = (mhi < 0.1) & (~ids_ex)
+            if (self.cut_rhoT[0] is not None) and (self.cut_rhoT[1] is not None):
+                ids_ex = (self.temp < self.cut_rhoT[1]) & (self.rho > self.rhoT[0])
+                ids_ex = (mhi < 0.1) & (~ids_ex)
+            else:
+                ids_ex = (mhi < 0.1)
             if mhi[ids_ex].size == mhi.size:
                 ids_ex = True
             self.rho *= (1 - mhi)  # correct multi-phase baryon model by removing cold gas
