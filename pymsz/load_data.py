@@ -88,8 +88,8 @@ class load_data(object):
     hmrad       : Radius for calculation halo motion, which is used for calculating the kSZ effect.
                   Default : None, the halo motion are given by the mean of all particles.
                   0 or nagative value for not removing halo motion.
-    ---------- additional data cut to exclude suspicious gas particles.
-    cut_sfr     : All the data lower than this star formation rate are included. Default 0.1.
+    ---------- additional data cut to exclude spurious gas particles.
+    cut_sfr     : All the data higher than this star formation rate are excluded in the calc. Default 0.1.
                   None for not including this cut. Not working together with rhoT cut.
     cut_rhoT    : You can also do density and temperature cut. particles with
                   rho > 6.e-7 and T < 3.0e4 are excluded. None for not including this cut.
@@ -279,7 +279,7 @@ class load_data(object):
         #     # Q_NE is given in self.ne in below.
         #     self.ne = (1. + yhelium + self.ne) / self.ne
 
-        # we need to remove some suspicious particles.... if there is a MHI or SRF block
+        # we need to remove some spurious particles.... if there is a MHI or SRF block
         # see Klaus's doc or Borgani et al. 2003 for detials.
         mhi = readsnap(self.filename, "MHI ", quiet=True)
         if mhi is 0:
