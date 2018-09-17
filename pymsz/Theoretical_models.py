@@ -212,7 +212,7 @@ class TT_model(object):
             FRB = projection.to_frb(rr, self.npl)
             self.ydata = FRB[('deposit', Ptype + '_smoothed_Tsz')]
 
-    def write_fits_image(self, fname, comments="", clobber=False):
+    def write_fits_image(self, fname, radius=None, comments="", clobber=False):
         r"""
         Generate a image by binning X-ray counts and write it to a FITS file.
 
@@ -220,6 +220,8 @@ class TT_model(object):
         ----------
         imagefile : string
             The name of the image file to write.
+        radius : float, in unit of kpc
+            The virial radius of the cluster. Default is the physical size of the image.
         comments : string
             Add your own comments about the fits file.
         clobber : boolean, optional
@@ -236,7 +238,10 @@ class TT_model(object):
         hdu.header["RCVAL2"] = float(self.cc[1])
         hdu.header["RCVAL3"] = float(self.cc[2])
         hdu.header["UNITS"] = "kpc"
-        hdu.header["RADIUS"] = float(self.rr)
+        if radius is None:
+            hdu.header["RADIUS"] = float(self.rr)
+        else:
+            hdu.header["RADIUS"] = float(radius)
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header["PSIZE"] = float(self.pxs)
         if self.ar is None:
@@ -416,7 +421,7 @@ class TK_model(object):
             self.bdata = np.sum(self.bdata, axis=2)
         self.bdata = self.bdata.T / self.pxs**2
 
-    def write_fits_image(self, fname, comments="", clobber=False):
+    def write_fits_image(self, fname, radius=None, comments="", clobber=False):
         r"""
         Generate a image by binning X-ray counts and write it to a FITS file.
 
@@ -424,6 +429,8 @@ class TK_model(object):
         ----------
         imagefile : string
             The name of the image file to write.
+        radius : float, in unit of kpc
+            The virial radius of the cluster. Default is the physical size of the image.
         comments : string
             Add your own comments about the fits file.
         clobber : boolean, optional
@@ -439,7 +446,10 @@ class TK_model(object):
         hdu.header["RCVAL2"] = float(self.cc[1])
         hdu.header["RCVAL3"] = float(self.cc[2])
         hdu.header["UNITS"] = "kpc"
-        hdu.header["RADIUS"] = float(self.rr)
+        if radius is None:
+            hdu.header["RADIUS"] = float(self.rr)
+        else:
+            hdu.header["RADIUS"] = float(radius)
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header["PSIZE"] = float(self.pxs)
         if self.ar is None:
