@@ -13,7 +13,7 @@ def rotate_data(pos, axis, vel=None, bvel=None):
     axis    : can be 'x', 'y', 'z' (must be 2D), or a list or numpy array of degrees
               [alpha, beta, gamma], which will rotate the data points by $\alpha$ around
               the x-axis, $\beta$ around the y-axis, and $\gamma$ around the z-axis.
-              or a numpy arrya with the rotation matrix directly, must be 3x3 matrix.
+              or a numpy array with the rotation matrix directly, must be 3x3 matrix.
     vel     : 3D velocity of the input data points. Default: None, will return an empty list.
                 Otherwise, rotate_data will also return the velocity in the axis direction.
     bvel    : bulk velocity of the cluster in 3D, defualt None, resturn 0 for the bulk velocity

@@ -6,6 +6,51 @@ from setuptools import setup, find_packages
 from setuptools.command.install import install
 import subprocess
 
+MAJOR = 0
+MINOR = 7
+VERSION = '%d.%d' % (MAJOR, MINOR)
+
+# Return the git revision as a string
+def git_version():
+    def _minimal_ext_cmd(cmd):
+        # construct minimal environment
+        env = {}
+        for k in ['SYSTEMROOT', 'PATH']:
+            v = os.environ.get(k)
+            if v is not None:
+                env[k] = v
+        # LANGUAGE is used on win32
+        env['LANGUAGE'] = 'C'
+        env['LANG'] = 'C'
+        env['LC_ALL'] = 'C'
+        out = subprocess.Popen(cmd, stdout=subprocess.PIPE, env=env).communicate()[0]
+        return out
+
+    try:
+        out = _minimal_ext_cmd(['git', 'rev-parse', 'HEAD'])
+        GIT_REVISION = out.strip().decode('ascii')
+    except OSError:
+        GIT_REVISION = "Unknown"
+
+    return GIT_REVISION
+
+
+def write_version_py(filename='pymsz/version.py'):
+    cnt = """
+# THIS FILE IS GENERATED FROM SETUP.PY
+version = '%(version)s'
+git_revision = '%(git_revision)s'
+"""
+    GIT_REVISION = git_version()
+
+    a = open(filename, 'w')
+    try:
+        a.write(cnt % {'version': VERSION,
+                       'git_revision': GIT_REVISION})
+    finally:
+        a.close()
+    return VERSION
+
 
 class InstallSZpack(install, object):
     """Custom handler for the 'install' command."""
@@ -28,7 +73,7 @@ def read(fname):
 
 setup(
     name="pymsz",
-    version="1.0.0",
+    version=write_version_py(),
     author="Weiguang Cui",
     author_email="cuiweiguang@gmail.com",
     description="A Package for Mock SZ Observations",

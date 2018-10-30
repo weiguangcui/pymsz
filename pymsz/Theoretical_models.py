@@ -1,6 +1,9 @@
 import numpy as np
 from pymsz.rotate_data import rotate_data, SPH_smoothing
 from astropy.cosmology import FlatLambdaCDM, WMAP7
+from astropy.coordinates import SkyCoord
+from astropy.time import Time
+from pymsz import version
 # scipy must >= 0.17 to properly use this!
 # from scipy.stats import binned_statistic_2d
 
@@ -28,6 +31,11 @@ class TT_model(object):
                 If None, the whole cluster will be projected to the image with npixel resolution.
     SD       : dimensions for SPH smoothing. Type: int. Default: 2.
                 Must be 2 or 3!
+    SP       : Faked sky positions in [RA (longitude), DEC (latitude)] in degrees.
+                Default: [194.95, 27.98], Coma' position.
+    #            Need to find sometime to add lower functions
+    #            If [x,y,z] (len(SP) == 3) of the Earth position in the simulation coordinate (in the same units) is given,
+    #            The pos - [x,y,z] are taken as the J2000 3D coordinates and converted into RA, DEC.
     # pxsize   : physical/proper pixel size of the image. Type: float, unit: kpc.
     #             Default: None
     #             If set, this will invaided the calculation from AR.
@@ -72,7 +80,7 @@ class TT_model(object):
     """
 
     def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=None, SD=2,
-                 Ncpu=None, redshift=None, zthick=None, sph_kernel='cubic'):
+                 SP=[194.95, 27.98], Ncpu=None, redshift=None, zthick=None, sph_kernel='cubic'):
         self.npl = npixel
         self.ngb = neighbours
         self.ax = axis
@@ -86,6 +94,8 @@ class TT_model(object):
         self.ydata = np.array([])
         self.sph_kn = sph_kernel
         # self.ad = 1.  # angular diameter distance normalized to 1 kpc
+
+        self.sp = SP
 
         if self.ar is None and self.npl == 'AUTO':
             raise ValueError("Do not accept AR == None and npixel=='AUTO' !!")
@@ -163,6 +173,8 @@ class TT_model(object):
                 self.pxs = self.ar/cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
                 if self.npl == 'AUTO':
                     self.npl = np.int32(self.rr*2/self.pxs)+1
+            else:
+                self.ar = self.pxs * cosmo.arcsec_per_kpc_proper(self.red).value
 
         # cut out unused data
         if self.npl != 'AUTO':
@@ -212,7 +224,7 @@ class TT_model(object):
             FRB = projection.to_frb(rr, self.npl)
             self.ydata = FRB[('deposit', Ptype + '_smoothed_Tsz')]
 
-    def write_fits_image(self, fname, radius=None, comments="", clobber=False):
+    def write_fits_image(self, fname, comments="None", overwrite=False):
         r"""
         Generate a image by binning X-ray counts and write it to a FITS file.
 
@@ -220,11 +232,9 @@ class TT_model(object):
         ----------
         imagefile : string
             The name of the image file to write.
-        radius : float, in unit of kpc
-            The virial radius of the cluster. Default is the physical size of the image.
-        comments : string
-            Add your own comments about the fits file.
-        clobber : boolean, optional
+        comments : The comments in str will be put into the fit file header. Defualt: 'None'
+                    It accepts str or list of str or tuple of str
+        overwrite : boolean, optional
             Set to True to overwrite a previous file.
         """
         # import pyfits as pf
@@ -234,22 +244,70 @@ class TT_model(object):
             fname = fname + ".fits"
 
         hdu = pf.PrimaryHDU(self.ydata)
+        hdu.header["SIMPLE"] = 'T'
+        hdu.header.comments["SIMPLE"] = 'conforms to FITS standard'
+        hdu.header["BITPIX"] = int(-32)
+        hdu.header.comments["BITPIX"] = '32 bit floating point'
+        hdu.header["NAXIS"] = int(2)
+        hdu.header["NAXIS1"] = int(self.ydata.shape[0])
+        hdu.header["NAXIS2"] = int(self.ydata.shape[1])
+        hdu.header["EXTEND"] = True
+        hdu.header.comments["EXTEND"] = 'Extensions may be present'
+        hdu.header["RADECSYS"] = 'ICRS    '
+        hdu.header.comments["RADECSYS"] = "International Celestial Ref. System"
+        hdu.header["CTYPE1"] = 'RA---TAN'
+        hdu.header.comments["CTYPE1"] = "Coordinate type"
+        hdu.header["CTYPE2"] = 'DEC--TAN'
+        hdu.header.comments["CTYPE2"] = "Coordinate type"
+        hdu.header["CUNIT1"] = 'deg     '
+        hdu.header.comments["CUNIT1"] = 'Units'
+        hdu.header["CUNIT2"] = 'deg     '
+        hdu.header.comments["CUNIT2"] = 'Units'
+        hdu.header["CRPIX1"] = float(self.npl/2.0)
+        hdu.header.comments["CRPIX1"] = 'X of reference pixel'
+        hdu.header["CRPIX2"] = float(self.npl/2.0)
+        hdu.header.comments["CRPIX2"] = 'Y of reference pixel'
+        hdu.header["CRVAL1"] = float(self.sp[0])
+        hdu.header.comments["CRVAL1"] = 'RA of reference pixel (deg)'
+        hdu.header["CRVAL2"] = float(self.sp[1])
+        hdu.header.comments["CRVAL2"] = 'Dec of reference pixel (deg)'
+
         hdu.header["RCVAL1"] = float(self.cc[0])
+        hdu.header.comments["RCVAL1"] = 'Real center X of the data'
         hdu.header["RCVAL2"] = float(self.cc[1])
+        hdu.header.comments["RCVAL2"] = 'Real center Y of the data'
         hdu.header["RCVAL3"] = float(self.cc[2])
+        hdu.header.comments["RCVAL3"] = 'Real center Z of the data'
         hdu.header["UNITS"] = "kpc"
-        if radius is None:
-            hdu.header["RADIUS"] = float(self.rr)
-        else:
-            hdu.header["RADIUS"] = float(radius)
+        hdu.header.comments["UNITS"] = 'Units for the RCVAL and PSIZE'
+        hdu.header["PIXVAL"] = "y parameter"
+        hdu.header.comments["PIXVAL"] = 'The y parameter for thermal SZ effect.'
+        hdu.header["ORAD"] = float(self.rr)
+        hdu.header.comments["ORAD"] = 'Radius cut for this image, Not R_200 if not set in the parameter.'
         hdu.header["REDSHIFT"] = float(self.red)
+        hdu.header.comments["REDSHIFT"] = 'The redshift of the object'
         hdu.header["PSIZE"] = float(self.pxs)
+        hdu.header.comments["PSIZE"] = 'The pixel size of the image in comoving'
+
         if self.ar is None:
             hdu.header["AGLRES"] = 0
         else:
             hdu.header["AGLRES"] = float(self.ar)
-        hdu.header["NOTE"] = comments
-        hdu.writeto(fname, clobber=clobber)
+        hdu.header.comments["AGLRES"] = '\'observation\' angular resolution in arcsec'
+
+        hdu.header["ORIGIN"] = 'PymSZ: https://github.com/weiguangcui/pymsz.git'
+        hdu.header.comments["ORIGIN"] = 'Software for generating this mock image'
+        hdu.header["VERSION"] = version.version  # get_property('__version__')
+        hdu.header.comments["VERSION"] = 'Version of the software'
+        hdu.header["DATE-OBS"] = Time.now().tt.isot
+        if isinstance(comments, type([])) or isinstance(comments, type(())):
+            for j in range(len(comments)):
+                hdu.header["COMMENT"+str(j+1)] = comments[j]
+        elif isinstance(comments, type("")) or isinstance(comments, type('')):
+            hdu.header["COMMENT"] = comments
+        else:
+            raise ValueError("Do not accept this comments type! Please use str or list")
+        hdu.writeto(fname, overwrite=overwrite)
 
 
 class TK_model(object):
@@ -266,6 +324,11 @@ class TK_model(object):
     axis     : can be 'x', 'y', 'z', or a list of degrees [alpha, beta, gamma],
                which will rotate the data points by $\alpha$ around the x-axis,
                $\beta$ around the y-axis, and $\gamma$ around the z-axis
+    SP       : Faked sky positions in [RA (longitude), DEC (latitude)] in degrees.
+                Default: [194.95, 27.98], Coma' position.
+    #            Need to find sometime to add lower functions
+    #            If [x,y,z] (len(SP) == 3) of the Earth position in the simulation coordinate (in the same units) is given,
+    #            The pos - [x,y,z] are taken as the J2000 3D coordinates and converted into RA, DEC.
     neighbours: this parameter only works with simulation data (not yt data).
                 If this is set, it will force the SPH particles smoothed into nearby N
                 neighbours, HSML from the simulation will be ignored.
@@ -319,8 +382,8 @@ class TK_model(object):
     mm.bdata  # this contains the b-map
     """
 
-    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=0, SD=2,
-                 Ncpu=None, redshift=None, zthick=None, sph_kernel='cubic'):
+    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=None, SD=2,
+                 SP=[194.95, 27.98], Ncpu=None, redshift=None, zthick=None, sph_kernel='cubic'):
         self.npl = npixel
         self.ngb = neighbours
         self.ax = axis
@@ -334,6 +397,15 @@ class TK_model(object):
         self.bdata = np.array([])
         self.sph_kn = sph_kernel
         # self.ad = 1.  # angular diameter distance normalized to 1 kpc
+
+        # if len(SP) == 2:
+        self.sp = SP
+        # self.cc = simd.center
+        # elif len(SP) == 3:
+        #     self.sp = False
+        # self.cc = SP
+        # else:
+        #     raise ValueError("SP length should be either 2 or 3!")
 
         if self.ar is None and self.npl == 'AUTO':
             raise ValueError("Do not accept AR == None and npixel=='AUTO' !!")
@@ -401,6 +473,8 @@ class TK_model(object):
                 self.pxs = self.ar / cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
                 if self.npl == 'AUTO':
                     self.npl = np.int32(self.rr*2/self.pxs)+1
+            else:
+                self.ar = self.pxs * cosmo.arcsec_per_kpc_proper(self.red).value
 
         # cut out unused data
         if self.npl != 'AUTO':
@@ -421,7 +495,7 @@ class TK_model(object):
             self.bdata = np.sum(self.bdata, axis=2)
         self.bdata = self.bdata.T / self.pxs**2
 
-    def write_fits_image(self, fname, radius=None, comments="", clobber=False):
+    def write_fits_image(self, fname, comments='None', overwrite=False):
         r"""
         Generate a image by binning X-ray counts and write it to a FITS file.
 
@@ -431,9 +505,9 @@ class TK_model(object):
             The name of the image file to write.
         radius : float, in unit of kpc
             The virial radius of the cluster. Default is the physical size of the image.
-        comments : string
-            Add your own comments about the fits file.
-        clobber : boolean, optional
+        comments : The comments in str will be put into the fit file header. Defualt: 'None'
+                    It accepts str or list of str or tuple of str
+        overwrite : boolean, optional
             Set to True to overwrite a previous file.
         """
         import astropy.io.fits as pf
@@ -442,19 +516,67 @@ class TK_model(object):
             fname = fname + ".fits"
 
         hdu = pf.PrimaryHDU(self.bdata)
+        hdu.header["SIMPLE"] = 'T'
+        hdu.header.comments["SIMPLE"] = 'conforms to FITS standard'
+        hdu.header["BITPIX"] = int(-32)
+        hdu.header.comments["BITPIX"] = '32 bit floating point'
+        hdu.header["NAXIS"] = int(2)
+        hdu.header["NAXIS1"] = int(self.bdata.shape[0])
+        hdu.header["NAXIS2"] = int(self.bdata.shape[1])
+        hdu.header["EXTEND"] = True
+        hdu.header.comments["EXTEND"] = 'Extensions may be present'
+        hdu.header["RADECSYS"] = 'ICRS    '
+        hdu.header.comments["RADECSYS"] = "International Celestial Ref. System"
+        hdu.header["CTYPE1"] = 'RA---TAN'
+        hdu.header.comments["CTYPE1"] = "Coordinate type"
+        hdu.header["CTYPE2"] = 'DEC--TAN'
+        hdu.header.comments["CTYPE2"] = "Coordinate type"
+        hdu.header["CUNIT1"] = 'deg     '
+        hdu.header.comments["CUNIT1"] = 'Units'
+        hdu.header["CUNIT2"] = 'deg     '
+        hdu.header.comments["CUNIT2"] = 'Units'
+        hdu.header["CRPIX1"] = float(self.npl/2.0)
+        hdu.header.comments["CRPIX1"] = 'X of reference pixel'
+        hdu.header["CRPIX2"] = float(self.npl/2.0)
+        hdu.header.comments["CRPIX2"] = 'Y of reference pixel'
+        hdu.header["CRVAL1"] = float(self.sp[0])
+        hdu.header.comments["CRVAL1"] = 'RA of reference pixel (deg)'
+        hdu.header["CRVAL2"] = float(self.sp[1])
+        hdu.header.comments["CRVAL2"] = 'Dec of reference pixel (deg)'
+
         hdu.header["RCVAL1"] = float(self.cc[0])
+        hdu.header.comments["RCVAL1"] = 'Real center X of the data'
         hdu.header["RCVAL2"] = float(self.cc[1])
+        hdu.header.comments["RCVAL2"] = 'Real center Y of the data'
         hdu.header["RCVAL3"] = float(self.cc[2])
+        hdu.header.comments["RCVAL3"] = 'Real center Z of the data'
         hdu.header["UNITS"] = "kpc"
-        if radius is None:
-            hdu.header["RADIUS"] = float(self.rr)
-        else:
-            hdu.header["RADIUS"] = float(radius)
+        hdu.header.comments["UNITS"] = 'Units for the RCVAL and PSIZE'
+        hdu.header["PIXVAL"] = "omega"
+        hdu.header.comments["PIXVAL"] = 'T_{kSZ} = omega*T_{cmb}(~ 2.73)'
+        hdu.header["ORAD"] = float(self.rr)
+        hdu.header.comments["ORAD"] = 'Radius cut for this image, Not R_200 if not set in the parameter.'
         hdu.header["REDSHIFT"] = float(self.red)
+        hdu.header.comments["REDSHIFT"] = 'The redshift of the object'
         hdu.header["PSIZE"] = float(self.pxs)
+        hdu.header.comments["PSIZE"] = 'The pixel size of the image in comoving'
+
         if self.ar is None:
             hdu.header["AGLRES"] = 0
         else:
             hdu.header["AGLRES"] = float(self.ar)
-        hdu.header["NOTE"] = comments
-        hdu.writeto(fname, clobber=clobber)
+        hdu.header.comments["AGLRES"] = '\'observation\' angular resolution in arcsec'
+
+        hdu.header["ORIGIN"] = 'PymSZ: https://github.com/weiguangcui/pymsz.git'
+        hdu.header.comments["ORIGIN"] = 'Software for generating this mock image'
+        hdu.header["VERSION"] = version.version  # get_property('__version__')
+        hdu.header.comments["VERSION"] = 'Version of the software'
+        hdu.header["DATE-OBS"] = Time.now().tt.isot
+        if isinstance(comments, type([])) or isinstance(comments, type(())):
+            for j in range(len(comments)):
+                hdu.header["COMMENT"+str(j+1)] = comments[j]
+        elif isinstance(comments, type("")) or isinstance(comments, type('')):
+            hdu.header["COMMENT"] = comments
+        else:
+            raise ValueError("Do not accept this comments type! Please use str or list")
+        hdu.writeto(fname, overwrite=overwrite)
