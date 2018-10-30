@@ -283,7 +283,7 @@ class TT_model(object):
         hdu.header["PIXVAL"] = "y parameter"
         hdu.header.comments["PIXVAL"] = 'The y parameter for thermal SZ effect.'
         hdu.header["ORAD"] = float(self.rr)
-        hdu.header.comments["ORAD"] = 'Radius cut for this image, Not R_200 if not set in the parameter.'
+        hdu.header.comments["ORAD"] = 'Rcut for the image, Not R200 if not set to'
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header.comments["REDSHIFT"] = 'The redshift of the object'
         hdu.header["PSIZE"] = float(self.pxs)
@@ -295,8 +295,8 @@ class TT_model(object):
             hdu.header["AGLRES"] = float(self.ar)
         hdu.header.comments["AGLRES"] = '\'observation\' angular resolution in arcsec'
 
-        hdu.header["ORIGIN"] = 'PymSZ: https://github.com/weiguangcui/pymsz.git'
-        hdu.header.comments["ORIGIN"] = 'Software for generating this mock image'
+        hdu.header["ORIGIN"] = 'Software: PymSZ'
+        hdu.header.comments["ORIGIN"] = 'https://github.com/weiguangcui/pymsz.git'
         hdu.header["VERSION"] = version.version  # get_property('__version__')
         hdu.header.comments["VERSION"] = 'Version of the software'
         hdu.header["DATE-OBS"] = Time.now().tt.isot
@@ -555,7 +555,7 @@ class TK_model(object):
         hdu.header["PIXVAL"] = "omega"
         hdu.header.comments["PIXVAL"] = 'T_{kSZ} = omega*T_{cmb}(~ 2.73)'
         hdu.header["ORAD"] = float(self.rr)
-        hdu.header.comments["ORAD"] = 'Radius cut for this image, Not R_200 if not set in the parameter.'
+        hdu.header.comments["ORAD"] = 'Rcut for the image, Not R200 if not set to'
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header.comments["REDSHIFT"] = 'The redshift of the object'
         hdu.header["PSIZE"] = float(self.pxs)
@@ -567,8 +567,8 @@ class TK_model(object):
             hdu.header["AGLRES"] = float(self.ar)
         hdu.header.comments["AGLRES"] = '\'observation\' angular resolution in arcsec'
 
-        hdu.header["ORIGIN"] = 'PymSZ: https://github.com/weiguangcui/pymsz.git'
-        hdu.header.comments["ORIGIN"] = 'Software for generating this mock image'
+        hdu.header["ORIGIN"] = 'Software: PymSZ'
+        hdu.header.comments["ORIGIN"] = 'https://github.com/weiguangcui/pymsz.git'
         hdu.header["VERSION"] = version.version  # get_property('__version__')
         hdu.header.comments["VERSION"] = 'Version of the software'
         hdu.header["DATE-OBS"] = Time.now().tt.isot
