@@ -29,6 +29,8 @@ class TT_model(object):
     AR       : angular resolution in arcsec. Default : None.
                 Cluster's redshift with AR decides the image pixel size.
                 If None, the whole cluster will be projected to the image with npixel resolution.
+                The AR will be recalculated if z > 0.
+                If z = 0, AR is set to 1. Note this makes no sense to the ICRS coordinates.
     SD       : dimensions for SPH smoothing. Type: int. Default: 2.
                 Must be 2 or 3!
     SP       : Faked sky positions in [RA (longitude), DEC (latitude)] in degrees.
@@ -51,6 +53,7 @@ class TT_model(object):
                 which takes out the angular diameter distance.
                 This will also ingore the set of AR. The image pixel size =
                 2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
+                Highly recommended to *NOT* put the cluster at z = 0.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region.
                 Otherwise set a value in simulation length unit kpc/h normally,
@@ -70,9 +73,10 @@ class TT_model(object):
 
     Notes
     -----
-    This program does not accpte redshift=0 or AR == None with npixel = "AUTO".
+    This program does not accpte redshift=0 or AR == None with npixel = "AUTO", the npixel is reset to 500.
     If npixel is "AUTO" and AR != None, then the whole cluster will project to the image with
     npixel = 2*radius/pixelsize, where pxielsize is given by AR.
+    If z = 0 and AR == None, AR will be reset to 1. Note this makes no sense to the ICRS coordinates.
 
     Example
     -------
@@ -98,7 +102,8 @@ class TT_model(object):
         self.sp = SP
 
         if self.ar is None and self.npl == 'AUTO':
-            raise ValueError("Do not accept AR == None and npixel=='AUTO' !!")
+            print("Do not accept AR == None and npixel=='AUTO' !! \n The npixel is reset to 500.!")
+            self.npl = 500
         if self.SD not in [2, 3]:
             raise ValueError("smoothing dimension must be 2 or 3" % SD)
 
@@ -119,7 +124,8 @@ class TT_model(object):
         if self.red is None:
             self.red = simd.cosmology['z']
         if self.red <= 0. and self.npl == 'AUTO':
-            raise ValueError("Do not accept redshift == 0 and npixel=='AUTO' !!")
+            print("Do not accept redshift == 0 and npixel=='AUTO' !!\n The npixel is reset to 500.!")
+            self.npl = 500
 
         self.cc = simd.center/simd.cosmology['h']/(1+simd.cosmology['z'])
         self.rr = simd.radius/simd.cosmology['h']/(1+simd.cosmology['z'])
@@ -175,6 +181,9 @@ class TT_model(object):
                     self.npl = np.int32(self.rr*2/self.pxs)+1
             else:
                 self.ar = self.pxs * cosmo.arcsec_per_kpc_proper(self.red).value
+        else:
+            if self.ar is None:
+                self.ar = 1.
 
         # cut out unused data
         if self.npl != 'AUTO':
@@ -205,7 +214,7 @@ class TT_model(object):
         Ptype = simd.prep_yt_TT()
         if self.red is None:
             self.red = simd.yt_ds.current_redshift
-        if self.ar is 0:
+        if self.ar is None:
             rr = 2. * simd.radius
         else:
             if self.red <= 0.0:
@@ -271,6 +280,14 @@ class TT_model(object):
         hdu.header.comments["CRVAL1"] = 'RA of reference pixel (deg)'
         hdu.header["CRVAL2"] = float(self.sp[1])
         hdu.header.comments["CRVAL2"] = 'Dec of reference pixel (deg)'
+        hdu.header["CD1_1"] = float(self.ar/3600.)
+        hdu.header.comments["CD1_1"] = 'RA deg per column pixel'
+        hdu.header["CD1_2"] = float(0)
+        hdu.header.comments["CD1_2"] = 'RA deg per row pixel'
+        hdu.header["CD2_1"] = float(0)
+        hdu.header.comments["CD2_1"] = 'Dec deg per column pixel'
+        hdu.header["CD2_2"] = float(-self.ar/3600.)
+        hdu.header.comments["CD2_2"] = 'Dec deg per row pixel'
 
         hdu.header["RCVAL1"] = float(self.cc[0])
         hdu.header.comments["RCVAL1"] = 'Real center X of the data'
@@ -289,10 +306,7 @@ class TT_model(object):
         hdu.header["PSIZE"] = float(self.pxs)
         hdu.header.comments["PSIZE"] = 'The pixel size of the image in comoving'
 
-        if self.ar is None:
-            hdu.header["AGLRES"] = 0
-        else:
-            hdu.header["AGLRES"] = float(self.ar)
+        hdu.header["AGLRES"] = float(self.ar)
         hdu.header.comments["AGLRES"] = '\'observation\' angular resolution in arcsec'
 
         hdu.header["ORIGIN"] = 'Software: PymSZ'
@@ -336,6 +350,8 @@ class TK_model(object):
     AR       : angular resolution in arcsec. Default : None.
                 Cluster's redshift with AR decides the image pixel size.
                 If None, the whole cluster will be projected to the image with npixel resolution.
+                The AR will be recalculated if z != 0.
+                If z = 0, AR is set to 1. Note this makes no sense to the ICRS coordinates.
     SD       : dimensions for SPH smoothing. Type: int. Default: 2.
                 Must be 2 or 3!
     # pxsize   : pixel size of the image. Type: float, unit: kpc. Default: None
@@ -352,6 +368,7 @@ class TK_model(object):
                 which takes out the angular diameter distance.
                 This will also ingore the set of AR. The image pixel size =
                 2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
+                Highly recommended to put the cluster *NOT* at z = 0.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region. Otherwise set a value in simulation
                 length unit (kpc/h normally), then a slice of data [center-zthick, center+zthick]
@@ -372,9 +389,11 @@ class TK_model(object):
     Notes
     -----
     The retrun is omega map, not the delta T_{kSZ}!, which equals omega*T_{cmb} ~ 2.73 k
-    This program does not accpte redshift=0 or AR == None with npixel = "AUTO".
+    This program does not accpte redshift=0 or AR == None with npixel = "AUTO",
+    the npixel will be reset to 500 for output.
     If npixel is "AUTO" and AR != None, then the whole cluster will project to the image with
     npixel = 2*radius/pixelsize, where pxielsize is given by AR.
+    If redshift=0 and AR == None, AR will be reset to 1, but this does not make a sense to the ICRS system!
 
     Example
     -------
@@ -408,7 +427,8 @@ class TK_model(object):
         #     raise ValueError("SP length should be either 2 or 3!")
 
         if self.ar is None and self.npl == 'AUTO':
-            raise ValueError("Do not accept AR == None and npixel=='AUTO' !!")
+            print("Do not accept AR == None and npixel=='AUTO' !! \n npixel is reset to 500 !")
+            self.npl = 500
         if self.SD not in [2, 3]:
             raise ValueError("smoothing dimension must be 2 or 3" % SD)
 
@@ -429,7 +449,8 @@ class TK_model(object):
         if self.red is None:
             self.red = simd.cosmology['z']
         if self.red <= 0. and self.npl == 'AUTO':
-            raise ValueError("Do not accept redshift == 0 and npixel=='AUTO' !!")
+            print("Do not accept redshift == 0 and npixel=='AUTO' !! \n npixel is reset to 500 ! ")
+            self.npl = 500
 
         self.cc = simd.center/simd.cosmology['h']/(1+simd.cosmology['z'])
         self.rr = simd.radius/simd.cosmology['h']/(1+simd.cosmology['z'])
@@ -475,6 +496,9 @@ class TK_model(object):
                     self.npl = np.int32(self.rr*2/self.pxs)+1
             else:
                 self.ar = self.pxs * cosmo.arcsec_per_kpc_proper(self.red).value
+        else:
+            if self.ar is None:
+                self.ar = 1.
 
         # cut out unused data
         if self.npl != 'AUTO':
@@ -543,6 +567,14 @@ class TK_model(object):
         hdu.header.comments["CRVAL1"] = 'RA of reference pixel (deg)'
         hdu.header["CRVAL2"] = float(self.sp[1])
         hdu.header.comments["CRVAL2"] = 'Dec of reference pixel (deg)'
+        hdu.header["CD1_1"] = float(self.ar/3600.)
+        hdu.header.comments["CD1_1"] = 'RA deg per column pixel'
+        hdu.header["CD1_2"] = float(0)
+        hdu.header.comments["CD1_2"] = 'RA deg per row pixel'
+        hdu.header["CD2_1"] = float(0)
+        hdu.header.comments["CD2_1"] = 'Dec deg per column pixel'
+        hdu.header["CD2_2"] = float(-self.ar/3600.)
+        hdu.header.comments["CD2_2"] = 'Dec deg per row pixel'
 
         hdu.header["RCVAL1"] = float(self.cc[0])
         hdu.header.comments["RCVAL1"] = 'Real center X of the data'
@@ -561,10 +593,7 @@ class TK_model(object):
         hdu.header["PSIZE"] = float(self.pxs)
         hdu.header.comments["PSIZE"] = 'The pixel size of the image in comoving'
 
-        if self.ar is None:
-            hdu.header["AGLRES"] = 0
-        else:
-            hdu.header["AGLRES"] = float(self.ar)
+        hdu.header["AGLRES"] = float(self.ar)
         hdu.header.comments["AGLRES"] = '\'observation\' angular resolution in arcsec'
 
         hdu.header["ORIGIN"] = 'Software: PymSZ'
