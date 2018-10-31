@@ -85,7 +85,10 @@ class TT_model(object):
 
     def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=None, SD=2,
                  SP=[194.95, 27.98], Ncpu=None, redshift=None, zthick=None, sph_kernel='cubic'):
-        self.npl = npixel
+        if isinstance(npixel, type("")) or isinstance(npixel, type('')):
+            self.npl = npixel.lower()
+        else:
+            self.npl = npixel
         self.ngb = neighbours
         self.ax = axis
         self.ar = AR
@@ -101,7 +104,7 @@ class TT_model(object):
 
         self.sp = SP
 
-        if self.ar is None and self.npl.lower() == 'auto':
+        if self.ar is None and self.npl == 'auto':
             print("Do not accept AR == None and npixel=='AUTO' !! \n The npixel is reset to 500.!")
             self.npl = 500
         if self.SD not in [2, 3]:
@@ -123,7 +126,7 @@ class TT_model(object):
 
         if self.red is None:
             self.red = simd.cosmology['z']
-        if self.red <= 0. and self.npl.lower() == 'auto':
+        if self.red <= 0. and self.npl == 'auto':
             print("Do not accept redshift == 0 and npixel=='AUTO' !!\n The npixel is reset to 500.!")
             self.npl = 500
 
@@ -155,7 +158,7 @@ class TT_model(object):
             hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
             self.ngb = None
 
-        if self.npl.lower() != 'auto':
+        if self.npl != 'auto':
             minx = pos[:, 0].min()
             maxx = pos[:, 0].max()
             miny = pos[:, 1].min()
@@ -177,7 +180,7 @@ class TT_model(object):
 
             if self.ar is not None:
                 self.pxs = self.ar/cosmo.arcsec_per_kpc_comoving(self.red).value  # in kpc
-                if self.npl.lower() == 'auto':
+                if self.npl == 'auto':
                     self.npl = np.int32(self.rr*2/self.pxs)+1
             else:
                 self.ar = self.pxs * cosmo.arcsec_per_kpc_comoving(self.red).value
@@ -186,7 +189,7 @@ class TT_model(object):
                 self.ar = 1.
 
         # cut out unused data
-        if self.npl.lower() != 'auto':
+        if self.npl != 'auto':
             idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
                 (pos[:, 1] >= -self.npl*self.pxs/2.) & (pos[:, 1] <= self.npl*self.pxs/2.)
             pos = pos[idc]
@@ -403,7 +406,10 @@ class TK_model(object):
 
     def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=None, SD=2,
                  SP=[194.95, 27.98], Ncpu=None, redshift=None, zthick=None, sph_kernel='cubic'):
-        self.npl = npixel
+        if isinstance(npixel, type("")) or isinstance(npixel, type('')):
+            self.npl = npixel.lower()
+        else:
+            self.npl = npixel
         self.ngb = neighbours
         self.ax = axis
         self.ar = AR
@@ -426,7 +432,7 @@ class TK_model(object):
         # else:
         #     raise ValueError("SP length should be either 2 or 3!")
 
-        if self.ar is None and self.npl.lower() == 'auto':
+        if self.ar is None and self.npl == 'auto':
             print("Do not accept AR == None and npixel=='AUTO' !! \n npixel is reset to 500 !")
             self.npl = 500
         if self.SD not in [2, 3]:
@@ -448,7 +454,7 @@ class TK_model(object):
 
         if self.red is None:
             self.red = simd.cosmology['z']
-        if self.red <= 0. and self.npl.lower() == 'auto':
+        if self.red <= 0. and self.npl == 'auto':
             print("Do not accept redshift == 0 and npixel=='AUTO' !! \n npixel is reset to 500 ! ")
             self.npl = 500
 
@@ -473,7 +479,7 @@ class TK_model(object):
             hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
             self.ngb = None
 
-        if self.npl.lower() != 'auto':
+        if self.npl != 'auto':
             minx = pos[:, 0].min()
             maxx = pos[:, 0].max()
             miny = pos[:, 1].min()
@@ -492,7 +498,7 @@ class TK_model(object):
 
             if self.ar is not None:
                 self.pxs = self.ar / cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
-                if self.npl.lower() == 'auto':
+                if self.npl == 'auto':
                     self.npl = np.int32(self.rr*2/self.pxs)+1
             else:
                 self.ar = self.pxs * cosmo.arcsec_per_kpc_proper(self.red).value
@@ -501,7 +507,7 @@ class TK_model(object):
                 self.ar = 1.
 
         # cut out unused data
-        if self.npl.lower() != 'auto':
+        if self.npl != 'auto':
             idc = (pos[:, 0] >= -self.npl*self.pxs/2.) & (pos[:, 0] <= self.npl*self.pxs/2.) &\
                 (pos[:, 1] >= -self.npl*self.pxs/2.) & (pos[:, 1] <= self.npl*self.pxs/2.)
             pos = pos[idc]
