@@ -176,14 +176,13 @@ class TT_model(object):
             else:
                 print('No cosmology loaded, assume WMAP7!')
                 cosmo = WMAP7
-            # self.ad = cosmo.angular_diameter_distance(self.red).to("kpc").value  # in cm
 
             if self.ar is not None:
-                self.pxs = self.ar/cosmo.arcsec_per_kpc_comoving(self.red).value  # in kpc
+                self.pxs = self.ar/cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
                 if self.npl == 'auto':
                     self.npl = np.int32(self.rr*2/self.pxs)+1
             else:
-                self.ar = self.pxs * cosmo.arcsec_per_kpc_comoving(self.red).value
+                self.ar = self.pxs * cosmo.arcsec_per_kpc_proper(self.red).value
         else:
             if self.ar is None:
                 self.ar = 1.

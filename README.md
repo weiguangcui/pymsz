@@ -4,7 +4,7 @@
 
 ### What is this repository for?
 
--   This package provides theoretical views of SZ y map and temperatures Tsz. This package also uses the SZpack ([please cite Chluba et al. 2012](http://adsabs.harvard.edu/abs/2012MNRAS.426..510C) & [2013](http://adsabs.harvard.edu/abs/2013MNRAS.430.3054C)) to generate observed SZ signals in any frequency from hydro-dynamical simulations.
+-   This package provides theoretical views of SZ y-map from both thermal and kinetic effects for hydrodynamical simulations. This package also uses the SZpack to generate observed SZ signals at any frequency from hydrodynamical simulations.
 -   It requires yt installed if you want to use yt to load and analysis the simulation data.
 -   current version beta
 
@@ -40,9 +40,9 @@
 
 ### acknowledgement
 
--   Please cite the relative papers when you use the code.
--   The theoretical calculation is based on [Sembolini et al. 2013, MNRAS, 429, 323S](http://adsabs.harvard.edu/abs/2013MNRAS.429..323S)) and [Le Brun et al. 2015, MNRAS, 451, 3868](http://dx.doi.org/10.1093/mnras/stv1172)
--   The author owe a great debt to John ZuHone, who write the model for integrating SZpack to [yt-project](http://yt-project.org/). If you are using yt with SZpack to generate the mock SZ signals, please give your thanks to him.
+  Please cite the relative papers when you use the code: for theoretical kinetic SZ effects, ([please cite Baldi et al. 2018](http://adsabs.harvard.edu/abs/2018MNRAS.479.4028B); for theoretical thermal SZ effects, ([please cite Cui et al. 2018](http://adsabs.harvard.edu/doi/10.1093/mnras/sty2111); for mock SZ-signals at any frequency, ([please cite Chluba et al. 2012](http://adsabs.harvard.edu/abs/2012MNRAS.426..510C) & [2013](http://adsabs.harvard.edu/abs/2013MNRAS.430.3054C))
+<!-- -   The theoretical calculation is based on -->
+<!-- -   The author owe a great debt to John ZuHone, who write the model for integrating SZpack to [yt-project](http://yt-project.org/). -->
 
 ### Temporary Notes
 
