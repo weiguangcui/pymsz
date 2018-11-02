@@ -47,14 +47,14 @@ class TT_model(object):
     # periodic : periodic condition applied for the SPH smoothing region. Tyep: bool. Default: False.
     #             periodic condition works for the too fine mesh (which means oversmoothing),
     #             you can turn this on to avoid small boundary effects. So, this is only for SPH.
-    redshift : The redshift where the cluster is at.
+    redshift : The redshift where we put the cluster for observation,.
                 Default : None, we will look it from simulation data.
                 Note : If redshift = 0, the returning results will be y_int, i.e. y*d^2_A,
                 which takes out the angular diameter distance.
                 This will also ingore the set of AR. The image pixel size =
                 2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
                 Highly recommended to *NOT* put the cluster at z = 0.
-                Note that this redshift is only where we put the cluster for observation, it has nothing to do with the physical positions of the particles.
+                Note that the physical positions of the particles is also assumed at this redshift.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region.
                 Otherwise set a value in simulation length unit kpc/h normally,
@@ -93,7 +93,10 @@ class TT_model(object):
         self.ngb = neighbours
         self.ax = axis
         self.ar = AR
-        self.red = redshift
+        if redshfit is None:
+            self.red = simudata.cosmology['z']
+        else:
+            self.red = redshift
         self.zthick = zthick
         self.pxs = None
         self.SD = SD
@@ -125,28 +128,20 @@ class TT_model(object):
         # Kpc = 3.0856775809623245e+21  # cm
         simd.prep_ss_TT()
 
-        if self.red is None:
-            self.red = simd.cosmology['z']
         if self.red <= 0. and self.npl == 'auto':
             print("Do not accept redshift == 0 and npixel=='AUTO' !!\n The npixel is reset to 500.!")
             self.npl = 500
 
-        self.cc = simd.center/simd.cosmology['h']/(1+simd.cosmology['z'])
-        self.rr = simd.radius/simd.cosmology['h']/(1+simd.cosmology['z'])
-        pos = rotate_data(simd.pos/simd.cosmology['h']/(1+simd.cosmology['z']), self.ax)[0]  # to proper distance
+        self.cc = simd.center/simd.cosmology['h']/(1+self.red)
+        self.rr = simd.radius/simd.cosmology['h']/(1+self.red)
+        pos = rotate_data(simd.pos/simd.cosmology['h']/(1+self.red), self.ax)[0]  # to proper distance
         if self.zthick is not None:
-            self.zthick = self.zthick/simd.cosmology['h']/(1+simd.cosmology['z'])
+            self.zthick = self.zthick/simd.cosmology['h']/(1+self.red)
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
             pos = pos[idc]
             Tszdata = simd.Tszdata[idc]
         else:
             Tszdata = np.copy(simd.Tszdata)
-        # if simd.radius is not None:
-        #     idc = (pos[:, 2] > -1 * simd.radius) & (pos[:, 2] <= simd.radius) & \
-        #           (pos[:, 0] > -1 * simd.radius) & (pos[:, 0] <= simd.radius) & \
-        #           (pos[:, 1] > -1 * simd.radius) & (pos[:, 1] <= simd.radius)
-        #     pos = pos[idc]
-        # Tszdata = simd.Tszdata[idc]
 
         if isinstance(simd.hsml, type(0)):
             self.ngb = 27
@@ -156,7 +151,7 @@ class TT_model(object):
                 hsml = simd.hsml[idc]
             else:
                 hsml = np.copy(simd.hsml)
-            hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
+            hsml = hsml/simd.cosmology['h']/(1+self.red)
             self.ngb = None
 
         if self.npl != 'auto':
@@ -214,7 +209,7 @@ class TT_model(object):
             self.ydata = np.sum(self.ydata, axis=2)
         self.ydata = self.ydata.T / self.pxs**2
 
-    def _cal_yt(self, simd):
+    def _cal_yt(self, simd):  # Not work properly right now
         # from yt.units import cm
         Ptype = simd.prep_yt_TT()
         if self.red is None:
@@ -367,14 +362,14 @@ class TK_model(object):
     # periodic : periodic condition for the SPH smoothing region. Tyep: bool. Default: False.
     #             periodic condition works for the too fine mesh (which means oversmoothing),
     #             you can consider turn this on to avoid boundary effects. So, this is also for SPH.
-    redshift : The redshift where the cluster is at.
+    redshift : The redshift where we put the cluster for observation.
                 Default : None, we will look it from simulation data.
                 Note : If redshift = 0, the returning results will be y_int, i.e. y*d^2_A,
                 which takes out the angular diameter distance.
                 This will also ingore the set of AR. The image pixel size =
                 2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
                 Highly recommended to put the cluster *NOT* at z = 0.
-                Note that this redshift is only where we put the cluster for observation, it has nothing to do with the physical positions of the particles.
+                Note that the physical positions of the particles are also assumed at this redshift.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region. Otherwise set a value in simulation
                 length unit (kpc/h normally), then a slice of data [center-zthick, center+zthick]
@@ -418,7 +413,10 @@ class TK_model(object):
         self.ar = AR
         self.ncpu = Ncpu
         self.bvel = 0  # bulk velocity after rotation
-        self.red = redshift
+        if redshift is None:
+            self.red = simudata.cosmology['z']
+        else:
+            self.red = redshift
         self.zthick = zthick
         self.pxs = None
         self.SD = SD
@@ -451,20 +449,18 @@ class TK_model(object):
 
     def _cal_snap(self, simd):
 
-        pos, vel, self.bvel = rotate_data(simd.pos/simd.cosmology['h']/(1+simd.cosmology['z']),
+        pos, vel, self.bvel = rotate_data(simd.pos/simd.cosmology['h']/(1+self.red),
                                           self.ax, vel=simd.vel, bvel=simd.bulkvel)  # pos in physical
         simd.prep_ss_KT(vel)
 
-        if self.red is None:
-            self.red = simd.cosmology['z']
         if self.red <= 0. and self.npl == 'auto':
             print("Do not accept redshift == 0 and npixel=='AUTO' !! \n npixel is reset to 500! ")
             self.npl = 500
 
-        self.cc = simd.center/simd.cosmology['h']/(1+simd.cosmology['z'])
-        self.rr = simd.radius/simd.cosmology['h']/(1+simd.cosmology['z'])
+        self.cc = simd.center/simd.cosmology['h']/(1+self.red)
+        self.rr = simd.radius/simd.cosmology['h']/(1+self.red)
         if self.zthick is not None:
-            self.zthick = self.zthick/simd.cosmology['h']/(1+simd.cosmology['z'])
+            self.zthick = self.zthick/simd.cosmology['h']/(1+self.red)
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
             pos = pos[idc]
             Kszdata = simd.Kszdata[idc]
@@ -479,7 +475,7 @@ class TK_model(object):
                 hsml = simd.hsml[idc]
             else:
                 hsml = np.copy(simd.hsml)
-            hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
+            hsml = hsml/simd.cosmology['h']/(1+self.red)
             self.ngb = None
 
         if self.npl != 'auto':
