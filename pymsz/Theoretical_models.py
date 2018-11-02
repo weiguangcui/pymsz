@@ -54,7 +54,7 @@ class TT_model(object):
                 This will also ingore the set of AR. The image pixel size =
                 2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
                 Highly recommended to *NOT* put the cluster at z = 0.
-                Note that this redshift is only where we put the cluster for observation, it has nothing to do with the physical positions of the particles. 
+                Note that this redshift is only where we put the cluster for observation, it has nothing to do with the physical positions of the particles.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region.
                 Otherwise set a value in simulation length unit kpc/h normally,
@@ -196,6 +196,8 @@ class TT_model(object):
             Tszdata = Tszdata[idc]
             if hsml is not None:
                 hsml = hsml[idc]
+            if self.npl != np.int32(self.rr*2/self.pxs)+1:
+                self.rr = self.pxs * (self.npl-1) / 2.
 
         # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
 
@@ -303,7 +305,7 @@ class TT_model(object):
         hdu.header["PIXVAL"] = "y parameter"
         hdu.header.comments["PIXVAL"] = 'The y parameter for thermal SZ effect.'
         hdu.header["ORAD"] = float(self.rr)
-        hdu.header.comments["ORAD"] = 'Rcut for the image, Not R200 if not set to'
+        hdu.header.comments["ORAD"] = 'Rcut in physical for the image.'
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header.comments["REDSHIFT"] = 'The redshift of the object being put to'
         hdu.header["PSIZE"] = float(self.pxs)
@@ -515,6 +517,8 @@ class TK_model(object):
             Kszdata = Kszdata[idc]
             if hsml is not None:
                 hsml = hsml[idc]
+            if self.npl != np.int32(self.rr*2/self.pxs)+1:
+                self.rr = self.pxs * (self.npl-1) / 2.
 
         if self.SD == 2:
             self.bdata = SPH_smoothing(Kszdata, pos[:, :2], self.pxs, hsml=hsml,
@@ -594,7 +598,7 @@ class TK_model(object):
         hdu.header["PIXVAL"] = "omega"
         hdu.header.comments["PIXVAL"] = 'T_{kSZ} = omega*T_{cmb}(~ 2.73)'
         hdu.header["ORAD"] = float(self.rr)
-        hdu.header.comments["ORAD"] = 'Rcut for the image, Not R200 if not set to'
+        hdu.header.comments["ORAD"] = 'Rcut in physical for the image'
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header.comments["REDSHIFT"] = 'The redshift of the object being put to'
         hdu.header["PSIZE"] = float(self.pxs)
