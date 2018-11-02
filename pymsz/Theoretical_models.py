@@ -54,6 +54,7 @@ class TT_model(object):
                 This will also ingore the set of AR. The image pixel size =
                 2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
                 Highly recommended to *NOT* put the cluster at z = 0.
+                Note that this redshift is only where we put the cluster for observation, it has nothing to do with the physical positions of the particles. 
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region.
                 Otherwise set a value in simulation length unit kpc/h normally,
@@ -178,7 +179,7 @@ class TT_model(object):
                 cosmo = WMAP7
 
             if self.ar is not None:
-                self.pxs = self.ar/cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
+                self.pxs = self.ar/cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc physical
                 if self.npl == 'auto':
                     self.npl = np.int32(self.rr*2/self.pxs)+1
             else:
@@ -304,9 +305,9 @@ class TT_model(object):
         hdu.header["ORAD"] = float(self.rr)
         hdu.header.comments["ORAD"] = 'Rcut for the image, Not R200 if not set to'
         hdu.header["REDSHIFT"] = float(self.red)
-        hdu.header.comments["REDSHIFT"] = 'The redshift of the object'
+        hdu.header.comments["REDSHIFT"] = 'The redshift of the object being put to'
         hdu.header["PSIZE"] = float(self.pxs)
-        hdu.header.comments["PSIZE"] = 'The pixel size of the image in comoving'
+        hdu.header.comments["PSIZE"] = 'The pixel size of the image in physical'
 
         hdu.header["AGLRES"] = float(self.ar)
         hdu.header.comments["AGLRES"] = '\'observation\' angular resolution in arcsec'
@@ -371,6 +372,7 @@ class TK_model(object):
                 This will also ingore the set of AR. The image pixel size =
                 2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
                 Highly recommended to put the cluster *NOT* at z = 0.
+                Note that this redshift is only where we put the cluster for observation, it has nothing to do with the physical positions of the particles.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region. Otherwise set a value in simulation
                 length unit (kpc/h normally), then a slice of data [center-zthick, center+zthick]
@@ -454,7 +456,7 @@ class TK_model(object):
         if self.red is None:
             self.red = simd.cosmology['z']
         if self.red <= 0. and self.npl == 'auto':
-            print("Do not accept redshift == 0 and npixel=='AUTO' !! \n npixel is reset to 500 ! ")
+            print("Do not accept redshift == 0 and npixel=='AUTO' !! \n npixel is reset to 500! ")
             self.npl = 500
 
         self.cc = simd.center/simd.cosmology['h']/(1+simd.cosmology['z'])
@@ -496,7 +498,7 @@ class TK_model(object):
             # self.ad = cosmo.angular_diameter_distance(self.red).to("kpc").value  # in cm
 
             if self.ar is not None:
-                self.pxs = self.ar / cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc
+                self.pxs = self.ar / cosmo.arcsec_per_kpc_proper(self.red).value  # in kpc physical
                 if self.npl == 'auto':
                     self.npl = np.int32(self.rr*2/self.pxs)+1
             else:
@@ -594,9 +596,9 @@ class TK_model(object):
         hdu.header["ORAD"] = float(self.rr)
         hdu.header.comments["ORAD"] = 'Rcut for the image, Not R200 if not set to'
         hdu.header["REDSHIFT"] = float(self.red)
-        hdu.header.comments["REDSHIFT"] = 'The redshift of the object'
+        hdu.header.comments["REDSHIFT"] = 'The redshift of the object being put to'
         hdu.header["PSIZE"] = float(self.pxs)
-        hdu.header.comments["PSIZE"] = 'The pixel size of the image in comoving'
+        hdu.header.comments["PSIZE"] = 'The pixel size of the image in physical'
 
         hdu.header["AGLRES"] = float(self.ar)
         hdu.header.comments["AGLRES"] = '\'observation\' angular resolution in arcsec'
