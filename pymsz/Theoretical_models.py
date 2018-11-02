@@ -93,7 +93,7 @@ class TT_model(object):
         self.ngb = neighbours
         self.ax = axis
         self.ar = AR
-        if redshfit is None:
+        if redshift is None:
             self.red = simudata.cosmology['z']
         else:
             self.red = redshift
