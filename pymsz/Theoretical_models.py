@@ -54,7 +54,7 @@ class TT_model(object):
                 This will also ingore the set of AR. The image pixel size =
                 2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
                 Highly recommended to *NOT* put the cluster at z = 0.
-                Note that the physical positions of the particles is also assumed at this redshift.
+                Note the physical positions of particles are always at the simulation time.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region.
                 Otherwise set a value in simulation length unit kpc/h normally,
@@ -132,11 +132,11 @@ class TT_model(object):
             print("Do not accept redshift == 0 and npixel=='AUTO' !!\n The npixel is reset to 500.!")
             self.npl = 500
 
-        self.cc = simd.center/simd.cosmology['h']/(1+self.red)
-        self.rr = simd.radius/simd.cosmology['h']/(1+self.red)
-        pos = rotate_data(simd.pos/simd.cosmology['h']/(1+self.red), self.ax)[0]  # to proper distance
+        self.cc = simd.center/simd.cosmology['h']/(1+simd.cosmology['z'])
+        self.rr = simd.radius/simd.cosmology['h']/(1+simd.cosmology['z'])
+        pos = rotate_data(simd.pos/simd.cosmology['h']/(1+simd.cosmology['z']), self.ax)[0]  # to proper distance
         if self.zthick is not None:
-            self.zthick = self.zthick/simd.cosmology['h']/(1+self.red)
+            self.zthick = self.zthick/simd.cosmology['h']/(1+simd.cosmology['z'])
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
             pos = pos[idc]
             Tszdata = simd.Tszdata[idc]
@@ -151,7 +151,7 @@ class TT_model(object):
                 hsml = simd.hsml[idc]
             else:
                 hsml = np.copy(simd.hsml)
-            hsml = hsml/simd.cosmology['h']/(1+self.red)
+            hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
             self.ngb = None
 
         if self.npl != 'auto':
@@ -218,7 +218,7 @@ class TT_model(object):
             rr = 2. * simd.radius
         else:
             if self.red <= 0.0:
-                self.red = 0.02
+                self.red = 0.05
 
             if simd.yt_ds.omega_matter != 0:
                 cosmo = FlatLambdaCDM(H0=simd.yt_ds.hubble_constant * 100,
@@ -304,7 +304,7 @@ class TT_model(object):
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header.comments["REDSHIFT"] = 'The redshift of the object being put to'
         hdu.header["PSIZE"] = float(self.pxs)
-        hdu.header.comments["PSIZE"] = 'The pixel size of the image in physical'
+        hdu.header.comments["PSIZE"] = 'The pixel size in physical at simulation time'
 
         hdu.header["AGLRES"] = float(self.ar)
         hdu.header.comments["AGLRES"] = '\'observation\' angular resolution in arcsec'
@@ -369,7 +369,7 @@ class TK_model(object):
                 This will also ingore the set of AR. The image pixel size =
                 2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
                 Highly recommended to put the cluster *NOT* at z = 0.
-                Note that the physical positions of the particles are also assumed at this redshift.
+                Note the physical positions of particles are always at the simulation time.
     zthick  : The thickness in projection direction. Default: None.
                 If None, use all data from cutting region. Otherwise set a value in simulation
                 length unit (kpc/h normally), then a slice of data [center-zthick, center+zthick]
@@ -449,7 +449,7 @@ class TK_model(object):
 
     def _cal_snap(self, simd):
 
-        pos, vel, self.bvel = rotate_data(simd.pos/simd.cosmology['h']/(1+self.red),
+        pos, vel, self.bvel = rotate_data(simd.pos/simd.cosmology['h']/(1+simd.cosmology['z']),
                                           self.ax, vel=simd.vel, bvel=simd.bulkvel)  # pos in physical
         simd.prep_ss_KT(vel)
 
@@ -457,10 +457,10 @@ class TK_model(object):
             print("Do not accept redshift == 0 and npixel=='AUTO' !! \n npixel is reset to 500! ")
             self.npl = 500
 
-        self.cc = simd.center/simd.cosmology['h']/(1+self.red)
-        self.rr = simd.radius/simd.cosmology['h']/(1+self.red)
+        self.cc = simd.center/simd.cosmology['h']/(1+simd.cosmology['z'])
+        self.rr = simd.radius/simd.cosmology['h']/(1+simd.cosmology['z'])
         if self.zthick is not None:
-            self.zthick = self.zthick/simd.cosmology['h']/(1+self.red)
+            self.zthick = self.zthick/simd.cosmology['h']/(1+simd.cosmology['z'])
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
             pos = pos[idc]
             Kszdata = simd.Kszdata[idc]
@@ -475,7 +475,7 @@ class TK_model(object):
                 hsml = simd.hsml[idc]
             else:
                 hsml = np.copy(simd.hsml)
-            hsml = hsml/simd.cosmology['h']/(1+self.red)
+            hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
             self.ngb = None
 
         if self.npl != 'auto':
@@ -598,7 +598,7 @@ class TK_model(object):
         hdu.header["REDSHIFT"] = float(self.red)
         hdu.header.comments["REDSHIFT"] = 'The redshift of the object being put to'
         hdu.header["PSIZE"] = float(self.pxs)
-        hdu.header.comments["PSIZE"] = 'The pixel size of the image in physical'
+        hdu.header.comments["PSIZE"] = 'The pixel size in physical at simulation time'
 
         hdu.header["AGLRES"] = float(self.ar)
         hdu.header.comments["AGLRES"] = '\'observation\' angular resolution in arcsec'
