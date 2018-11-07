@@ -171,7 +171,7 @@ class load_data(object):
 
     def _load_snap(self):
         head = readsnap(self.filename, "HEAD", quiet=True)
-        self.cosmology["z"] = head[3] if head[3] > 0 else 0.0
+        self.cosmology["z"] = head[3]  # if head[3] > 0 else 0.0
         self.cosmology["a"] = head[2]
         self.cosmology["omega_matter"] = head[10]
         self.cosmology["omega_lambda"] = head[11]
