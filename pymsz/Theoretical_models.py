@@ -44,6 +44,9 @@ class TT_model(object):
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
                 Note, this parallel calculation is only for the SPH smoothing.
+    Ntasks   : number of tasks for separating the calculation. Type: int. Default: None,
+                the same number of Ncpu will be used. Ideally, it should be larger than or equal to the number of Ncpu.
+                Set this to a much larger value if you encounter an 'IO Error: bad message length'
     # periodic : periodic condition applied for the SPH smoothing region. Tyep: bool. Default: False.
     #             periodic condition works for the too fine mesh (which means oversmoothing),
     #             you can turn this on to avoid small boundary effects. So, this is only for SPH.
@@ -85,7 +88,7 @@ class TT_model(object):
     """
 
     def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=None, SD=2,
-                 SP=[194.95, 27.98], Ncpu=None, redshift=None, zthick=None, sph_kernel='cubic'):
+                 SP=[194.95, 27.98], Ncpu=None, Ntasks=None, redshift=None, zthick=None, sph_kernel='cubic'):
         if isinstance(npixel, type("")) or isinstance(npixel, type('')):
             self.npl = npixel.lower()
         else:
@@ -102,6 +105,7 @@ class TT_model(object):
         self.SD = SD
         # self.periodic = periodic
         self.ncpu = Ncpu
+        self.ntask = Ntasks
         self.ydata = np.array([])
         self.sph_kn = sph_kernel
         # self.ad = 1.  # angular diameter distance normalized to 1 kpc
@@ -144,15 +148,27 @@ class TT_model(object):
             Tszdata = np.copy(simd.Tszdata)
 
         if isinstance(simd.hsml, type(0)):
-            self.ngb = 27
+            self.ngb = 64
             hsml = None
-        else:
-            if self.zthick is not None:
-                hsml = simd.hsml[idc]
-            else:
-                hsml = np.copy(simd.hsml)
-            hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
-            self.ngb = None
+        else:                      # with hsml
+            if self.ngb is None:               # estimate neighbors
+                self.ngb=0
+                ids = np.sum((simd.pos - simd.pos[simd.hsml.argmin()])**2, axis=1) <= simd.hsml.min()**2
+                if simd.hsml[ids].size > self.ngb:
+                    self.ngb = simd.hsml[ids].size
+                ids = np.sum((simd.pos - simd.pos[simd.hsml.argmax()])**2, axis=1) <= simd.hsml.max()**2
+                if simd.hsml[ids].size > self.ngb:
+                    self.ngb = simd.hsml[ids].size
+                self.ngb = np.int32(self.ngb*1.05)+1 #to be safe
+                print('self.ngb = ', self.ngb)
+
+                if self.zthick is not None:
+                    hsml = simd.hsml[idc]
+                else:
+                    hsml = np.copy(simd.hsml)
+                hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
+            else:               # have set the neighbors, need to ignore the hsml
+                hsml = None
 
         if self.npl != 'auto':
             minx = pos[:, 0].min()
@@ -197,15 +213,15 @@ class TT_model(object):
         # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
 
         if self.SD == 2:
-            self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, hsml=hsml,
-                                       neighbors=self.ngb, pxln=self.npl, Ncpu=self.ncpu,
-                                       kernel_name=self.sph_kn)
+            self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, self.ngb, hsml=hsml,
+                                       pxln=self.npl, Ncpu=self.ncpu,
+                                       Ntasks=self.ntask, kernel_name=self.sph_kn)
         else:
             # be ware that zthick could cause some problems if it is larger than pxs*npl!!
             # This has been taken in care in the rotate_data function.
-            self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, hsml=hsml,
-                                       neighbors=self.ngb, pxln=self.npl,
-                                       Ncpu=self.ncpu, kernel_name=self.sph_kn)
+            self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, self.ngb, hsml=hsml,
+                                       pxln=self.npl, Ncpu=self.ncpu,
+                                       Ntasks=self.ntask, kernel_name=self.sph_kn)
             self.ydata = np.sum(self.ydata, axis=2)
         self.ydata = self.ydata.T / self.pxs**2
 
@@ -470,13 +486,25 @@ class TK_model(object):
         if isinstance(simd.hsml, type(0)):
             self.ngb = 27
             hsml = None
-        else:
-            if self.zthick is not None:
-                hsml = simd.hsml[idc]
-            else:
-                hsml = np.copy(simd.hsml)
-            hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
-            self.ngb = None
+        else:  # with hsml
+            if self.ngb is None:             # need to estimate neighbors
+                self.ngb=0
+                ids = np.sum((simd.pos - simd.pos[simd.hsml.argmin()])**2, axis=1) <= simd.hsml.min()**2
+                if simd.hsml[ids].size > self.ngb:
+                    self.ngb = simd.hsml[ids].size
+                ids = np.sum((simd.pos - simd.pos[simd.hsml.argmax()])**2, axis=1) <= simd.hsml.max()**2
+                if simd.hsml[ids].size > self.ngb:
+                    self.ngb = simd.hsml[ids].size
+                self.ngb = np.int32(self.ngb*1.05)+1 #to be safe
+                print('self.ngb = ', self.ngb)
+
+                if self.zthick is not None:
+                    hsml = simd.hsml[idc]
+                else:
+                    hsml = np.copy(simd.hsml)
+                hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
+            else:               # have set the neighbors, need to ignore the hsml
+                hsml = None
 
         if self.npl != 'auto':
             minx = pos[:, 0].min()
@@ -517,11 +545,11 @@ class TK_model(object):
                 self.rr = self.pxs * (self.npl-1) / 2.
 
         if self.SD == 2:
-            self.bdata = SPH_smoothing(Kszdata, pos[:, :2], self.pxs, hsml=hsml,
-                                       neighbors=self.ngb, pxln=self.npl, Ncpu=self.ncpu,
+            self.bdata = SPH_smoothing(Kszdata, pos[:, :2], self.pxs, self.ngb, hsml=hsml,
+                                       pxln=self.npl, Ncpu=self.ncpu,
                                        kernel_name=self.sph_kn)
         else:
-            self.bdata = SPH_smoothing(Kszdata, pos, self.pxs, hsml=hsml, neighbors=self.ngb,
+            self.bdata = SPH_smoothing(Kszdata, pos, self.pxs, self.ngb, hsml=hsml,
                                        pxln=self.npl, Ncpu=self.ncpu, kernel_name=self.sph_kn)
             self.bdata = np.sum(self.bdata, axis=2)
         self.bdata = self.bdata.T / self.pxs**2
