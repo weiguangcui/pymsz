@@ -7,7 +7,7 @@ from setuptools.command.install import install
 import subprocess
 
 MAJOR = 0
-MINOR = 7
+MINOR = 8
 VERSION = '%d.%d' % (MAJOR, MINOR)
 
 # Return the git revision as a string
