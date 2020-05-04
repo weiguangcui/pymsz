@@ -85,6 +85,8 @@ class load_data(object):
                   Default : None, whole data will load.
     radius      : The radius of a sphere for the data you want to get.
                   Default : None, whole data will be used.
+    restrict_r  : Using the exact radius to cut out simulation data.
+                  Default : True. Otherwise, sqrt(2)*radius data is cut out to fill the output fits image.
     hmrad       : Radius for calculation halo motion, which is used for calculating the kSZ effect.
                   Default : None, the halo motion are given by the mean of all particles.
                   0 or nagative value for not removing halo motion.
@@ -111,7 +113,7 @@ class load_data(object):
 
     def __init__(self, filename='', metal=None, Nmets=11, mu=None, snapshot=False, yt_load=False,
                  specified_field=None, n_ref=None, datafile=False, center=None, radius=None,
-                 hmrad=None, cut_sfr=0.1, cut_rhoT=[6.e-7, 3.0e4]):
+                 restrict_r=True, hmrad=None, cut_sfr=0.1, cut_rhoT=[6.e-7, 3.0e4]):
         self.center = center
         self.radius = radius
         self.filename = filename
@@ -127,6 +129,7 @@ class load_data(object):
         self.hmrad = hmrad
         self.cut_sfr = cut_sfr
         self.cot_rhoT = cut_rhoT
+        self.restrict_r = restrict_r
 
         if snapshot:
             self.data_type = "snapshot"
@@ -184,15 +187,18 @@ class load_data(object):
         # positions # only gas particles
         spos = readsnap(self.filename, "POS ", ptype=0, quiet=True)
         if (self.center is not None) and (self.radius is not None):
-            # r = np.sqrt(np.sum((spos - self.center)**2, axis=1))
-            # ids = r <= self.radius  # increase to get all the projected data
+            r = np.sqrt(np.sum((spos - self.center)**2, axis=1))
+            if self.restrict_r:
+                ids = r <= self.radius  
+            else:
+                ids = r <= self.radius*np.sqrt(2)  # increase to get all the projected data
             # Now using cubic box to get the data
-            ids = (spos[:, 0] >= self.center[0] - self.radius) & \
-                (spos[:, 0] <= self.center[0] + self.radius) & \
-                (spos[:, 1] >= self.center[1] - self.radius) & \
-                (spos[:, 1] <= self.center[1] + self.radius) & \
-                (spos[:, 2] >= self.center[2] - self.radius) & \
-                (spos[:, 2] <= self.center[2] + self.radius)
+            # ids = (spos[:, 0] >= self.center[0] - self.radius) & \
+            #     (spos[:, 0] <= self.center[0] + self.radius) & \
+            #     (spos[:, 1] >= self.center[1] - self.radius) & \
+            #     (spos[:, 1] <= self.center[1] + self.radius) & \
+            #     (spos[:, 2] >= self.center[2] - self.radius) & \
+            #     (spos[:, 2] <= self.center[2] + self.radius)
             self.pos = spos[ids] - self.center
         else:
             ids = np.ones(head[0][0], dtype=bool)
