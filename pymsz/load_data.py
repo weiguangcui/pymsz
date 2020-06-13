@@ -86,7 +86,7 @@ class load_data(object):
     radius      : The radius of a sphere for the data you want to get.
                   Default : None, whole data will be used.
     restrict_r  : Using the exact radius to cut out simulation data.
-                  Default : True. Otherwise, sqrt(2)*radius data is cut out to fill the output fits image.
+                  Default : True. Otherwise, a cubic (2 *radius) data is cut out to fill the output fits image.
     hmrad       : Radius for calculation halo motion, which is used for calculating the kSZ effect.
                   Default : None, the halo motion are given by the mean of all particles.
                   0 or nagative value for not removing halo motion.
@@ -187,18 +187,18 @@ class load_data(object):
         # positions # only gas particles
         spos = readsnap(self.filename, "POS ", ptype=0, quiet=True)
         if (self.center is not None) and (self.radius is not None):
-            r = np.sqrt(np.sum((spos - self.center)**2, axis=1))
             if self.restrict_r:
+                r = np.sqrt(np.sum((spos - self.center)**2, axis=1))
                 ids = r <= self.radius  
             else:
-                ids = r <= self.radius*np.sqrt(2)  # increase to get all the projected data
-            # Now using cubic box to get the data
-            # ids = (spos[:, 0] >= self.center[0] - self.radius) & \
-            #     (spos[:, 0] <= self.center[0] + self.radius) & \
-            #     (spos[:, 1] >= self.center[1] - self.radius) & \
-            #     (spos[:, 1] <= self.center[1] + self.radius) & \
-            #     (spos[:, 2] >= self.center[2] - self.radius) & \
-            #     (spos[:, 2] <= self.center[2] + self.radius)
+                # ids = r <= self.radius*np.sqrt(2)  # increase to get all the projected data
+                # Now using cubic box to get the data
+                ids = (spos[:, 0] > self.center[0] - self.radius) & \
+                    (spos[:, 0] <= self.center[0] + self.radius) & \
+                    (spos[:, 1] > self.center[1] - self.radius) & \
+                    (spos[:, 1] <= self.center[1] + self.radius) & \
+                    (spos[:, 2] > self.center[2] - self.radius) & \
+                    (spos[:, 2] <= self.center[2] + self.radius)
             self.pos = spos[ids] - self.center
         else:
             ids = np.ones(head[0][0], dtype=bool)
