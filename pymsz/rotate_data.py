@@ -239,7 +239,8 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                 if jmin > py.min(): jmin = py.min()
                 if jmax < py.max(): jmax = py.max()
                 # devided by len(ids) is to change N_e to number density
-                ydata[px, py] += wdata[i] * wsph / wsph.sum()
+                if wsph.sum() > 0:
+                    ydata[px, py] += wdata[i] * wsph / wsph.sum()
                 # else:  # we also add particles with hsml < pixel size to its nearest four pixels.
                 #     #    Then, the y-map looks no smoothed (with some noisy pixels).
                 #     dist, ids = mtree.query(pos[i], k=4)
@@ -261,7 +262,8 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                 if jmax < py.max(): jmax = py.max()
                 if kmin > pz.min(): kmin = pz.min()
                 if kmax < pz.max(): kmax = pz.max()
-                ydata[px, py, pz] += wdata[i] * wsph / wsph.sum()
+                if wsph.sum() > 0:
+                    ydata[px, py, pz] += wdata[i] * wsph / wsph.sum()
                 # else:
                 #     dist, ids = mtree.query(pos[i], k=8)
                 #     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]
@@ -285,7 +287,8 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                 if jmin > py.min(): jmin = py.min()
                 if jmax < py.max(): jmax = py.max()
                 for j in wdata.keys():
-                    ydata[j][px, py] += wdata[j][i] * wsph / wsph.sum()
+                    if wsph.sum() > 0:
+                        ydata[j][px, py] += wdata[j][i] * wsph / wsph.sum()
                 # else:
                 #     dist, ids = mtree.query(pos[i], k=4)
                 #     for j in wdata.keys():
@@ -312,7 +315,8 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                 if kmin > pz.min(): kmin = pz.min()
                 if kmax < pz.max(): kmax = pz.max()
                 for j in wdata.keys():
-                    ydata[j][px, py, pz] += wdata[j][i] * wsph / wsph.sum()
+                    if wsph.sum() > 0:
+                        ydata[j][px, py, pz] += wdata[j][i] * wsph / wsph.sum()
                 # else:
                 #     dist, ids = mtree.query(pos[i], k=8)
                 #     for j in wdata.keys():
@@ -337,7 +341,8 @@ def cal_sph_neib(idst, dist, posd, pxln, sphkernel, wdata):
                 if imax < px.max(): imax = px.max()
                 if jmin > py.min(): jmin = py.min()
                 if jmax < py.max(): jmax = py.max()
-                ydata[px, py] += wdata[i] * wsph / wsph.sum()
+                if wsph.sum() > 0:
+                    ydata[px, py] += wdata[i] * wsph / wsph.sum()
             imax+=1; jmax+=1
             ydata=ydata[imin:imax, jmin:jmax]
         elif posd == 3:
@@ -352,7 +357,8 @@ def cal_sph_neib(idst, dist, posd, pxln, sphkernel, wdata):
                 if jmax < py.max(): jmax = py.max()
                 if kmin > pz.min(): kmin = pz.min()
                 if kmax < pz.max(): kmax = pz.max()
-                ydata[px, py, pz] += wdata[i] * wsph / wsph.sum()
+                if wsph.sum() > 0:
+                    ydata[px, py, pz] += wdata[i] * wsph / wsph.sum()
             imax+=1; jmax+=1; kmax+=1
             ydata=ydata[imin:imax, jmin:jmax, kmin:kmax]
     else:
@@ -368,7 +374,8 @@ def cal_sph_neib(idst, dist, posd, pxln, sphkernel, wdata):
                 if jmin > py.min(): jmin = py.min()
                 if jmax < py.max(): jmax = py.max()
                 for j in wdata.keys():
-                    ydata[j][px, py] += wdata[j][i] * wsph / wsph.sum()
+                    if wsph.sum() > 0:
+                        ydata[j][px, py] += wdata[j][i] * wsph / wsph.sum()
             imax+=1; jmax+=1
             for i in wdata.keys():
                 ydata[i] = ydata[i][imin:imax, jmin:jmax]
@@ -386,7 +393,8 @@ def cal_sph_neib(idst, dist, posd, pxln, sphkernel, wdata):
                 if kmin > pz.min(): kmin = pz.min()
                 if kmax < pz.max(): kmax = pz.max()
                 for j in wdata.keys():
-                    ydata[j][px, py, pz] += wdata[j][i] * wsph / wsph.sum()
+                    if wsph.sum() > 0:
+                        ydata[j][px, py, pz] += wdata[j][i] * wsph / wsph.sum()
             imax+=1; jmax+=1; kmax+=1
             for i in wdata.keys():
                 ydata[i] = ydata[i][imin:imax, jmin:jmax, kmin:kmax]
