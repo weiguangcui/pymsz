@@ -231,6 +231,8 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
             ydata = np.zeros((pxln, pxln), dtype=np.float64)
             for i in range(hsml.size):
                 idin = dist[i] <= hsml[i]
+                if len(dist[i][idin]) == 0:
+                    idin = [0]  # if the grid point within hsml is none, use the closest one.
                 ids = idst[i][idin]
                 wsph = sphkernel(dist[i][idin] / hsml[i])
                 px, py = np.int32(ids/pxln), ids%pxln
@@ -241,6 +243,9 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                 # devided by len(ids) is to change N_e to number density
                 if wsph.sum() > 0:
                     ydata[px, py] += wdata[i] * wsph / wsph.sum()
+                else:
+                    if len(dist[i][idin]) == 0:
+                        ydata[px, py] += wdata[i]
                 # else:  # we also add particles with hsml < pixel size to its nearest four pixels.
                 #     #    Then, the y-map looks no smoothed (with some noisy pixels).
                 #     dist, ids = mtree.query(pos[i], k=4)
@@ -252,6 +257,8 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
             ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in range(hsml.size):
                 idin = dist[i] <= hsml[i]
+                if len(dist[i][idin]) == 0:
+                    idin = [0]  # if the grid point within hsml is none, use the closest one.                
                 ids = idst[i][idin]
                 # if len(ids) < 8:
                 wsph = sphkernel(dist[i][idin] / hsml[i])
@@ -264,7 +271,9 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                 if kmax < pz.max(): kmax = pz.max()
                 if wsph.sum() > 0:
                     ydata[px, py, pz] += wdata[i] * wsph / wsph.sum()
-                # else:
+                else:
+                    if len(dist[i][idin]) == 0:
+                        ydata[px, py, pz] += wdata[i] 
                 #     dist, ids = mtree.query(pos[i], k=8)
                 #     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]
                 #           ] += wdata[i] * (1 - dist / np.sum(dist)) / 7.
@@ -277,9 +286,9 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                 ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
             for i in range(hsml.size):
                 idin = dist[i] <= hsml[i]
+                if len(dist[i][idin]) == 0:
+                    idin = [0]  # if the grid point within hsml is none, use the closest one.  
                 ids = idst[i][idin]
-                # if len(ids) < 4:
-                # dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
                 wsph = sphkernel(dist[i][idin] / hsml[i])
                 px, py = np.int32(ids/pxln), ids%pxln
                 if imin > px.min(): imin = px.min()
@@ -289,7 +298,9 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                 for j in wdata.keys():
                     if wsph.sum() > 0:
                         ydata[j][px, py] += wdata[j][i] * wsph / wsph.sum()
-                # else:
+                    else:
+                        if len(dist[i][idin]) == 0:
+                            ydata[j][px, py] += wdata[j][i]
                 #     dist, ids = mtree.query(pos[i], k=4)
                 #     for j in wdata.keys():
                 #         ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * \
@@ -304,6 +315,8 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                 ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in range(hsml.size):
                 idin = dist[i] <= hsml[i]
+                if len(dist[i][idin]) == 0:
+                    idin = [0]  # if the grid point within hsml is none, use the closest one. 
                 ids = idst[i][idin]
                 # if len(ids) < 4:
                 wsph = sphkernel(dist[i][idin] / hsml[i])
@@ -317,7 +330,9 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                 for j in wdata.keys():
                     if wsph.sum() > 0:
                         ydata[j][px, py, pz] += wdata[j][i] * wsph / wsph.sum()
-                # else:
+                    else:
+                        if len(dist[i][idin]) == 0:
+                            ydata[j][px, py, pz] += wdata[j][i]
                 #     dist, ids = mtree.query(pos[i], k=8)
                 #     for j in wdata.keys():
                 #         ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]
