@@ -91,11 +91,10 @@ class load_data(object):
                   Default : None, the halo motion are given by the mean of all particles.
                   0 or nagative value for not removing halo motion.
     ---------- additional data cut to exclude spurious gas particles.
-    cut_sfr     : All the data higher than this star formation rate are excluded in the calc. Default 0.1.
-                  None for not including this cut. Not working together with rhoT cut.
-    cut_rhoT    : You can also do density and temperature cut. particles with
-                  rho > 6.e-7 and T < 3.0e4 are excluded. None for not including this cut.
-                  Not working together with SFR cut.
+    cut_sfr     : All the data higher than this star formation rate are excluded in the calc. Default None.
+                  NUnit [Msun/yr].
+    cut_rhoT    : You can also do density and temperature cut simultaneously. Default None, setting to [6.e-7, 3.0e4] 
+                  will exlcude particles rho < 6.e-7 and T > 3.0e4.
 
     Notes
     -----
@@ -113,22 +112,21 @@ class load_data(object):
 
     def __init__(self, filename='', metal=None, Nmets=11, mu=None, snapshot=False, yt_load=False,
                  specified_field=None, n_ref=None, datafile=False, center=None, radius=None,
-                 restrict_r=True, hmrad=None, cut_sfr=0.1, cut_rhoT=[6.e-7, 3.0e4]):
+                 restrict_r=True, hmrad=None, cut_sfr=None, cut_rhoT=[None, None]):
         self.center = center
         self.radius = radius
         self.filename = filename
-        if metal is None:
-            self.metal = 0
-        elif isinstance(metal, type(0.1)) or isinstance(metal, type(np.ones(1))):
-            self.metal = metal
-        else:
+
+        self.metal = metal
+        if (metal is not None) and (not isinstance(metal, type(0.1)) or not isinstance(metal, type(np.ones(1)))):
             raise ValueError("Do not accept this metal %f." % metal)
+            
         self.Nmets = Nmets
         self.mu = mu
         self.n_ref = n_ref
         self.hmrad = hmrad
         self.cut_sfr = cut_sfr
-        self.cot_rhoT = cut_rhoT
+        self.cut_rhoT = cut_rhoT
         self.restrict_r = restrict_r
 
         if snapshot:
@@ -159,8 +157,13 @@ class load_data(object):
             # self.z = 0.0
             # self.Uage = 0.0  # university age in Gyrs
             # self.nx = self.grid_mass = self.grid_age = self.grid_metal = None
-
-            self._load_snap()
+            if self.filename[-4:].upper() == 'HDF5' or self.filename[-3:].upper() == 'HDF':
+                import h5py
+                sn = h5py.File(self.filename, 'r')
+                self._load_snap_hdf(sn)  #current desgin for GIZMO, may need tricks for other simulations
+                sn.close()
+            else:
+                self._load_snap()
         elif yt_load:
             self.data_type = "yt_data"
             self.yt_sp = None
@@ -171,6 +174,132 @@ class load_data(object):
         #     self._load_raw()
         else:
             raise ValueError("Please sepecify the simulation data type. ")
+
+    def _load_snap_hdf(self, sn):
+        self.cosmology["z"] = sn['Header'].attrs['Redshift']
+        self.cosmology["a"] = sn['Header'].attrs['Time']
+        self.cosmology["omega_matter"] = sn['Header'].attrs['Omega0']
+        self.cosmology["omega_lambda"] = sn['Header'].attrs['OmegaLambda']
+        self.cosmology["h"] = sn['Header'].attrs['HubbleParam']
+        
+        #check wind particles
+        if 'DelayTime' in sn['/PartType0'].keys():
+            iddt = sn['/PartType0/DelayTime'][:]>0
+        else:
+            iddt = None
+            
+        # gas pos
+        spos = sn['/PartType0/Coordinates'][:]
+        if (self.center is not None) and (self.radius is not None):
+            if self.restrict_r:
+                r = np.sqrt(np.sum((spos - self.center)**2, axis=1))
+                ids = r <= self.radius  
+            else:
+                ids = (spos[:, 0] > self.center[0] - self.radius) & \
+                    (spos[:, 0] <= self.center[0] + self.radius) & \
+                    (spos[:, 1] > self.center[1] - self.radius) & \
+                    (spos[:, 1] <= self.center[1] + self.radius) & \
+                    (spos[:, 2] > self.center[2] - self.radius) & \
+                    (spos[:, 2] <= self.center[2] + self.radius)
+            if iddt is not None:
+                ids = ids&(~iddt)  # exclude wind particles
+            self.pos = spos[ids] - self.center
+        else:
+            # ids = np.ones(sn['Header'].attrs['NumPart_Total'][0], dtype=bool)
+            self.center = np.median(spos, axis=0)
+            if iddt is not None:
+                ids = ~iddt
+            else:
+                ids = np.ones(self.pos.shape[0], dtype=np.bool)
+            self.pos = spos[ids] - self.center
+        
+        # gas velocity
+        self.vel = sn['/PartType0/Velocities'][:]
+        if self.vel is not 0:
+            self.vel = self.vel[ids] * np.sqrt(self.cosmology["a"])  # to peculiar velocity
+        else:
+            raise ValueError("Can't get gas velocity, which is required")
+        self.bulkvel = np.mean(self.vel, axis=0)  # bulk velocity is given by mean
+        if self.hmrad is None:
+            self.vel -= self.bulkvel  # remove halo motion
+        else:
+            if self.hmrad > 0:  # Not remove the halo bulk velocity if hmrad < = 0
+                r = np.sqrt(np.sum(self.pos**2, axis=1))
+                self.bulkvel = np.mean(self.vel[r < self.hmrad], axis=0)
+                self.vel -= self.bulkvel
+
+        # gas metal if there are
+        if self.metal is None:
+            if 'Metallicity' in sn['/PartType0'].keys():
+                self.metal = sn['/PartType0/Metallicity'][ids,0]
+                self.X = 1 - self.metal - sn['/PartType0/Metallicity'][ids,1]  #Note different He may be saved at different position!
+        else:
+            self.X = 1 - self.metal - 0.24  # simply assume He=0.24
+            # Now self.X is hydrogen mass fraction, electron number = M*X/m_H*NE
+                
+        # Temperature
+        U = sn['/PartType0/InternalEnergy'][ids]
+        v_unit = 1.0e5 * np.sqrt(self.cosmology["a"])       # (e.g. 1.0 km/sec)
+        prtn = 1.67373522381e-24  # (proton mass in g)
+        bk = 1.3806488e-16        # (Boltzman constant in CGS)
+        # xH = 0.76  # hydrogen mass-fraction
+        yhelium = (1. - self.X) / (4 * self.X)
+        if 'ElectronAbundance' in sn['/PartType0'].keys(): # Electron fraction
+            self.ne = sn['/PartType0/ElectronAbundance'][ids]
+        else:
+            self.ne = 0
+            
+        if self.mu is None:
+            if self.ne is not 0:
+                self.mu = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
+            else:
+                self.mu = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
+                self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
+        else:  #Everything will be set by mu
+            if self.ne is 0:
+                self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
+        self.temp = U * (5. / 3 - 1) * v_unit**2 * prtn * self.mu / bk
+        
+        # density
+        self.rho = sn['/PartType0/Density'][:]
+        if self.rho is not 0:
+            self.rho = self.rho[ids]
+        else:
+            raise ValueError("Can't get gas density, which is required")
+
+        # smoothing length
+        if 'SmoothingLength' in sn['/PartType0'].keys():
+            self.hsml = sn['/PartType0/SmoothingLength'][ids]
+
+        # mass only gas
+        self.mass = sn['/PartType0/Masses'][ids]
+
+        # we need to remove some spurious particles.... if there is a MHI or SRF block
+        # see Klaus's doc or Borgani et al. 2003 for detials.
+        # try exclude sfr gas particles
+        if (self.cut_sfr is not None) and ('StarFormationRate' in sn['/PartType0'].keys()):
+            sfr = sn['/PartType0/StarFormationRate'][ids]
+            ids_ex = sfr < self.cut_sfr
+        else:
+            ids_ex = np.ones(self.pos.shape[0], dtype=np.bool)
+        if (self.cut_rhoT[0] is not None) and (self.cut_rhoT[1] is not None):
+            ids_ex = ((self.temp > self.cut_rhoT[1]) | (self.rho < self.rhoT[0])) & ids_ex
+
+        self.temp = self.temp[ids_ex]     # cgs
+        if not isinstance(self.mass, type(0.0)):
+            self.mass = self.mass[ids_ex]
+        if not isinstance(self.X, type(0.0)):
+            self.X = self.X[ids_ex]
+        self.pos = self.pos[ids_ex]
+        self.vel = self.vel[ids_ex]
+        self.rho = self.rho[ids_ex]
+        self.ne = self.ne[ids_ex]
+        if isinstance(self.metal, type(0.0)) or isinstance(self.metal, type(np.ones(1))):
+            self.metal = self.metal[ids_ex]
+        if self.hsml is not 0:
+            self.hsml = self.hsml[ids_ex]
+        else:
+            self.hsml = (3 * self.mass / self.rho / 4 / np.pi)**(1. / 3.)  # approximate
 
     def _load_snap(self):
         head = readsnap(self.filename, "HEAD", quiet=True)
@@ -201,7 +330,7 @@ class load_data(object):
                     (spos[:, 2] <= self.center[2] + self.radius)
             self.pos = spos[ids] - self.center
         else:
-            ids = np.ones(head[0][0], dtype=bool)
+            # ids = np.ones(head[0][0], dtype=bool)
             self.center = np.median(spos, axis=0)
             self.pos = spos - self.center
             ids = np.ones(self.pos.shape[0], dtype=np.bool)
@@ -251,7 +380,7 @@ class load_data(object):
             self.mass = self.mass[ids]
 
         # gas metal if there are
-        if self.metal is 0:
+        if self.metal is None:
             self.metal = readsnap(self.filename, "Z   ", ptype=0, nmet=self.Nmets,
                                      quiet=True)  # auto calculate Z
             if self.metal is not 0:
@@ -288,18 +417,17 @@ class load_data(object):
         # we need to remove some spurious particles.... if there is a MHI or SRF block
         # see Klaus's doc or Borgani et al. 2003 for detials.
         mhi = readsnap(self.filename, "MHI ", quiet=True)
+        ids_ex = None
         if mhi is 0:
             # try exclude sfr gas particles
             sfr = readsnap(self.filename, "SFR ", quiet=True)
             if (sfr is not 0) and (self.cut_sfr is not None):
                 sfr = sfr[ids]
                 ids_ex = sfr < self.cut_sfr
-                if sfr[ids_ex].size == sfr.size:
-                    ids_ex = True
-            elif (self.cut_rhoT[0] is not None) and (self.cut_rhoT[1] is not None):
-                ids_ex = (self.temp < self.cut_rhoT[1]) & (self.rho > self.rhoT[0])
             else:
-                ids_ex = None
+                ids_ex = np.ones(self.rho.size, dtype=np.bool)
+            if (self.cut_rhoT[0] is not None) and (self.cut_rhoT[1] is not None):
+                ids_ex = ids_ex & ((self.temp > self.cut_rhoT[1]) | (self.rho < self.rhoT[0]))
         else:
             mhi = mhi[ids] / 0.76 / self.mass
             if (self.cut_rhoT[0] is not None) and (self.cut_rhoT[1] is not None):
@@ -307,11 +435,9 @@ class load_data(object):
                 ids_ex = (mhi < 0.1) & (~ids_ex)
             else:
                 ids_ex = (mhi < 0.1)
-            if mhi[ids_ex].size == mhi.size:
-                ids_ex = True
             self.rho *= (1 - mhi)  # correct multi-phase baryon model by removing cold gas
 
-        if (ids_ex is not None) and (ids_ex is not True):
+        if ids_ex is not None:
             self.temp = self.temp[ids_ex]     # cgs
             if not isinstance(self.mass, type(0.0)):
                 self.mass = self.mass[ids_ex]
