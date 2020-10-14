@@ -231,8 +231,10 @@ class load_data(object):
         # gas metal if there are
         if self.metal is None:
             if 'Metallicity' in sn['/PartType0'].keys():
-                self.metal = sn['/PartType0/Metallicity'][ids,0]
-                self.X = 1 - self.metal - sn['/PartType0/Metallicity'][ids,1]  #Note different He may be saved at different position!
+                tempz = sn['/PartType0/Metallicity'][:]
+                self.metal = tempz[ids,0]
+                self.X = 1 - self.metal - tempz[ids,1]  #Note different He may be saved at different position!
+                tempz = 0
         else:
             self.X = 1 - self.metal - 0.24  # simply assume He=0.24
             # Now self.X is hydrogen mass fraction, electron number = M*X/m_H*NE
@@ -259,6 +261,7 @@ class load_data(object):
             if self.ne is 0:
                 self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
         self.temp = U * (5. / 3 - 1) * v_unit**2 * prtn * self.mu / bk
+        U = 0
         
         # density
         self.rho = sn['/PartType0/Density'][:]
