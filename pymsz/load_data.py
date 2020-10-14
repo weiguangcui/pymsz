@@ -231,11 +231,7 @@ class load_data(object):
         # gas metal if there are
         if self.metal is None:
             if 'Metallicity' in sn['/PartType0'].keys():
-<<<<<<< HEAD
                 tempz = sn['/PartType0/Metallicity'][:]
-=======
-                tmpz = sn['/PartType0/Metallicity'][:]
->>>>>>> 58d5681230a753cbeb08a4951439be49b8115511
                 self.metal = tempz[ids,0]
                 self.X = 1 - self.metal - tempz[ids,1]  #Note different He may be saved at different position!
                 tempz = 0
