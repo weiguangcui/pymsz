@@ -2,7 +2,11 @@ import numpy as np
 from scipy.spatial import cKDTree
 from multiprocessing import Process, cpu_count, Queue, freeze_support, Array # , current_process, Array
 import ctypes
+import os, psutil
 
+def memlog(msg):
+    process = psutil.Process(os.getpid())
+    print('%s, RAM=%.4g GB'%(msg,process.memory_info()[0]/2.**30))
 
 def rotate_data(pos, axis, vel=None, bvel=None):
     r""" rotate the data points (3d) to a given direction. Returns data points (2d) at line of sight.
@@ -486,7 +490,8 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Ncpu=None, 
     #     shared_array_base = Array(ctypes.c_float, hsml.size)
     #     shm_hsml = np.ctypeslib.as_array(shared_array_base.get_obj())
     #     shm_hsml = np.copy(hsml)
-
+    memlog('Init smoothing')
+    
     SD = pos.shape[1]
     if SD not in [2, 3]:
         raise ValueError(
@@ -551,6 +556,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Ncpu=None, 
 
     mtree = cKDTree(indxyz, boxsize=pxln, leafsize=np.int32(np.ceil(pxln/20)))
     indxyz = np.int32(indxyz)
+    memlog('After cKDTree ')
 
     freeze_support()
     if Ncpu is None:
@@ -567,6 +573,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Ncpu=None, 
         #dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
 
     dist, idst = mtree.query(pos, neighbors, n_jobs=NUMBER_OF_PROCESSES)  # estimate the neighbors and distance
+    memlog('After query ')
     # shared_array_base = Array(ctypes.c_int32, len(idst)*neighbors)
     # shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
     # shm_idst = shared_array.reshape(len(idst), neighbors)
