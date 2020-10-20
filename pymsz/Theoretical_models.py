@@ -148,27 +148,27 @@ class TT_model(object):
             Tszdata = np.copy(simd.Tszdata)
 
         if isinstance(simd.hsml, type(0)):
-            self.ngb = 64
+            # self.ngb = 64
             hsml = None
         else:                      # with hsml
-            if self.ngb is None:               # estimate neighbors
-                self.ngb=0
-                ids = np.sum((simd.pos - simd.pos[simd.hsml.argmin()])**2, axis=1) <= simd.hsml.min()**2
-                if simd.hsml[ids].size > self.ngb:
-                    self.ngb = simd.hsml[ids].size
-                ids = np.sum((simd.pos - simd.pos[simd.hsml.argmax()])**2, axis=1) <= simd.hsml.max()**2
-                if simd.hsml[ids].size > self.ngb:
-                    self.ngb = simd.hsml[ids].size
-                self.ngb = np.int32(self.ngb*1.05)+1 #to be safe
-                print('self.ngb = ', self.ngb)
+            # if self.ngb is None:               # estimate neighbors
+            #     self.ngb=0
+            #     ids = np.sum((simd.pos - simd.pos[simd.hsml.argmin()])**2, axis=1) <= simd.hsml.min()**2
+            #     if simd.hsml[ids].size > self.ngb:
+            #         self.ngb = simd.hsml[ids].size
+            #     ids = np.sum((simd.pos - simd.pos[simd.hsml.argmax()])**2, axis=1) <= simd.hsml.max()**2
+            #     if simd.hsml[ids].size > self.ngb:
+            #         self.ngb = simd.hsml[ids].size
+            #     self.ngb = np.int32(self.ngb*1.05)+1 #to be safe
+            #     print('self.ngb = ', self.ngb)
 
-                if self.zthick is not None:
-                    hsml = simd.hsml[idc]
-                else:
-                    hsml = np.copy(simd.hsml)
-                hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
-            else:               # have set the neighbors, need to ignore the hsml
-                hsml = None
+            if self.zthick is not None:
+                hsml = simd.hsml[idc]
+            else:
+                hsml = np.copy(simd.hsml)
+            hsml = hsml/simd.cosmology['h']/(1+simd.cosmology['z'])
+            # else:               # have set the neighbors, need to ignore the hsml
+            #     hsml = None
 
         if self.npl != 'auto':
             minx = pos[:, 0].min()
@@ -211,15 +211,23 @@ class TT_model(object):
                 self.rr = self.pxs * (self.npl-1) / 2.
 
         # Tszdata /= (self.pxs * Kpc / simd.cosmology["h"])**2
+        if self.ngb is not None:
+            # need to change into pixel scale roughly calculate the maxi distance
+            tempr=np.sqrt(np.sum((simd.pos - simd.pos[simd.rho.argmin()])**2, axis=1))
+            tempr.sort()
+            ngbinp=tempr[self.ngb+1]/simd.cosmology['h']/(1+simd.cosmology['z'])/self.pxs
+            print('Convert the neighbor count in pixel size')
+        else:
+            ngbinp=self.ngb
 
         if self.SD == 2:
-            self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, self.ngb, hsml=hsml,
+            self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, ngbinp, hsml=hsml,
                                        pxln=self.npl, Ncpu=self.ncpu,
                                        Ntasks=self.ntask, kernel_name=self.sph_kn)
         else:
             # be ware that zthick could cause some problems if it is larger than pxs*npl!!
             # This has been taken in care in the rotate_data function.
-            self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, self.ngb, hsml=hsml,
+            self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, ngbinp, hsml=hsml,
                                        pxln=self.npl, Ncpu=self.ncpu,
                                        Ntasks=self.ntask, kernel_name=self.sph_kn)
             self.ydata = np.sum(self.ydata, axis=2)

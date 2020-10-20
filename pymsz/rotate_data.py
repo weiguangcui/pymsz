@@ -2,7 +2,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 from multiprocessing import Process, cpu_count, Queue, freeze_support, Array # , current_process, Array
 import ctypes
-import os, psutil
+import os, psutil, sys
 
 def memlog(msg):
     process = psutil.Process(os.getpid())
@@ -228,18 +228,20 @@ def calculate(func, args):
 
 
 # No boundary effects are taken into account!
-def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
+def cal_sph_hsml(idst, centp, hsml, posd, pxln, sphkernel, wdata):
     imin, jmin, kmin, imax, jmax, kmax = pxln,pxln,pxln,0,0,0
     if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
         if posd == 2:
             ydata = np.zeros((pxln, pxln), dtype=np.float64)
             for i in range(hsml.size):
-                idin = dist[i] <= hsml[i]
-                if len(dist[i][idin]) == 0:
-                    idin = [0]  # if the grid point within hsml is none, use the closest one.
-                ids = idst[i][idin]
-                wsph = sphkernel(dist[i][idin] / hsml[i])
-                px, py = np.int32(ids/pxln), ids%pxln
+                if len(idst[i]) <= 0:
+                    px, py = np.array([np.int32(np.round(centp[i,0]))]), np.array([np.int32(np.round(centp[i,1]))])
+                    if px[0]>=pxln: px[0]=pxln-1
+                    if py[0]>=pxln: py[0]=pxln-1
+                else:
+                    px, py = np.int32(idst[i]/pxln), idst[i]%pxln
+                dist = np.sqrt((px - centp[i,0])**2 + (py - centp[i, 1])**2)
+                wsph = sphkernel(dist / hsml[i])
                 if imin > px.min(): imin = px.min()
                 if imax < px.max(): imax = px.max()
                 if jmin > py.min(): jmin = py.min()
@@ -248,8 +250,8 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                 if wsph.sum() > 0:
                     ydata[px, py] += wdata[i] * wsph / wsph.sum()
                 else:
-                    if len(dist[i][idin]) == 0:
-                        ydata[px, py] += wdata[i]
+                    # if len(dist[i][idin]) == 0:
+                    ydata[px, py] += wdata[i]
                 # else:  # we also add particles with hsml < pixel size to its nearest four pixels.
                 #     #    Then, the y-map looks no smoothed (with some noisy pixels).
                 #     dist, ids = mtree.query(pos[i], k=4)
@@ -260,13 +262,15 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
         elif posd == 3:
             ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in range(hsml.size):
-                idin = dist[i] <= hsml[i]
-                if len(dist[i][idin]) == 0:
-                    idin = [0]  # if the grid point within hsml is none, use the closest one.                
-                ids = idst[i][idin]
-                # if len(ids) < 8:
-                wsph = sphkernel(dist[i][idin] / hsml[i])
-                px, py, pz = np.int32(ids/pxln/pxln), np.int32(ids%(pxln*pxln)/pxln), ids%(pxln*pxln)%pxln
+                if len(idst[i]) <= 0:
+                    px, py, pz = np.array(np.int32(np.round(centp[i,0]))), np.array(np.int32(np.round(centp[i,1]))), np.array(np.int32(np.round(centp[i,2])))
+                    if px[0]>=pxln: px[0]=pxln-1
+                    if py[0]>=pxln: py[0]=pxln-1
+                    if pz[0]>=pxln: pz[0]=pxln-1
+                else:
+                    px, py, pz = np.int32(idst[i]/pxln/pxln), np.int32(idst[i]%(pxln*pxln)/pxln), idst[i]%(pxln*pxln)%pxln
+                dist = np.sqrt((px - centp[i,0])**2 + (py - centp[i, 1])**2 + (pz - centp[i, 2])**2)
+                wsph = sphkernel(dist / hsml[i])                
                 if imin > px.min(): imin = px.min()
                 if imax < px.max(): imax = px.max()
                 if jmin > py.min(): jmin = py.min()
@@ -276,8 +280,8 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                 if wsph.sum() > 0:
                     ydata[px, py, pz] += wdata[i] * wsph / wsph.sum()
                 else:
-                    if len(dist[i][idin]) == 0:
-                        ydata[px, py, pz] += wdata[i] 
+                    # if len(dist[i][idin]) == 0:
+                    ydata[px, py, pz] += wdata[i] 
                 #     dist, ids = mtree.query(pos[i], k=8)
                 #     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]
                 #           ] += wdata[i] * (1 - dist / np.sum(dist)) / 7.
@@ -289,12 +293,14 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
             for i in wdata.keys():
                 ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
             for i in range(hsml.size):
-                idin = dist[i] <= hsml[i]
-                if len(dist[i][idin]) == 0:
-                    idin = [0]  # if the grid point within hsml is none, use the closest one.  
-                ids = idst[i][idin]
-                wsph = sphkernel(dist[i][idin] / hsml[i])
-                px, py = np.int32(ids/pxln), ids%pxln
+                if len(idst[i]) <= 0:
+                    px, py = np.array(np.int32(np.round(centp[i,0]))), np.array(np.int32(np.round(centp[i,1])))
+                    if px[0]>=pxln: px[0]=pxln-1
+                    if py[0]>=pxln: py[0]=pxln-1
+                else:
+                    px, py = np.int32(idst[i]/pxln), idst[i]%pxln
+                dist = np.sqrt((px - centp[i,0])**2 + (py - centp[i, 1])**2)
+                wsph = sphkernel(dist / hsml[i])
                 if imin > px.min(): imin = px.min()
                 if imax < px.max(): imax = px.max()
                 if jmin > py.min(): jmin = py.min()
@@ -303,8 +309,8 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                     if wsph.sum() > 0:
                         ydata[j][px, py] += wdata[j][i] * wsph / wsph.sum()
                     else:
-                        if len(dist[i][idin]) == 0:
-                            ydata[j][px, py] += wdata[j][i]
+                        # if len(dist[i][idin]) == 0:
+                        ydata[j][px, py] += wdata[j][i]
                 #     dist, ids = mtree.query(pos[i], k=4)
                 #     for j in wdata.keys():
                 #         ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * \
@@ -318,13 +324,16 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                 # https://bugs.python.org/issue17560
                 ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in range(hsml.size):
-                idin = dist[i] <= hsml[i]
-                if len(dist[i][idin]) == 0:
-                    idin = [0]  # if the grid point within hsml is none, use the closest one. 
-                ids = idst[i][idin]
-                # if len(ids) < 4:
-                wsph = sphkernel(dist[i][idin] / hsml[i])
-                px, py, pz = np.int32(ids/pxln/pxln), np.int32(ids%(pxln*pxln)/pxln), ids%(pxln*pxln)%pxln
+                if len(idst[i]) <= 0:
+                    px, py, pz = np.array(np.int32(np.round(centp[i,0]))), np.array(np.int32(np.round(centp[i,1]))), np.array(np.int32(np.round(centp[i,2])))
+                    #check boundary
+                    if px[0]>=pxln: px[0]=pxln-1
+                    if py[0]>=pxln: py[0]=pxln-1
+                    if pz[0]>=pxln: pz[0]=pxln-1
+                else:
+                    px, py, pz = np.int32(idst[i]/pxln/pxln), np.int32(idst[i]%(pxln*pxln)/pxln), idst[i]%(pxln*pxln)%pxln
+                dist = np.sqrt((px - centp[i,0])**2 + (py - centp[i, 1])**2 + (pz - centp[i, 2])**2)
+                wsph = sphkernel(dist / hsml[i])
                 if imin > px.min(): imin = px.min()
                 if imax < px.max(): imax = px.max()
                 if jmin > py.min(): jmin = py.min()
@@ -335,8 +344,8 @@ def cal_sph_hsml(idst, dist, hsml, posd, pxln, sphkernel, wdata):
                     if wsph.sum() > 0:
                         ydata[j][px, py, pz] += wdata[j][i] * wsph / wsph.sum()
                     else:
-                        if len(dist[i][idin]) == 0:
-                            ydata[j][px, py, pz] += wdata[j][i]
+                        # if len(dist[i][idin]) == 0:
+                        ydata[j][px, py, pz] += wdata[j][i]
                 #     dist, ids = mtree.query(pos[i], k=8)
                 #     for j in wdata.keys():
                 #         ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]
@@ -420,6 +429,231 @@ def cal_sph_neib(idst, dist, posd, pxln, sphkernel, wdata):
     return ydata, [imin, jmin, kmin, imax, jmax, kmax]
 
 
+def cal_sph_hsml_v3(ctree, centp, hsml, posd, pxln, sphkernel, wdata):
+    imin, jmin, kmin, imax, jmax, kmax = pxln,pxln,pxln,0,0,0
+    if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
+        if posd == 2:
+            ydata = np.zeros((pxln, pxln), dtype=np.float64)
+            for i in range(hsml.size):
+                # idin = dist[i] <= hsml[i]
+                # if len(dist[i][idin]) == 0:
+                #     idin = [0]  # if the grid point within hsml is none, use the closest one.
+                # ids = idst[i][idin]
+                idst = np.array(ctree.query_ball_point(centp[i], hsml[i]))
+                if len(idst) <= 0:
+                    px, py = np.array([np.int32(np.round(centp[i,0]))]), np.array([np.int32(np.round(centp[i,1]))])
+                    if px[0]>=pxln: px[0]=pxln-1
+                    if py[0]>=pxln: py[0]=pxln-1
+                else:
+                    px, py = np.int32(idst/pxln), idst%pxln
+                dist = np.sqrt((px - centp[i,0])**2 + (py - centp[i, 1])**2)
+                wsph = sphkernel(dist / hsml[i])
+                if imin > px.min(): imin = px.min()
+                if imax < px.max(): imax = px.max()
+                if jmin > py.min(): jmin = py.min()
+                if jmax < py.max(): jmax = py.max()
+                # devided by len(ids) is to change N_e to number density
+                if wsph.sum() > 0:
+                    ydata[px, py] += wdata[i] * wsph / wsph.sum()
+                else:
+                    # if len(dist[i][idin]) == 0:
+                    ydata[px, py] += wdata[i]
+                # else:  # we also add particles with hsml < pixel size to its nearest four pixels.
+                #     #    Then, the y-map looks no smoothed (with some noisy pixels).
+                #     dist, ids = mtree.query(pos[i], k=4)
+                #     ydata[indxyz[ids, 0], indxyz[ids, 1]] += wdata[i] * \
+                #         (1 - dist / np.sum(dist)) / 3.
+            imax+=1; jmax+=1
+            ydata=ydata[imin:imax, jmin:jmax]
+        elif posd == 3:
+            ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
+            for i in range(hsml.size):
+                # idin = dist[i] <= hsml[i]
+                # if len(dist[i][idin]) == 0:
+                #     idin = [0]  # if the grid point within hsml is none, use the closest one.                
+                # ids = idst[i][idin]
+                idst = np.array(ctree.query_ball_point(centp[i], hsml[i]))
+                if len(idst) <= 0:
+                    px, py, pz = np.array(np.int32(np.round(centp[i,0]))), np.array(np.int32(np.round(centp[i,1]))), np.array(np.int32(np.round(centp[i,2])))
+                    if px[0]>=pxln: px[0]=pxln-1
+                    if py[0]>=pxln: py[0]=pxln-1
+                    if pz[0]>=pxln: pz[0]=pxln-1
+                else:
+                    px, py, pz = np.int32(idst/pxln/pxln), np.int32(idst%(pxln*pxln)/pxln), idst%(pxln*pxln)%pxln
+                dist = np.sqrt((px - centp[i,0])**2 + (py - centp[i, 1])**2 + (pz - centp[i, 2])**2)
+                wsph = sphkernel(dist / hsml[i])                
+                if imin > px.min(): imin = px.min()
+                if imax < px.max(): imax = px.max()
+                if jmin > py.min(): jmin = py.min()
+                if jmax < py.max(): jmax = py.max()
+                if kmin > pz.min(): kmin = pz.min()
+                if kmax < pz.max(): kmax = pz.max()
+                if wsph.sum() > 0:
+                    ydata[px, py, pz] += wdata[i] * wsph / wsph.sum()
+                else:
+                    # if len(dist[i][idin]) == 0:
+                    ydata[px, py, pz] += wdata[i] 
+                #     dist, ids = mtree.query(pos[i], k=8)
+                #     ydata[indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]
+                #           ] += wdata[i] * (1 - dist / np.sum(dist)) / 7.
+            imax+=1; jmax+=1; kmax+=1
+            ydata=ydata[imin:imax, jmin:jmax, kmin:kmax]
+    else:
+        ydata = {}
+        if posd == 2:
+            for i in wdata.keys():
+                ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
+            for i in range(hsml.size):
+                # idin = dist[i] <= hsml[i]
+                # if len(dist[i][idin]) == 0:
+                #     idin = [0]  # if the grid point within hsml is none, use the closest one.  
+                # ids = idst[i][idin]
+                idst = np.array(ctree.query_ball_point(centp[i], hsml[i]))
+                if len(idst) <= 0:
+                    px, py = np.array(np.int32(np.round(centp[i,0]))), np.array(np.int32(np.round(centp[i,1])))
+                    if px[0]>=pxln: px[0]=pxln-1
+                    if py[0]>=pxln: py[0]=pxln-1
+                else:
+                    px, py = np.int32(idst/pxln), idst%pxln
+                dist = np.sqrt((px - centp[i,0])**2 + (py - centp[i, 1])**2)
+                wsph = sphkernel(dist / hsml[i])
+                if imin > px.min(): imin = px.min()
+                if imax < px.max(): imax = px.max()
+                if jmin > py.min(): jmin = py.min()
+                if jmax < py.max(): jmax = py.max()
+                for j in wdata.keys():
+                    if wsph.sum() > 0:
+                        ydata[j][px, py] += wdata[j][i] * wsph / wsph.sum()
+                    else:
+                        # if len(dist[i][idin]) == 0:
+                        ydata[j][px, py] += wdata[j][i]
+                #     dist, ids = mtree.query(pos[i], k=4)
+                #     for j in wdata.keys():
+                #         ydata[j][indxyz[ids, 0], indxyz[ids, 1]] += wdata[j][i] * \
+                #             (1 - dist / np.sum(dist)) / 3.
+            imax+=1; jmax+=1
+            for i in wdata.keys():
+                ydata[i] = ydata[i][imin:imax, jmin:jmax]
+        elif posd == 3:
+            for i in wdata.keys():
+                # There is a problem using multiprocessing with (return) really big objects
+                # https://bugs.python.org/issue17560
+                ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
+            for i in range(hsml.size):
+                # idin = dist[i] <= hsml[i]
+                # if len(dist[i][idin]) == 0:
+                #     idin = [0]  # if the grid point within hsml is none, use the closest one. 
+                # ids = idst[i][idin]
+                idst = np.array(ctree.query_ball_point(centp[i], hsml[i]))
+                if len(idst) <= 0:
+                    px, py, pz = np.array(np.int32(np.round(centp[i,0]))), np.array(np.int32(np.round(centp[i,1]))), np.array(np.int32(np.round(centp[i,2])))
+                    #check boundary
+                    if px[0]>=pxln: px[0]=pxln-1
+                    if py[0]>=pxln: py[0]=pxln-1
+                    if pz[0]>=pxln: pz[0]=pxln-1
+                else:
+                    px, py, pz = np.int32(idst/pxln/pxln), np.int32(idst%(pxln*pxln)/pxln), idst%(pxln*pxln)%pxln
+                dist = np.sqrt((px - centp[i,0])**2 + (py - centp[i, 1])**2 + (pz - centp[i, 2])**2)
+                wsph = sphkernel(dist / hsml[i])
+                if imin > px.min(): imin = px.min()
+                if imax < px.max(): imax = px.max()
+                if jmin > py.min(): jmin = py.min()
+                if jmax < py.max(): jmax = py.max()
+                if kmin > pz.min(): kmin = pz.min()
+                if kmax < pz.max(): kmax = pz.max()
+                for j in wdata.keys():
+                    if wsph.sum() > 0:
+                        ydata[j][px, py, pz] += wdata[j][i] * wsph / wsph.sum()
+                    else:
+                        # if len(dist[i][idin]) == 0:
+                        ydata[j][px, py, pz] += wdata[j][i]
+                #     dist, ids = mtree.query(pos[i], k=8)
+                #     for j in wdata.keys():
+                #         ydata[j][indxyz[ids, 0], indxyz[ids, 1], indxyz[ids, 2]
+                #                  ] += wdata[j][i] * (1 - dist / np.sum(dist)) / 7.
+            imax+=1; jmax+=1; kmax+=1
+            for i in wdata.keys():
+                ydata[i] = ydata[i][imin:imax, jmin:jmax, kmin:kmax]
+    return ydata, [imin, jmin, kmin, imax, jmax, kmax]
+
+
+def cal_sph_neib_v3(ctree, centp, neighbors, pxln, sphkernel, wdata):
+    imin, jmin, kmin, imax, jmax, kmax = pxln,pxln,pxln,0,0,0
+    if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
+        if posd == 2:
+            ydata = np.zeros((pxln, pxln), dtype=np.float64)  # need to think about reducing this return array later
+            for i in range(centp.shape[0]):
+                dist, idst = mtree.query(centp[i], neighbors)
+                ids = np.array(idst)
+                wsph = sphkernel(dist[i] / dist[i].max())
+                px, py = np.int32(ids/pxln), ids%pxln
+                if imin > px.min(): imin = px.min()
+                if imax < px.max(): imax = px.max()
+                if jmin > py.min(): jmin = py.min()
+                if jmax < py.max(): jmax = py.max()
+                if wsph.sum() > 0:
+                    ydata[px, py] += wdata[i] * wsph / wsph.sum()
+            imax+=1; jmax+=1
+            ydata=ydata[imin:imax, jmin:jmax]
+        elif posd == 3:
+            ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
+            for i in range(centp.shape[0]):
+                dist, idst = mtree.query(centp[i], neighbors)
+                ids = np.array(idst)
+                wsph = sphkernel(dist[i] / dist[i].max())
+                px, py, pz = np.int32(ids/pxln/pxln), np.int32(ids%(pxln*pxln)/pxln), ids%(pxln*pxln)%pxln
+                if imin > px.min(): imin = px.min()
+                if imax < px.max(): imax = px.max()
+                if jmin > py.min(): jmin = py.min()
+                if jmax < py.max(): jmax = py.max()
+                if kmin > pz.min(): kmin = pz.min()
+                if kmax < pz.max(): kmax = pz.max()
+                if wsph.sum() > 0:
+                    ydata[px, py, pz] += wdata[i] * wsph / wsph.sum()
+            imax+=1; jmax+=1; kmax+=1
+            ydata=ydata[imin:imax, jmin:jmax, kmin:kmax]
+    else:
+        if posd == 2:
+            for i in wdata.keys():
+                ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
+            for i in range(centp.shape[0]):
+                dist, idst = mtree.query(centp[i], neighbors)
+                ids = np.array(idst)
+                wsph = sphkernel(dist[i] / dist[i].max())
+                px, py = np.int32(ids/pxln), ids%pxln
+                if imin > px.min(): imin = px.min()
+                if imax < px.max(): imax = px.max()
+                if jmin > py.min(): jmin = py.min()
+                if jmax < py.max(): jmax = py.max()
+                for j in wdata.keys():
+                    if wsph.sum() > 0:
+                        ydata[j][px, py] += wdata[j][i] * wsph / wsph.sum()
+            imax+=1; jmax+=1
+            for i in wdata.keys():
+                ydata[i] = ydata[i][imin:imax, jmin:jmax]
+        elif posd == 3:
+            for i in wdata.keys():
+                ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
+            for i in range(centp.shape[0]):
+                dist, idst = mtree.query(centp[i], neighbors)
+                ids = np.array(idst)
+                wsph = sphkernel(dist[i] / dist[i].max())
+                px, py, pz = np.int32(ids/pxln/pxln), np.int32(ids%(pxln*pxln)/pxln), ids%(pxln*pxln)%pxln
+                if imin > px.min(): imin = px.min()
+                if imax < px.max(): imax = px.max()
+                if jmin > py.min(): jmin = py.min()
+                if jmax < py.max(): jmax = py.max()
+                if kmin > pz.min(): kmin = pz.min()
+                if kmax < pz.max(): kmax = pz.max()
+                for j in wdata.keys():
+                    if wsph.sum() > 0:
+                        ydata[j][px, py, pz] += wdata[j][i] * wsph / wsph.sum()
+            imax+=1; jmax+=1; kmax+=1
+            for i in wdata.keys():
+                ydata[i] = ydata[i][imin:imax, jmin:jmax, kmin:kmax]
+    return ydata, [imin, jmin, kmin, imax, jmax, kmax]
+
+
 def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Ncpu=None, Ntasks=None,
                   kernel_name='cubic'):
     r"""SPH smoothing for given data
@@ -433,7 +667,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Ncpu=None, 
                 Type: float.
                 It must be in the same units of positions
     neighbors: how many nearby mesh points the SPH particles smoothed into.
-                Type: int.
+                Type: int. Note this has to be rescaled to the image pixel size!
     hsml     : smoothing length of these SPH particles. Type: array or float.
                 If it is None, then the neighbours will be used to do the smoothing.
     pxln     : number of pixels for the mesh. Type: int. Must be set.
@@ -555,7 +789,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Ncpu=None, 
     #             ydata[xyz[ids, 0], xyz[ids, 1]] += wdata[i] * wsph[ids] / wsph[ids].sum()
 
     mtree = cKDTree(indxyz, boxsize=pxln, leafsize=np.int32(np.ceil(pxln/20)))
-    indxyz = np.int32(indxyz)
+    # indxyz = np.int32(indxyz)
     memlog('After cKDTree ')
 
     freeze_support()
@@ -568,50 +802,70 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Ncpu=None, 
     N = np.int32(pos.shape[0] / Ntasks)
     listn = np.append(np.arange(0, pos.shape[0], N), pos.shape[0])
 
-    #prepare the data
-    # if hsml is not None:  # roughly estimate the neighbors
-        #dist = np.sqrt(np.sum((pos[i] - mtree.data[ids])**2, axis=1))
-
-    dist, idst = mtree.query(pos, neighbors, n_jobs=NUMBER_OF_PROCESSES)  # estimate the neighbors and distance
-    memlog('After query ')
-    # shared_array_base = Array(ctypes.c_int32, len(idst)*neighbors)
-    # shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
-    # shm_idst = shared_array.reshape(len(idst), neighbors)
-    # shm_idst = np.copy(idst)
-    # shared_array_base = Array(ctypes.c_float, len(dist)*neighbors)
-    # shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
-    # shm_dist = shared_array.reshape(len(dist), neighbors)
-    # shm_dist = np.copy(dist)
-
     # Create queues
     task_queue = Queue()
     done_queue = Queue()
-
-    if hsml is None:  # nearest neighbors
-        if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
-            Tasks = [(cal_sph_neib, (idst[listn[i]:listn[i + 1]], dist[listn[i]:listn[i + 1]], SD, pxln,
-                                     sphkernel, wdata[listn[i]:listn[i + 1]])) for i in range(listn.size-1)]
+    
+    if (sys.version_info.major >= 3) and (sys.version_info.minor >= 8):  # only tested with python3.8
+        # we can transfer the cKDTree class directly, seems no limitations on the transferred data size now
+        print("Directly pass the cKDTree to tasks with Python version", sys.version)
+        if hsml is None:
+            if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
+                Tasks = [(cal_sph_neib_v3, (mtree, pos[listn[i]:listn[i + 1]], neighbors, SD, pxln,
+                                         sphkernel, wdata[listn[i]:listn[i + 1]])) for i in range(listn.size-1)]
+            else:
+                Tasks = []
+                for i in range(listn.size-1):
+                    tmpwd = {}
+                    for j in wdata.keys():
+                        tmpwd[j] =  wdata[listn[i]:listn[i + 1]]
+                    Tasks.append((cal_sph_neib_v3, (mtree, pos[listn[i]:listn[i + 1]], neighbors,
+                                                 SD, pxln, sphkernel, tmpwd)))
         else:
-            Tasks = []
-            for i in range(listn.size-1):
-                tmpwd = {}
-                for j in wdata.keys():
-                    tmpwd[j] =  wdata[listn[i]:listn[i + 1]]
-                Tasks.append((cal_sph_neib, (idst[listn[i]:lintn[i + 1]], dist[listn[i]:listn[i + 1]],
-                                             SD, pxln, sphkernel, tmpwd)))
-        # Tasks = [(cal_sph_neib, (range(i * N, (i + 1) * N), pxln, indxyz, sphkernel, wdata)) for i in range(NUMBER_OF_PROCESSES)]
-    else:  # use hsml
-        if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
-            Tasks = [(cal_sph_hsml, (idst[listn[i]:listn[i + 1]], dist[listn[i]:listn[i + 1]], hsml[listn[i]:listn[i + 1]],
-                                     SD, pxln, sphkernel, wdata[listn[i]:listn[i + 1]])) for i in range(listn.size-1)]
+            if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
+                Tasks = [(cal_sph_hsml_v3, (mtree, pos[listn[i]:listn[i + 1]], hsml[listn[i]:listn[i + 1]],
+                                         SD, pxln, sphkernel, wdata[listn[i]:listn[i + 1]])) for i in range(listn.size-1)]
+            else:
+                Tasks = []
+                for i in range(listn.size-1):
+                    tmpwd = {}
+                    for j in wdata.keys():
+                        tmpwd[j] =  wdata[listn[i]:listn[i + 1]]
+                    Tasks.append((cal_sph_hsml_v3, (mtree, pos[listn[i]:listn[i + 1]], hsml[listn[i]:listn[i + 1]],
+                                                 SD, pxln, sphkernel, tmpwd)))
+    else: # we need do the query first as the sending data size is limited. We can use Ntasks to overcome the memory issue.
+        if hsml is None:
+            dist, idst = mtree.query(pos, neighbors, n_jobs=NUMBER_OF_PROCESSES)  # estimate the neighbors and distance
+            if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
+                Tasks = [(cal_sph_neib, (idst[listn[i]:listn[i + 1]], dist[listn[i]:listn[i + 1]], SD, pxln,
+                                         sphkernel, wdata[listn[i]:listn[i + 1]])) for i in range(listn.size-1)]
+            else:
+                Tasks = []
+                for i in range(listn.size-1):
+                    tmpwd = {}
+                    for j in wdata.keys():
+                        tmpwd[j] =  wdata[listn[i]:listn[i + 1]]
+                    Tasks.append((cal_sph_neib, (idst[listn[i]:lintn[i + 1]], dist[listn[i]:listn[i + 1]],
+                                                 SD, pxln, sphkernel, tmpwd)))
         else:
-            Tasks = []
-            for i in range(listn.size-1):
-                tmpwd = {}
-                for j in wdata.keys():
-                    tmpwd[j] =  wdata[listn[i]:listn[i + 1]]
-                Tasks.append((cal_sph_hsml, (idst[listn[i]:listn[i + 1]], dist[listn[i]:listn[i + 1]], hsml[listn[i]:listn[i + 1]],
-                                             SD, pxln, sphkernel, tmpwd)))
+            # However, this may help with the extremly memory cost of cKDTree query
+            # idst=np.empty(0, dtype=object)
+            # for i in range(listn.size-1):
+            #     tid = mtree.query_ball_point(pos[listn[i]:listn[i + 1]], hsml[listn[i]:listn[i + 1]], n_jobs=NUMBER_OF_PROCESSES)
+            #     idst=np.append(idst, np.array([np.array(xi) for xi in tid]))
+            # del(tid)
+            idst = mtree.query_ball_point(pos, hsml, n_jobs=NUMBER_OF_PROCESSES)
+            if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
+                Tasks = [(cal_sph_hsml, (idst[listn[i]:listn[i + 1]], pos[listn[i]:listn[i + 1]], hsml[listn[i]:listn[i + 1]],
+                                         SD, pxln, sphkernel, wdata[listn[i]:listn[i + 1]])) for i in range(listn.size-1)]
+            else:
+                Tasks = []
+                for i in range(listn.size-1):
+                    tmpwd = {}
+                    for j in wdata.keys():
+                        tmpwd[j] =  wdata[listn[i]:listn[i + 1]]
+                    Tasks.append((cal_sph_hsml, (idst[listn[i]:listn[i + 1]], pos[listn[i]:listn[i + 1]], hsml[listn[i]:listn[i + 1]],
+                                                 SD, pxln, sphkernel, tmpwd)))
         # Tasks = [(cal_sph_hsml, (range(i * N, (i + 1) * N), mtree, pos, hsml, pxln, indxyz,
         #                          sphkernel, wdata)) for i in range(NUMBER_OF_PROCESSES)]
 
