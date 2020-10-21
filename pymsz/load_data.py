@@ -132,13 +132,13 @@ class load_data(object):
         if snapshot:
             self.data_type = "snapshot"
             self.temp = np.array([])
-            self.mass = 0.0
+            self.mass = None
             self.pos = np.array([])
             self.vel = np.array([])
             self.rho = np.array([])
-            self.ne = 0
-            self.X = 0
-            self.hsml = 0
+            self.ne = None
+            self.X = None
+            self.hsml = None
             self.cosmology = {}  # default wmap7
             self.bulkvel = np.array([])
 
@@ -182,7 +182,7 @@ class load_data(object):
         self.cosmology["omega_lambda"] = sn['Header'].attrs['OmegaLambda']
         self.cosmology["h"] = sn['Header'].attrs['HubbleParam']
         
-        #check wind particles
+        # check wind particles and remove them if possible
         if 'DelayTime' in sn['/PartType0'].keys():
             iddt = sn['/PartType0/DelayTime'][:]>0
         else:
@@ -214,9 +214,9 @@ class load_data(object):
             self.pos = spos[ids] - self.center
         
         # gas velocity
-        self.vel = sn['/PartType0/Velocities'][:]
-        if self.vel is not 0:
-            self.vel = self.vel[ids] * np.sqrt(self.cosmology["a"])  # to peculiar velocity
+        if 'Velocities' in sn['/PartType0'].keys():
+            self.vel = sn['/PartType0/Velocities'][:] 
+            self.vel = self.vel[ids] * np.sqrt(self.cosmology["a"]) # to peculiar velocity
         else:
             raise ValueError("Can't get gas velocity, which is required")
         self.bulkvel = np.mean(self.vel, axis=0)  # bulk velocity is given by mean
@@ -249,24 +249,23 @@ class load_data(object):
         if 'ElectronAbundance' in sn['/PartType0'].keys(): # Electron fraction
             self.ne = sn['/PartType0/ElectronAbundance'][ids]
         else:
-            self.ne = 0
+            self.ne = None
             
         if self.mu is None:
-            if self.ne is not 0:
+            if self.ne is not None:
                 self.mu = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
             else:
                 self.mu = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
                 self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
         else:  #Everything will be set by mu
-            if self.ne is 0:
+            if self.ne is None:
                 self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
         self.temp = U * (5. / 3 - 1) * v_unit**2 * prtn * self.mu / bk
         U = 0
         
         # density
-        self.rho = sn['/PartType0/Density'][:]
-        if self.rho is not 0:
-            self.rho = self.rho[ids]
+        if 'Density' in sn['/PartType0'].keys():
+            self.rho = sn['/PartType0/Density'][ids]
         else:
             raise ValueError("Can't get gas density, which is required")
 
@@ -277,8 +276,7 @@ class load_data(object):
         # mass only gas
         self.mass = sn['/PartType0/Masses'][ids]
 
-        # we need to remove some spurious particles.... if there is a MHI or SRF block
-        # see Klaus's doc or Borgani et al. 2003 for detials.
+        # we need to remove some spurious particles....
         # try exclude sfr gas particles
         if (self.cut_sfr is not None) and ('StarFormationRate' in sn['/PartType0'].keys()):
             sfr = sn['/PartType0/StarFormationRate'][ids]
@@ -297,9 +295,9 @@ class load_data(object):
         self.vel = self.vel[ids_ex]
         self.rho = self.rho[ids_ex]
         self.ne = self.ne[ids_ex]
-        if isinstance(self.metal, type(0.0)) or isinstance(self.metal, type(np.ones(1))):
+        if not isinstance(self.metal, type(0.0)): # or isinstance(self.metal, type(np.ones(1))):
             self.metal = self.metal[ids_ex]
-        if self.hsml is not 0:
+        if self.hsml is not None:
             self.hsml = self.hsml[ids_ex]
         else:
             self.hsml = (3 * self.mass / self.rho / 4 / np.pi)**(1. / 3.)  # approximate
@@ -340,7 +338,7 @@ class load_data(object):
 
         # velocity
         self.vel = readsnap(self.filename, "VEL ", ptype=0, quiet=True)
-        if self.vel is not 0:
+        if self.vel is not None:
             self.vel = self.vel[ids] * np.sqrt(self.cosmology["a"])  # to peculiar velocity
         else:
             raise ValueError("Can't get gas velocity, which is required")
@@ -360,21 +358,21 @@ class load_data(object):
             self.temp = readsnap(self.filename, "TEMP", quiet=True)
         else:
             self.temp = readsnap(self.filename, "TEMP", mu=self.mu, quiet=True)
-        if self.temp is not 0:
+        if self.temp is not None:
             self.temp = self.temp[ids]
         else:
             raise ValueError("Can't get gas temperature, which is required for this code.")
 
         # density
         self.rho = readsnap(self.filename, "RHO ", quiet=True)
-        if self.rho is not 0:
+        if self.rho is not None:
             self.rho = self.rho[ids]
         else:
             raise ValueError("Can't get gas density, which is required")
 
         # smoothing length
         self.hsml = readsnap(self.filename, "HSML", quiet=True)
-        if self.hsml is not 0:
+        if self.hsml is not None:
             self.hsml = self.hsml[ids]
 
         # mass only gas
@@ -386,14 +384,14 @@ class load_data(object):
         if self.metal is None:
             self.metal = readsnap(self.filename, "Z   ", ptype=0, nmet=self.Nmets,
                                      quiet=True)  # auto calculate Z
-            if self.metal is not 0:
+            if self.metal is not None:
                 self.metal = self.metal[ids]
 
         # Electron fraction
         self.ne = readsnap(self.filename, "NE  ", quiet=True)
         # ( 1. - xH ) / ( 4 * xH )hydrogen mass-fraction (xH) = n_He/n_H
         yhelium = 0.07894736842105263
-        if self.ne is not 0:
+        if self.ne is not None:
             self.ne = self.ne[ids]
             self.mmw = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
         else:  # calculate NE from mean mol weight
@@ -406,7 +404,7 @@ class load_data(object):
                 self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
 
         Zs = readsnap(self.filename, "Zs  ", ptype=0, quiet=True)
-        if Zs is not 0:
+        if Zs is not None:
             self.X = 1 - self.metal - Zs[:, 0][ids]/self.mass  # hydrogen mass fraction assume Tornatore et al. 2007.
         else:
             self.X = 1 - self.metal - 0.24  # simply assume He=0.24
@@ -421,10 +419,10 @@ class load_data(object):
         # see Klaus's doc or Borgani et al. 2003 for detials.
         mhi = readsnap(self.filename, "MHI ", quiet=True)
         ids_ex = None
-        if mhi is 0:
+        if mhi is None:
             # try exclude sfr gas particles
             sfr = readsnap(self.filename, "SFR ", quiet=True)
-            if (sfr is not 0) and (self.cut_sfr is not None):
+            if (sfr is not None) and (self.cut_sfr is not None):
                 sfr = sfr[ids]
                 ids_ex = sfr < self.cut_sfr
             else:
@@ -450,9 +448,9 @@ class load_data(object):
             self.vel = self.vel[ids_ex]
             self.rho = self.rho[ids_ex]
             self.ne = self.ne[ids_ex]
-            if self.metal is not 0:
+            if not isinstance(self.metal, type(0.0)):
                 self.metal = self.metal[ids_ex]
-            if self.hsml is not 0:
+            if self.hsml is not None:
                 self.hsml = self.hsml[ids_ex]
             else:
                 self.hsml = (3 * self.mass / self.rho / 4 / np.pi)**(1. / 3.)  # approximate
@@ -530,7 +528,7 @@ class load_data(object):
 
     # prepare for Theoretical model calculations
     def prep_ss_TT(self, force_redo=False):  # Now everything need to be in physical
-        if len(self.Tszdata) is 0 or force_redo:  # only need to prepare once
+        if len(self.Tszdata) == 0 or force_redo:  # only need to prepare once
             constTsz = 1.0e10 * M_sun / self.cosmology["h"] * Kb * cs / me / Mp / c**2 / Kpc**2
             self.Tszdata = constTsz * self.mass * self.temp * self.X * self.ne
             # if self.mu is None:
@@ -550,7 +548,7 @@ class load_data(object):
 
     # prepare for mock observation model calculations
     def prep_ss_SZ(self, force_redo=False):
-        if len(self.tau) is 0 or force_redo:
+        if len(self.tau) == 0 or force_redo:
             self.tau = cs * self.rho * self.mueinv / Mp
 
     def prep_yt_TT(self, conserved_smooth=False, force_redo=False):

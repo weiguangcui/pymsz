@@ -176,8 +176,8 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                         if (npart[ptype] == 0) or (masstbl[ptype] > 0):
                             print("This is can not be! npart[ptype] is ",
                                   npart[ptype], "masstbl[ptype] is ", masstbl[ptype])
-                            print("I return 0")
-                            return(0)
+                            print("I return None")
+                            return(None)
                         else:
                             startc = 0
                             endc = 0
@@ -225,7 +225,7 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                 subdata = read_block(npf, "Zs  ", endian, True, longid, fmt, pty, rawdata)
                 if subdata is None:
                     print("Can't find the 'Zs  ' block for calculate metallicity!")
-                    return(0)
+                    return(None)
                 if ptype == 0:
                     if masstbl[0] > 0:
                         mass = np.zeros(npart[0], dtype=masstbl.dtype) + masstbl[0]
@@ -267,7 +267,7 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
             if not quiet:
                 print("No such blocks!!! or Not add in this reading!!!", block)
             npf.close()
-            return(0)
+            return(None)
 
 
 # Read Block
@@ -625,8 +625,8 @@ def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
             else:
                 tmp = readsnapsgl(fbase+str(i), block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
                                   fullmass=fullmass, mu=mu, rhb=False, fmt=fmt, ptype=ptype, rawdata=rawdata)
-                if tmp is not 0:
-                    if data is not 0:
+                if tmp is not None:
+                    if data is not None:
                         data = np.append(data, tmp, axis=0)
                     else:
                         data = np.copy(tmp)

@@ -6,7 +6,7 @@ all: clean SZpack.py
 
 SZpack.py: libSZpack.a
 			@echo "\n Creating SZpack Python routines\n"
-		 	python setup.py build
+		 	python3 setup.py build
 		 	# python setup.py install --user
 
 libSZpack.a:
