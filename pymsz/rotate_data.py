@@ -809,7 +809,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Memreduce=F
     task_queue = Queue()
     done_queue = Queue()
     
-    if (sys.version_info.major >= 3) and (sys.version_info.minor >= 8):  # only tested with python3.8
+    if (sys.version_info.major >= 3) and (sys.version_info.minor >= 8) and (Memreduce):  # only tested with python3.8
         # we can transfer the cKDTree class directly, seems no limitations on the transferred data size now
         print("Directly pass the cKDTree to tasks with Python version", sys.version)
         if hsml is None:
