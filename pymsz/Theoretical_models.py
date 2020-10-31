@@ -41,6 +41,9 @@ class TT_model(object):
     # pxsize   : physical/proper pixel size of the image. Type: float, unit: kpc.
     #             Default: None
     #             If set, this will invaided the calculation from AR.
+    Memreduce: Try to reduce the memory in parallel calculation by passing the cKDTree class in SPH_smoothing. This overcomes the 
+                memory cost in the cKDTree query, but should require Python>3.8 to pass the class > 4Gb.
+                Default: False.
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
                 Note, this parallel calculation is only for the SPH smoothing.
@@ -87,8 +90,8 @@ class TT_model(object):
     mm=pymsz.TT_models(simudata, npixel=1024, "z")
     """
 
-    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=None, SD=2,
-                 SP=[194.95, 27.98], Ncpu=None, Ntasks=None, redshift=None, zthick=None, sph_kernel='cubic'):
+    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=None, SD=2, SP=[194.95, 27.98], 
+                Memreduce=False, Ncpu=None, Ntasks=None, redshift=None, zthick=None, sph_kernel='cubic'):
         if isinstance(npixel, type("")) or isinstance(npixel, type('')):
             self.npl = npixel.lower()
         else:
@@ -104,6 +107,7 @@ class TT_model(object):
         self.pxs = None
         self.SD = SD
         # self.periodic = periodic
+        self.Memreduce=Memreduce
         self.ncpu = Ncpu
         self.ntask = Ntasks
         self.ydata = np.array([])
@@ -216,19 +220,19 @@ class TT_model(object):
             tempr=np.sqrt(np.sum((simd.pos - simd.pos[simd.rho.argmin()])**2, axis=1))
             tempr.sort()
             ngbinp=tempr[self.ngb+1]/simd.cosmology['h']/(1+simd.cosmology['z'])/self.pxs
-            print('Convert the neighbor count in pixel size')
+            print('Convert the neighbor count in pixel size: ', ngbinp)
         else:
             ngbinp=self.ngb
 
         if self.SD == 2:
             self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, ngbinp, hsml=hsml,
-                                       pxln=self.npl, Ncpu=self.ncpu,
+                                       pxln=self.npl, Memreduce=self.Memreduce, Ncpu=self.ncpu,
                                        Ntasks=self.ntask, kernel_name=self.sph_kn)
         else:
             # be ware that zthick could cause some problems if it is larger than pxs*npl!!
             # This has been taken in care in the rotate_data function.
             self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, ngbinp, hsml=hsml,
-                                       pxln=self.npl, Ncpu=self.ncpu,
+                                       pxln=self.npl, Memreduce=self.Memreduce, Ncpu=self.ncpu,
                                        Ntasks=self.ntask, kernel_name=self.sph_kn)
             self.ydata = np.sum(self.ydata, axis=2)
         self.ydata = self.ydata.T / self.pxs**2
@@ -554,11 +558,12 @@ class TK_model(object):
 
         if self.SD == 2:
             self.bdata = SPH_smoothing(Kszdata, pos[:, :2], self.pxs, self.ngb, hsml=hsml,
-                                       pxln=self.npl, Ncpu=self.ncpu,
+                                       pxln=self.npl, Memreduce=self.Memreduce, Ncpu=self.ncpu,
                                        kernel_name=self.sph_kn)
         else:
             self.bdata = SPH_smoothing(Kszdata, pos, self.pxs, self.ngb, hsml=hsml,
-                                       pxln=self.npl, Ncpu=self.ncpu, kernel_name=self.sph_kn)
+                                       pxln=self.npl, Memreduce=self.Memreduce, Ncpu=self.ncpu, 
+                                       kernel_name=self.sph_kn)
             self.bdata = np.sum(self.bdata, axis=2)
         self.bdata = self.bdata.T / self.pxs**2
 

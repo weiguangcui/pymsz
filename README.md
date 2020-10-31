@@ -47,3 +47,4 @@
 ### Temporary Notes
 
 -   The loaded simulation data has a radius of 2 x set radius, because the data has to be projected in a cylinder. Thus, I make a cut in line of sight direction later before the calculation of theoretical y-map.
+-   The TK_model needs updates with the latest modifications. to be done.

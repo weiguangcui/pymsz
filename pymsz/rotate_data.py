@@ -654,8 +654,8 @@ def cal_sph_neib_v3(ctree, centp, neighbors, pxln, sphkernel, wdata):
     return ydata, [imin, jmin, kmin, imax, jmax, kmax]
 
 
-def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Ncpu=None, Ntasks=None,
-                  kernel_name='cubic'):
+def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Memreduce=False, 
+                  Ncpu=None, Ntasks=None, kernel_name='cubic'):
     r"""SPH smoothing for given data
 
     Parameters
@@ -673,6 +673,9 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Ncpu=None, 
     pxln     : number of pixels for the mesh. Type: int. Must be set.
                 # If it is None (Default), it will calculate from the particle positions.
                 # I.E. pxln = (max(pos)-min(pos))/pxls
+    Memreduce: Try to reduce the memory in parallel calculation by passing the cKDTree class. This overcomes the 
+                memory cost in the cKDTree query, but should require Python>3.8 to pass the class > 4Gb.
+                Default: False.
     Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
                 computer will be used.
     Ntasks   : number of tasks for separating the calculation. Type: int. Default: None,
@@ -833,7 +836,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Ncpu=None, 
                         tmpwd[j] =  wdata[listn[i]:listn[i + 1]]
                     Tasks.append((cal_sph_hsml_v3, (mtree, pos[listn[i]:listn[i + 1]], hsml[listn[i]:listn[i + 1]],
                                                  SD, pxln, sphkernel, tmpwd)))
-    else: # we need do the query first as the sending data size is limited. We can use Ntasks to overcome the memory issue.
+    else: # we need do the query first as the sending data size is limited. Sometimes We can use Ntasks to overcome the memory issue.
         if hsml is None:
             dist, idst = mtree.query(pos, neighbors, n_jobs=NUMBER_OF_PROCESSES)  # estimate the neighbors and distance
             if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
