@@ -212,6 +212,7 @@ class load_data(object):
             else:
                 ids = np.ones(self.pos.shape[0], dtype=np.bool)
             self.pos = spos[ids] - self.center
+            self.radius = (self.pos.max()-self.pos.min())/2.
         
         # gas velocity
         if 'Velocities' in sn['/PartType0'].keys():
@@ -335,6 +336,7 @@ class load_data(object):
             self.center = np.median(spos, axis=0)
             self.pos = spos - self.center
             ids = np.ones(self.pos.shape[0], dtype=np.bool)
+            self.radius = (self.pos.max()-self.pos.min())/2.
 
         # velocity
         self.vel = readsnap(self.filename, "VEL ", ptype=0, quiet=True)
