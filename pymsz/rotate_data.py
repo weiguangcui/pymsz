@@ -239,7 +239,7 @@ def cal_sph_hsml(idst, centp, hsml, posd, pxln, sphkernel, wdata):
                     if px[0]>=pxln: px[0]=pxln-1
                     if py[0]>=pxln: py[0]=pxln-1
                 else:
-                    px, py = np.int32(idst[i]/pxln), idst[i]%pxln
+                    px, py = np.int32(np.array(idst[i])/pxln), np.array(idst[i])%pxln
                 dist = np.sqrt((px - centp[i,0])**2 + (py - centp[i, 1])**2)
                 wsph = sphkernel(dist / hsml[i])
                 if imin > px.min(): imin = px.min()
@@ -268,7 +268,7 @@ def cal_sph_hsml(idst, centp, hsml, posd, pxln, sphkernel, wdata):
                     if py[0]>=pxln: py[0]=pxln-1
                     if pz[0]>=pxln: pz[0]=pxln-1
                 else:
-                    px, py, pz = np.int32(idst[i]/pxln/pxln), np.int32(idst[i]%(pxln*pxln)/pxln), idst[i]%(pxln*pxln)%pxln
+                    px, py, pz = np.int32(np.array(idst[i])/pxln/pxln), np.int32(np.array(idst[i])%(pxln*pxln)/pxln), np.array(idst[i])%(pxln*pxln)%pxln
                 dist = np.sqrt((px - centp[i,0])**2 + (py - centp[i, 1])**2 + (pz - centp[i, 2])**2)
                 wsph = sphkernel(dist / hsml[i])                
                 if imin > px.min(): imin = px.min()
@@ -298,7 +298,7 @@ def cal_sph_hsml(idst, centp, hsml, posd, pxln, sphkernel, wdata):
                     if px[0]>=pxln: px[0]=pxln-1
                     if py[0]>=pxln: py[0]=pxln-1
                 else:
-                    px, py = np.int32(idst[i]/pxln), idst[i]%pxln
+                    px, py = np.int32(np.array(idst[i])/pxln), np.array(idst[i])%pxln
                 dist = np.sqrt((px - centp[i,0])**2 + (py - centp[i, 1])**2)
                 wsph = sphkernel(dist / hsml[i])
                 if imin > px.min(): imin = px.min()
@@ -331,7 +331,7 @@ def cal_sph_hsml(idst, centp, hsml, posd, pxln, sphkernel, wdata):
                     if py[0]>=pxln: py[0]=pxln-1
                     if pz[0]>=pxln: pz[0]=pxln-1
                 else:
-                    px, py, pz = np.int32(idst[i]/pxln/pxln), np.int32(idst[i]%(pxln*pxln)/pxln), idst[i]%(pxln*pxln)%pxln
+                    px, py, pz = np.int32(np.array(idst[i])/pxln/pxln), np.int32(np.array(idst[i])%(pxln*pxln)/pxln), np.array(idst[i])%(pxln*pxln)%pxln
                 dist = np.sqrt((px - centp[i,0])**2 + (py - centp[i, 1])**2 + (pz - centp[i, 2])**2)
                 wsph = sphkernel(dist / hsml[i])
                 if imin > px.min(): imin = px.min()
@@ -362,7 +362,7 @@ def cal_sph_neib(idst, dist, posd, pxln, sphkernel, wdata):
         if posd == 2:
             ydata = np.zeros((pxln, pxln), dtype=np.float64)  # need to think about reducing this return array later
             for i in range(idst.shape[0]):
-                ids = idst[i]
+                ids = np.array(idst[i])
                 wsph = sphkernel(dist[i] / dist[i].max())
                 px, py = np.int32(ids/pxln), ids%pxln
                 if imin > px.min(): imin = px.min()
@@ -376,7 +376,7 @@ def cal_sph_neib(idst, dist, posd, pxln, sphkernel, wdata):
         elif posd == 3:
             ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in range(idst.shape[0]):
-                ids = idst[i]
+                ids = np.array(idst[i])
                 wsph = sphkernel(dist[i] / dist[i].max())
                 px, py, pz = np.int32(ids/pxln/pxln), np.int32(ids%(pxln*pxln)/pxln), ids%(pxln*pxln)%pxln
                 if imin > px.min(): imin = px.min()
@@ -394,7 +394,7 @@ def cal_sph_neib(idst, dist, posd, pxln, sphkernel, wdata):
             for i in wdata.keys():
                 ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
             for i in range(idst.shape[0]):
-                ids = idst[i]
+                ids = np.array(idst[i])
                 wsph = sphkernel(dist[i] / dist[i].max())
                 px, py = np.int32(ids/pxln), ids%pxln
                 if imin > px.min(): imin = px.min()
@@ -411,7 +411,7 @@ def cal_sph_neib(idst, dist, posd, pxln, sphkernel, wdata):
             for i in wdata.keys():
                 ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in range(idst.shape[0]):
-                ids = idst[i]
+                ids = np.array(idst[i])
                 wsph = sphkernel(dist[i] / dist[i].max())
                 px, py, pz = np.int32(ids/pxln/pxln), np.int32(ids%(pxln*pxln)/pxln), ids%(pxln*pxln)%pxln
                 if imin > px.min(): imin = px.min()
@@ -585,7 +585,7 @@ def cal_sph_neib_v3(ctree, centp, neighbors, pxln, sphkernel, wdata):
             for i in range(centp.shape[0]):
                 dist, idst = mtree.query(centp[i], neighbors)
                 ids = np.array(idst)
-                wsph = sphkernel(dist[i] / dist[i].max())
+                wsph = sphkernel(np.array(dist) / dist.max())
                 px, py = np.int32(ids/pxln), ids%pxln
                 if imin > px.min(): imin = px.min()
                 if imax < px.max(): imax = px.max()
@@ -600,7 +600,7 @@ def cal_sph_neib_v3(ctree, centp, neighbors, pxln, sphkernel, wdata):
             for i in range(centp.shape[0]):
                 dist, idst = mtree.query(centp[i], neighbors)
                 ids = np.array(idst)
-                wsph = sphkernel(dist[i] / dist[i].max())
+                wsph = sphkernel(np.array(dist) / dist.max())
                 px, py, pz = np.int32(ids/pxln/pxln), np.int32(ids%(pxln*pxln)/pxln), ids%(pxln*pxln)%pxln
                 if imin > px.min(): imin = px.min()
                 if imax < px.max(): imax = px.max()
@@ -619,7 +619,7 @@ def cal_sph_neib_v3(ctree, centp, neighbors, pxln, sphkernel, wdata):
             for i in range(centp.shape[0]):
                 dist, idst = mtree.query(centp[i], neighbors)
                 ids = np.array(idst)
-                wsph = sphkernel(dist[i] / dist[i].max())
+                wsph = sphkernel(np.array(dist) / dist.max())
                 px, py = np.int32(ids/pxln), ids%pxln
                 if imin > px.min(): imin = px.min()
                 if imax < px.max(): imax = px.max()
@@ -637,7 +637,7 @@ def cal_sph_neib_v3(ctree, centp, neighbors, pxln, sphkernel, wdata):
             for i in range(centp.shape[0]):
                 dist, idst = mtree.query(centp[i], neighbors)
                 ids = np.array(idst)
-                wsph = sphkernel(dist[i] / dist[i].max())
+                wsph = sphkernel(np.array(dist) / dist.max())
                 px, py, pz = np.int32(ids/pxln/pxln), np.int32(ids%(pxln*pxln)/pxln), ids%(pxln*pxln)%pxln
                 if imin > px.min(): imin = px.min()
                 if imax < px.max(): imax = px.max()
@@ -839,6 +839,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Memreduce=F
     else: # we need do the query first as the sending data size is limited. Sometimes We can use Ntasks to overcome the memory issue.
         if hsml is None:
             dist, idst = mtree.query(pos, neighbors, n_jobs=NUMBER_OF_PROCESSES)  # estimate the neighbors and distance
+            memlog('After query ')
             if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
                 Tasks = [(cal_sph_neib, (idst[listn[i]:listn[i + 1]], dist[listn[i]:listn[i + 1]], SD, pxln,
                                          sphkernel, wdata[listn[i]:listn[i + 1]])) for i in range(listn.size-1)]
@@ -858,6 +859,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Memreduce=F
             #     idst=np.append(idst, np.array([np.array(xi) for xi in tid]))
             # del(tid)
             idst = mtree.query_ball_point(pos, hsml, n_jobs=NUMBER_OF_PROCESSES)
+            memlog('After query ')
             if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
                 Tasks = [(cal_sph_hsml, (idst[listn[i]:listn[i + 1]], pos[listn[i]:listn[i + 1]], hsml[listn[i]:listn[i + 1]],
                                          SD, pxln, sphkernel, wdata[listn[i]:listn[i + 1]])) for i in range(listn.size-1)]
