@@ -1,11 +1,13 @@
 import numpy as np
 from struct import unpack
 from os import fstat, path
+from glob import glob
+import h5py
 nmets = 11
 
 
 def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11,
-                fullmass=False, mu=None, rhb=True, fmt=None, ptype=None, rawdata=False):
+                fullmass=False, mu=None, fmt=None, ptype=None, rawdata=False):
     """
     readsnapsgl(filename,block,endian=None,quiet=None,longid=None,met=None, fmt=None)
         read snapshot files and new subfind files, return any block result you need.
@@ -21,7 +23,6 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                   False(default): return only mass block
         mu: mean_molecular_weight. Specify this value for gas temperature.
                   It will be ignored when you have NE block in your simulatin data.
-        rhb: return header brief. True(default): only return useful head information, else: all
         fmt: default or 1: G3 format with blocks; 0: G2 format; -1: new subfind results.
         ptype: read only specified particle type: 0: gas, 1: DM, 2: , 3: , 4: star, 5: bh
         rawdata: default False. If True, retrun the binary data in str, which need unpack yourself.
@@ -34,8 +35,6 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
     For these snapshots which are more than 4 Gb, i.e. the data size (bytes) indicator,
     which is just ahead of the data block, is negative, you can use `ptype=1` to overcome
     the error in reading the data.
-
-    For the gadget2 snapshots files, please check the order of the reading is correct or not (line 296-324) for you data.
     """
 
     if endian is None:
@@ -77,34 +76,36 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
     npf = open(filename, 'rb')
     if fmt != 0:
         bname, bsize = read_bhead(npf)
-    bs1 = npf.read(4)  # size of header
-    npart = np.zeros(6, dtype='int32')
-    npart[:] = unpack(endian + 'i i i i i i', npf.read(4 * 6))
-    masstbl = np.zeros(6, dtype='float64')
-    masstbl[:] = unpack(endian + 'd d d d d d', npf.read(8 * 6))
-    time, red = unpack(endian + 'd d', npf.read(2 * 8))
-    F_sfr, F_fb = unpack(endian + 'i i', npf.read(2 * 4))
-    Totnum = np.zeros(6, dtype='int64')
-    Totnum[:] = unpack(endian + 'i i i i i i', npf.read(6 * 4))
-    F_cool, Numfiles = unpack(endian + 'i i', npf.read(2 * 4))
-    Boxsize, Omega0, OmegaLambda, Hubbleparam = unpack(endian + 'd d d d', npf.read(4 * 8))
-    F_agn, F_metal = unpack(endian + 'i i', npf.read(2 * 4))
-    NallHW = np.zeros(6, dtype='int32')
-    NallHW[:] = unpack(endian + 'i i i i i i', npf.read(6 * 4))
-    F_entr_ics = unpack(endian + 'i', npf.read(4))[0]
+
+    class rhead:
+        def __init__(self, npf):
+            bs1 = npf.read(4)  # size of header
+            del(bs1)
+            self.npart = np.zeros(6, dtype='int32')
+            self.npart[:] = unpack(endian + 'i i i i i i', npf.read(4 * 6))
+            self.masstbl = np.zeros(6, dtype='float64')
+            self.masstbl[:] = unpack(endian + 'd d d d d d', npf.read(8 * 6))
+            self.Time, self.Redshift = unpack(endian + 'd d', npf.read(2 * 8))
+            self.F_Sfr, self.F_Feedback = unpack(endian + 'i i', npf.read(2 * 4))
+            self.totnum = np.zeros(6, dtype='int64')
+            self.totnum[:] = unpack(endian + 'i i i i i i', npf.read(6 * 4))
+            self.F_Cooling, self.Numfiles = unpack(endian + 'i i', npf.read(2 * 4))
+            self.Boxsize, self.Omega0, self.OmegaLambda, self.HubbleParam = unpack(endian + 'd d d d', npf.read(4 * 8))
+            self.F_StellarAge, self.F_Metals = unpack(endian + 'i i', npf.read(2 * 4))
+            self.nallHW = np.zeros(6, dtype='int32')
+            self.nallHW[:] = unpack(endian + 'i i i i i i', npf.read(6 * 4))
+            self.F_entr_ics = unpack(endian + 'i', npf.read(4))[0]
+
+    hd = rhead(npf)
     npf.close()
 
     if block == 'HEAD':
-        if rhb:
-            return(npart, masstbl, time, red, Totnum, Boxsize, Omega0, OmegaLambda, Hubbleparam)
-        else:
-            return(npart, masstbl, time, red, F_sfr, F_fb, Totnum, F_cool, Numfiles, Boxsize,
-                   Omega0, OmegaLambda, Hubbleparam, F_agn, F_metal, NallHW, F_entr_ics)
+        return hd
 
     if block == 'IDTP':  # Particle type
-        idtype = np.zeros(npart.sum(), dtype=np.int32)
+        idtype = np.zeros(hd.npart.sum(), dtype=np.int32)
         nn = 0
-        for i, j in enumerate(npart):
+        for i, j in enumerate(hd.npart):
             if j > 0:
                 idtype[nn:nn + j] = i
                 nn += j
@@ -113,85 +114,85 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
         if fmt >= 0:
             if ptype is not None:
                 if ptype == 0:
-                    pty = [0, npart[0]]
+                    pty = [0, hd.npart[0]]
                 elif ptype == 1:
-                    pty = [npart[0], npart[1]]
+                    pty = [hd.npart[0], hd.npart[1]]
                 elif ptype == 2:
-                    pty = [np.sum(npart[:2]), npart[2]]
+                    pty = [np.sum(hd.npart[:2]), hd.npart[2]]
                 elif ptype == 3:
-                    pty = [np.sum(npart[:3]), npart[3]]
+                    pty = [np.sum(hd.npart[:3]), hd.npart[3]]
                 elif ptype == 4:
-                    pty = [np.sum(npart[:4]), npart[4]]
+                    pty = [np.sum(hd.npart[:4]), hd.npart[4]]
                 elif ptype == 5:
-                    pty = [np.sum(npart[:5]), npart[5]]
+                    pty = [np.sum(hd.npart[:5]), hd.npart[5]]
                 else:
                     raise ValueError("Don't accept ptype value %d" % ptype)
             else:
                 pty = None  # the same as ptype
 
             if block == "MASS":
-                idg0 = (npart > 0) & (masstbl <= 0)
+                idg0 = (hd.npart > 0) & (hd.masstbl <= 0)
                 if fullmass:
-                    if len(npart[idg0]) == 0:  # No Mass block!
-                        idg1 = (npart > 0) & (masstbl > 0)
-                        if len(npart[idg1]) == 1:
-                            return masstbl[idg1]
+                    if len(hd.npart[idg0]) == 0:  # No Mass block!
+                        idg1 = (hd.npart > 0) & (hd.masstbl > 0)
+                        if len(hd.npart[idg1]) == 1:
+                            return hd.masstbl[idg1]
                         else:  # multi masstble
-                            totmass = np.zeros(np.sum(npart, dtype='int64'), dtype='float32')
+                            totmass = np.zeros(np.sum(hd.npart, dtype='int64'), dtype='float32')
                             countnm = 0
                             for i in np.arange(6):
-                                if npart[i] > 0:
-                                    totmass[countnm:countnm + npart[i]] = masstbl[i]
-                                    countnm += npart[i]
+                                if hd.npart[i] > 0:
+                                    totmass[countnm:countnm + hd.npart[i]] = hd.masstbl[i]
+                                    countnm += hd.npart[i]
                             return totmass
                 elif ptype is not None:
-                    if (npart[ptype] > 0) & (masstbl[ptype] > 0):
-                        return masstbl[ptype]
+                    if (hd.npart[ptype] > 0) & (hd.masstbl[ptype] > 0):
+                        return hd.masstbl[ptype]
                 else:
-                    if len(npart[idg0]) == 0:  # No Mass block!
-                        return masstbl
+                    if len(hd.npart[idg0]) == 0:  # No Mass block!
+                        return hd.masstbl
 
         npf = open(filename, 'rb')
         subdata = read_block(npf, block, endian, quiet, longid, fmt, pty, rawdata)
         if subdata is not None:  # we have subdata
             if block == "MASS":  # We fill the mass with the mass tbl value if needed
                 npf.close()
-                idg0 = (npart > 0) & (masstbl > 0)
-                if (len(npart[idg0]) > 0) and (fullmass):
-                    totmass = np.zeros(np.sum(npart, dtype='int64'), dtype='float32')
+                idg0 = (hd.npart > 0) & (hd.masstbl > 0)
+                if (len(hd.npart[idg0]) > 0) and (fullmass):
+                    totmass = np.zeros(np.sum(hd.npart, dtype='int64'), dtype='float32')
                     bgc = 0
                     subc = 0
                     for k in np.arange(6):
-                        if npart[k] > 0:
-                            if(masstbl[k] > 0):
-                                totmass[bgc:bgc + npart[k]
-                                        ] = np.zeros(npart[k], dtype='float32') + masstbl[k]
+                        if hd.npart[k] > 0:
+                            if(hd.masstbl[k] > 0):
+                                totmass[bgc:bgc + hd.npart[k]
+                                        ] = np.zeros(hd.npart[k], dtype='float32') + hd.masstbl[k]
                             else:
-                                totmass[bgc:bgc + npart[k]] = subdata[subc:subc + npart[k]]
-                                subc += npart[k]
-                            bgc += npart[k]
+                                totmass[bgc:bgc + hd.npart[k]] = subdata[subc:subc + hd.npart[k]]
+                                subc += hd.npart[k]
+                            bgc += hd.npart[k]
                     return totmass
                 else:
                     if ptype is not None:
-                        if (npart[ptype] == 0) or (masstbl[ptype] > 0):
-                            print("This is can not be! npart[ptype] is ",
-                                  npart[ptype], "masstbl[ptype] is ", masstbl[ptype])
-                            print("I return None")
+                        if (hd.npart[ptype] == 0) or (hd.masstbl[ptype] > 0):
+                            print("This is can not be! hd.npart[ptype] is ",
+                                  hd.npart[ptype], "masstbl[ptype] is ", hd.masstbl[ptype])
+                            print("I return 0")
                             return(None)
                         else:
                             startc = 0
                             endc = 0
                             for ii in range(ptype + 1):
-                                if (npart[ii] > 0) and (masstbl[ii] <= 0):
+                                if (hd.npart[ii] > 0) and (hd.masstbl[ii] <= 0):
                                     startc = endc
-                                    endc += npart[ii]
+                                    endc += hd.npart[ii]
                             return(subdata[startc:endc])
                     return subdata
             elif ((block == "Z   ") or (block == "ZTOT") or (block == "Zs  ")) and (ptype is not None):
                 if ptype == 0:
-                    return subdata[:npart[0]]
+                    return subdata[:hd.npart[0]]
                 elif ptype == 4:
-                    return subdata[npart[0]:]
+                    return subdata[hd.npart[0]:]
                 else:
                     raise ValueError(
                         "The given ptype %d is not accepted for metallicity block %s.", ptype, block)
@@ -215,7 +216,7 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                             mean_mol_weight = mu
                     else:
                         mean_mol_weight = (1. + 4. * yhelium) / (1. + yhelium + NE)
-                    v_unit = 1.0e5 * np.sqrt(time)       # (e.g. 1.0 km/sec)
+                    v_unit = 1.0e5 * np.sqrt(hd.Time)       # (e.g. 1.0 km/sec)
                     prtn = 1.67373522381e-24  # (proton mass in g)
                     bk = 1.3806488e-16        # (Boltzman constant in CGS)
                     npf.close()
@@ -224,42 +225,41 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                 # no "Z   " in the data, which needs to calculate it from "Zs  " block
                 subdata = read_block(npf, "Zs  ", endian, True, longid, fmt, pty, rawdata)
                 if subdata is None:
-                    print("Can't find the 'Zs  ' block for calculate metallicity!")
-                    return(None)
+                    raise ValueError("Can't find the 'Zs  ' block for calculate metallicity!")
                 if ptype == 0:
-                    if masstbl[0] > 0:
-                        mass = np.zeros(npart[0], dtype=masstbl.dtype) + masstbl[0]
+                    if hd.masstbl[0] > 0:
+                        mass = np.zeros(hd.npart[0], dtype=hd.masstbl.dtype) + hd.masstbl[0]
                     else:
                         mass = read_block(npf, "MASS", endian, True, longid,
-                                          fmt, [0, 0], rawdata)[0:npart[0]]
+                                          fmt, [0, 0], rawdata)[0:hd.npart[0]]
                     npf.close()
                     # return
-                    # np.sum(subdata[0:npart[0],1:],axis=1)/(mass[0:npart[0]]-np.sum(subdata[0:npart[0],:],axis=1))
+                    # np.sum(subdata[0:hd.npart[0],1:],axis=1)/(mass[0:hd.npart[0]]-np.sum(subdata[0:hd.npart[0],:],axis=1))
                     # old version with z = M_z/M_H why?
                     # MASS block do not accept pty, all mass are returned!
-                    return np.sum(subdata[0:npart[0], 1:], axis=1) / mass
+                    return np.sum(subdata[0:hd.npart[0], 1:], axis=1) / mass
                 elif ptype == 4:
                     # have to use initial mass because the metal block include SN metals.
                     im = read_block(npf, "iM  ", endian, True, longid, fmt, pty, rawdata)
                     npf.close()
                     # return
-                    # np.sum(subdata[npart[0]:,1:],axis=1)/(im-np.sum(subdata[npart[0]:,:],axis=1))
+                    # np.sum(subdata[hd.npart[0]:,1:],axis=1)/(im-np.sum(subdata[hd.npart[0]:,:],axis=1))
                     # old version with z = M_z/M_H why?
-                    return np.sum(subdata[npart[0]:, 1:], axis=1) / im
+                    return np.sum(subdata[hd.npart[0]:, 1:], axis=1) / im
                 else:
-                    zs = np.zeros(npart[0] + npart[4], dtype=subdata.dtype)
-                    if masstbl[0] > 0:
-                        mass = np.zeros(npart[0], dtype=masstbl.dtype) + masstbl[0]
+                    zs = np.zeros(hd.npart[0] + hd.npart[4], dtype=subdata.dtype)
+                    if hd.masstbl[0] > 0:
+                        mass = np.zeros(hd.npart[0], dtype=hd.masstbl.dtype) + hd.masstbl[0]
                     else:
                         mass = read_block(npf, "MASS", endian, True, longid,
-                                          fmt, [0, 0], rawdata)[0:npart[0]]
-                    # zs[0:npart[0]]=np.sum(subdata[0:npart[0],1:],axis=1)/(mass[0:npart[0]]-np.sum(subdata[0:npart[0],:],axis=1))
+                                          fmt, [0, 0], rawdata)[0:hd.npart[0]]
+                    # zs[0:hd.npart[0]]=np.sum(subdata[0:hd.npart[0],1:],axis=1)/(mass[0:hd.npart[0]]-np.sum(subdata[0:hd.npart[0],:],axis=1))
                     # old version
-                    zs[0:npart[0]] = np.sum(subdata[0:npart[0], 1:], axis=1) / mass
+                    zs[0:hd.npart[0]] = np.sum(subdata[0:hd.npart[0], 1:], axis=1) / mass
 
                     im = read_block(npf, "iM  ", endian, True, longid, fmt, pty, rawdata)
-                    # zs[npart[0]:]=np.sum(subdata[npart[0]:,1:],axis=1)/(im-np.sum(subdata[npart[0]:,:],axis=1))
-                    zs[npart[0]:] = np.sum(subdata[npart[0]:, 1:], axis=1) / im
+                    # zs[hd.npart[0]:]=np.sum(subdata[hd.npart[0]:,1:],axis=1)/(im-np.sum(subdata[hd.npart[0]:,:],axis=1))
+                    zs[hd.npart[0]:] = np.sum(subdata[hd.npart[0]:, 1:], axis=1) / im
                     mass, im, subdata = 0, 0, 0
                     npf.close()
                     return zs
@@ -565,12 +565,85 @@ def read_bdata(npf, column, dt, endian, pty=None):
         return arr.byteswap()
 
 
+def readhdf5head(filename, quiet=False):
+    if not quiet:
+        print('Reading %s file with Header' % filename)
+    fo = h5py.File(filename, 'r')
+    class rhead:
+        def __init__(self, npf):
+            self.npart = npf['Header'].attrs['NumPart_ThisFile']
+            self.masstbl = npf['Header'].attrs['MassTable']
+            self.Time = npf['Header'].attrs['Time']
+            self.Redshift = npf['Header'].attrs['Redshift']
+            self.F_Sfr = npf['Header'].attrs['Flag_Sfr']
+            self.F_Feedback = npf['Header'].attrs['Flag_Feedback']
+            self.totnum = npf['Header'].attrs['NumPart_Total']
+            self.F_Cooling = npf['Header'].attrs['Flag_Cooling']
+            self.Numfiles = npf['Header'].attrs['NumFilesPerSnapshot']
+            self.Boxsize = npf['Header'].attrs['BoxSize']
+            self.Omega0 = npf['Header'].attrs['Omega0']
+            self.OmegaLambda = npf['Header'].attrs['OmegaLambda'] 
+            self.HubbleParam = npf['Header'].attrs['HubbleParam']
+            self.F_StellarAge = npf['Header'].attrs['Flag_StellarAge']
+            self.F_Metals = npf['Header'].attrs['Flag_Metals']
+            self.F_DoublePrecision = npf['Header'].attrs['Flag_DoublePrecision']
+    hd = rhead(fo)
+    fo.close()
+    return hd
+
+def readhdf5data(filename, block, quiet=False, ptype=None):
+    if not quiet:
+        print('Reading file ', filename, ' with data block ', block,' for type ', ptype)
+    fo = h5py.File(filename, 'r')
+    
+    if isinstance(ptype, type(0)):
+        if 'PartType'+str(ptype) in fo.keys():
+            if block in fo['PartType'+str(ptype)].keys():
+                data = fo['PartType'+str(ptype)+'/'+block][:]
+            else:
+                print(block, ' is not in PartType'+str(ptype), '!!')
+                fo.close()
+                return None
+        else:
+            print('PartType'+str(ptype), 'is not in this HDF5 file: ', filename, ' !!')
+            fo.close()
+            return None
+    else:
+        if ptype is None:  #read all types of data in the file
+            PT=list(fo.keys())
+            PT.remove('Header')
+        else:
+            PT=[]
+            for i in ptype:
+                PT.append('PartType'+str(ptype))
+        
+        for i, ptn in enumerate(PT):
+            if i == 0:
+                if ptn in fo.keys():
+                    if block in fo[ptn].keys():
+                        data = fo[ptn+'/'+block][:]
+                    else:
+                        print('# WARNING: ', block, ' is not in ', ptn, '!!')
+                else:
+                    print('# WARNING: ', ptn, ' is not in this HDF5 file: ', filename, '!!')
+            else:
+                if ptn in fo.keys():
+                    if block in fo[ptn].keys():
+                        data = np.append(data, fo[ptn+'/'+block][:], axis=0)
+                    else:
+                        print('# WARNING: ', block, ' is not in ', ptn, '!!')
+                else:
+                    print('# WARNING: ', ptn, ' is not in this HDF5 file: ', filename, '!!')
+                
+    fo.close()
+    return data
+
 # read all snapshots
 def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
-             fullmass=False, mu=None, rhb=True, fmt=None, ptype=None, rawdata=False):
+             fullmass=False, mu=None, fmt=None, ptype=None, rawdata=False):
     """
     readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
-             fullmass=False, mu=None, rhb=True, fmt=None, ptype=None, rawdata=False
+             fullmass=False, mu=None, fmt=None, ptype=None, rawdata=False
         read multiple snapshot files and new subfind files, return any block data in whole simulation.
 
     Parameters:
@@ -584,7 +657,6 @@ def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
                   False(default): return only mass block
         mu: mean_molecular_weight. Specify this value for gas temperature.
                   It will be ignored when you have NE block in your simulatin data.
-        rhb: return header brief. True(default): only return useful head information, else: all
         fmt: default or 1: G3 format with blocks; 0: G2 format; -1: new subfind results.
         ptype: read only specified particle type: 0: gas, 1: DM, 2: , 3: , 4: star, 5: bh
         rawdata: default False. If True, retrun the binary data in str, which need unpack yourself.
@@ -601,30 +673,50 @@ def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
     For the gadget2 snapshots files, please check the order of the reading is correct or not (line 296-324) for you data.
     """
 
-    if path.isfile(filename):
-        filename=filename
-    elif path.isfile(filename+".0"):
-        filename = filename+".0"
-    elif path.isfile(filename+"0"):
-        filename=filename+"0"
+    filename=glob(filename+'*')
+    if len(filename) == 1:
+        filenum=1
+    elif len(filename) > 1:
+        filenum=len(filename)          
     else:
-        raise ValueError("Can not find file: %s or %s" % (filename,filename+".0"))
+        raise ValueError("Can not find file: %s or %s" % (filename,filename+"*"))
 
-    head=readsnapsgl(filename, 'HEAD', endian=endian, quiet=quiet, longid=longid, nmet=nmet,
-                     fullmass=fullmass, mu=mu, rhb=False, fmt=fmt, ptype=ptype, rawdata=rawdata)
+    if not quiet:
+        print('reading files: ', filename)
+        
+    if filename[0][-4:].lower() == 'hdf5':
+        head = readhdf5head(filename[0], quiet=quiet)
+        if block == 'Header':
+            return head
+    else:
+        head=readsnapsgl(filename[0], 'HEAD', endian=endian, quiet=quiet, longid=longid, nmet=nmet,
+                         fullmass=fullmass, mu=mu, fmt=fmt, ptype=ptype, rawdata=rawdata)
+        if block == 'HEAD':
+            return head
 
-    if head[8] <= 1: # only one file
-        return readsnapsgl(filename, block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
-                           fullmass=fullmass, mu=mu, rhb=False, fmt=fmt, ptype=ptype, rawdata=rawdata)
+    if head.Numfiles != filenum:
+        raise ValueError("The number of files (%i) do not fit to the one in snapshot header (%i) !! please check!" % (filenum, head.Numfiles))
+        
+    if head.Numfiles == 1: # only one file
+        if filename[0][-4:].lower() == 'hdf5':
+            return readhdf5data(filename[0], block, quiet=quiet, ptype=ptype)
+        else:
+            return readsnapsgl(filename[0], block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
+                               fullmass=fullmass, mu=mu, fmt=fmt, ptype=ptype, rawdata=rawdata)
     else:  # multiple snapshot names
-        fbase=filename[:-1]
-        for i in range(head[8]):
+        for i,fbase in enumerate(filename):
             if i == 0:
-                data = readsnapsgl(fbase+str(i), block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
-                                   fullmass=fullmass, mu=mu, rhb=False, fmt=fmt, ptype=ptype, rawdata=rawdata)
+                if fbase[-4:].lower() == 'hdf5':
+                    data = readhdf5data(filename[0], block, quiet=quiet, ptype=ptype)
+                else:
+                    data = readsnapsgl(fbase, block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
+                                       fullmass=fullmass, mu=mu, fmt=fmt, ptype=ptype, rawdata=rawdata)
             else:
-                tmp = readsnapsgl(fbase+str(i), block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
-                                  fullmass=fullmass, mu=mu, rhb=False, fmt=fmt, ptype=ptype, rawdata=rawdata)
+                if fbase[-4:].lower() == 'hdf5':
+                    tmp = readhdf5data(filename[0], block, quiet=quiet, ptype=ptype)
+                else:
+                    tmp = readsnapsgl(fbase, block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
+                                      fullmass=fullmass, mu=mu, fmt=fmt, ptype=ptype, rawdata=rawdata)
                 if tmp is not None:
                     if data is not None:
                         data = np.append(data, tmp, axis=0)

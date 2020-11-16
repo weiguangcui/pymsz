@@ -37,7 +37,7 @@ class load_data(object):
 
     Parameters
     ----------
-    filename    : The filename of simulation snapshot, or data.
+    filename    : The filename of simulation snapshot, or data. For multiple file, should just put the file base name here!
                     Type: str. Default : ''
     metal       : Gas metallicity.
                     Type: float or array. Default: None, will try to read from simulation.
@@ -51,8 +51,8 @@ class load_data(object):
                     from the simulation snapshot.
                     with snapshot=True, it assumes full ionized gas with mu ~ 0.588.
                     with yt_load=True, it assumes zero ionization with mu ~ 1.22.
-    snapshot    : Is loading snapshot or not?
-                    Type: bool. Default : False
+    snapshot    : Is loading snapshot or not? 
+                    Type: bool. Default : False. If loading HDF5 files, specify it with snapshot='hdf5'
     yt_load     : Do you want to use yt to load the data?
                     Type: bool. Default : False.
                     It requries yt models.
@@ -129,7 +129,7 @@ class load_data(object):
         self.cut_rhoT = cut_rhoT
         self.restrict_r = restrict_r
 
-        if snapshot:
+        if (snapshot) or (snapshot.lower()=='hdf5'):
             self.data_type = "snapshot"
             self.temp = np.array([])
             self.mass = None
@@ -157,11 +157,11 @@ class load_data(object):
             # self.z = 0.0
             # self.Uage = 0.0  # university age in Gyrs
             # self.nx = self.grid_mass = self.grid_age = self.grid_metal = None
-            if self.filename[-4:].upper() == 'HDF5' or self.filename[-3:].upper() == 'HDF':
-                import h5py
-                sn = h5py.File(self.filename, 'r')
-                self._load_snap_hdf(sn)  #current desgin for GIZMO, may need tricks for other simulations
-                sn.close()
+            if self.filename[-4:].upper() == 'HDF5' or self.filename[-3:].upper() == 'HDF' or snapshot.lower()=='hdf5':
+                # import h5py
+                # sn = h5py.File(self.filename, 'r')
+                self._load_snap_hdf()  #current desgin for GIZMO, may need tricks for other simulations
+                # sn.close()
             else:
                 self._load_snap()
         elif yt_load:
@@ -175,21 +175,26 @@ class load_data(object):
         else:
             raise ValueError("Please sepecify the simulation data type. ")
 
-    def _load_snap_hdf(self, sn):
-        self.cosmology["z"] = sn['Header'].attrs['Redshift']
-        self.cosmology["a"] = sn['Header'].attrs['Time']
-        self.cosmology["omega_matter"] = sn['Header'].attrs['Omega0']
-        self.cosmology["omega_lambda"] = sn['Header'].attrs['OmegaLambda']
-        self.cosmology["h"] = sn['Header'].attrs['HubbleParam']
+    def _load_snap_hdf(self):
+        head = readsnap(self.filename, "Header", quiet=False)
+        self.cosmology["z"] = head.Redshift  # if head[3] > 0 else 0.0
+        self.cosmology["a"] = head.Time
+        self.cosmology["omega_matter"] = head.Omega0
+        self.cosmology["omega_lambda"] = head.OmegaLambda
+        self.cosmology["h"] = head.HubbleParam
         
         # check wind particles and remove them if possible
-        if 'DelayTime' in sn['/PartType0'].keys():
-            iddt = sn['/PartType0/DelayTime'][:]>0
-        else:
-            iddt = None
+        iddt = readsnap(self.filename, "DelayTime", quiet=True, ptype=0)
+        if iddt is not None:
+            iddt = iddt > 0
+        # if 'DelayTime' in sn['/PartType0'].keys():
+        #     iddt = sn['/PartType0/DelayTime'][:]>0
+        # else:
+        #     iddt = None
             
         # gas pos
-        spos = sn['/PartType0/Coordinates'][:]
+        # spos = sn['/PartType0/Coordinates'][:]
+        spos = readsnap(self.filename, "Coordinates", quiet=True, ptype=0)
         if (self.center is not None) and (self.radius is not None):
             if self.restrict_r:
                 r = np.sqrt(np.sum((spos - self.center)**2, axis=1))
@@ -215,8 +220,9 @@ class load_data(object):
             self.radius = (self.pos.max()-self.pos.min())/2.
         
         # gas velocity
-        if 'Velocities' in sn['/PartType0'].keys():
-            self.vel = sn['/PartType0/Velocities'][:] 
+        self.vel = readsnap(self.filename, "Velocities", quiet=True, ptype=0)
+        if self.vel is not None:
+            # self.vel = sn['/PartType0/Velocities'][:] 
             self.vel = self.vel[ids] * np.sqrt(self.cosmology["a"]) # to peculiar velocity
         else:
             raise ValueError("Can't get gas velocity, which is required")
@@ -230,57 +236,74 @@ class load_data(object):
                 self.vel -= self.bulkvel
 
         # gas metal if there are
-        if self.metal is None:
-            if 'Metallicity' in sn['/PartType0'].keys():
-                tempz = sn['/PartType0/Metallicity'][:]
-                self.metal = tempz[ids,0]
-                self.X = 1 - self.metal - tempz[ids,1]  #Note different He may be saved at different position!
-                tempz = 0
-        else:
+        if self.metal is not None:
             self.X = 1 - self.metal - 0.24  # simply assume He=0.24
-            # Now self.X is hydrogen mass fraction, electron number = M*X/m_H*NE
+        else:
+            self.metal = readsnap(self.filename, "Metallicity", quiet=True, ptype=0) # GIZMO
+            if self.metal is None:
+                self.metal = readsnap(self.filename, "GFM_Metallicity", quiet=True, ptype=0) # Illustris
+                if self.metal is None:
+                    raise ValueError('Metallicity can not be read from simulation!')
+                else:
+                    self.metal=self.metal[ids]
+                    self.X = readsnap(self.filename, "GFM_Metals", quiet=True, ptype=0) 
+                    self.X = self.X[ids, 0]
+            else:
+                self.X = 1 - self.metal[ids,0] - self.metal[ids,1] # Now self.X is hydrogen mass fraction, electron number = M*X/m_H*NE
+                self.metal = self.metal[ids,0]
                 
         # Temperature
-        U = sn['/PartType0/InternalEnergy'][ids]
-        v_unit = 1.0e5 * np.sqrt(self.cosmology["a"])       # (e.g. 1.0 km/sec)
-        prtn = 1.67373522381e-24  # (proton mass in g)
-        bk = 1.3806488e-16        # (Boltzman constant in CGS)
-        # xH = 0.76  # hydrogen mass-fraction
-        yhelium = (1. - self.X) / (4 * self.X)
-        if 'ElectronAbundance' in sn['/PartType0'].keys(): # Electron fraction
-            self.ne = sn['/PartType0/ElectronAbundance'][ids]
+        U = readsnap(self.filename, "InternalEnergy", quiet=True, ptype=0)
+        if U is None:
+            raise ValueError('InternalEnergy for calculating temperature can not be read from simulation!')
         else:
-            self.ne = None
-            
-        if self.mu is None:
+            U = U[ids]
+            # U = sn['/PartType0/InternalEnergy'][ids]
+            v_unit = 1.0e5 * np.sqrt(self.cosmology["a"])       # (e.g. 1.0 km/sec)
+            prtn = 1.67373522381e-24  # (proton mass in g)
+            bk = 1.3806488e-16        # (Boltzman constant in CGS)
+            # xH = 0.76  # hydrogen mass-fraction
+            yhelium = (1. - self.X) / (4 * self.X)
+            self.ne = readsnap(self.filename, "ElectronAbundance", quiet=True, ptype=0)
             if self.ne is not None:
-                self.mu = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
-            else:
-                self.mu = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
-                self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
-        else:  #Everything will be set by mu
-            if self.ne is None:
-                self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
-        self.temp = U * (5. / 3 - 1) * v_unit**2 * prtn * self.mu / bk
-        U = 0
+                self.ne = self.ne[ids]
+                
+            if self.mu is None:
+                if self.ne is not None:
+                    self.mu = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
+                else:
+                    self.mu = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
+                    self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
+            else:  #Everything will be set by mu
+                if self.ne is None:
+                    self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
+            self.temp = U * (5. / 3 - 1) * v_unit**2 * prtn * self.mu / bk
+            U = 0
         
         # density
-        if 'Density' in sn['/PartType0'].keys():
-            self.rho = sn['/PartType0/Density'][ids]
+        self.rho = readsnap(self.filename, "Density", quiet=True, ptype=0)
+        if self.rho is not None:
+            self.rho = self.rho[ids]
         else:
             raise ValueError("Can't get gas density, which is required")
 
         # smoothing length
-        if 'SmoothingLength' in sn['/PartType0'].keys():
-            self.hsml = sn['/PartType0/SmoothingLength'][ids]
+        self.hsml = readsnap(self.filename, "SmoothingLength", quiet=True, ptype=0)
+        if self.hsml is not None:
+            self.hsml = self.hsml[ids]
 
         # mass only gas
-        self.mass = sn['/PartType0/Masses'][ids]
+        self.mass = readsnap(self.filename, "Masses", quiet=True, ptype=0)
+        if self.mass is not None:
+            self.mass = self.mass[ids]
+        else:
+            raise ValueError("Can't get gas Mass, which is required")
 
         # we need to remove some spurious particles....
         # try exclude sfr gas particles
-        if (self.cut_sfr is not None) and ('StarFormationRate' in sn['/PartType0'].keys()):
-            sfr = sn['/PartType0/StarFormationRate'][ids]
+        sfr = readsnap(self.filename, "StarFormationRate", quiet=True, ptype=0)
+        if (self.cut_sfr is not None) and (sfr is not None):
+            sfr = sfr[ids]
             ids_ex = sfr < self.cut_sfr
         else:
             ids_ex = np.ones(self.pos.shape[0], dtype=np.bool)
@@ -305,11 +328,11 @@ class load_data(object):
 
     def _load_snap(self):
         head = readsnap(self.filename, "HEAD", quiet=True)
-        self.cosmology["z"] = head[3]  # if head[3] > 0 else 0.0
-        self.cosmology["a"] = head[2]
-        self.cosmology["omega_matter"] = head[10]
-        self.cosmology["omega_lambda"] = head[11]
-        self.cosmology["h"] = head[12]
+        self.cosmology["z"] = head.Redshift  # if head[3] > 0 else 0.0
+        self.cosmology["a"] = head.Time
+        self.cosmology["omega_matter"] = head.Omega0
+        self.cosmology["omega_lambda"] = head.OmegaLambda
+        self.cosmology["h"] = head.HubbleParam
         # self.cosmology = FlatLambdaCDM(head[-1] * 100, head[-3])
         # self.currenta = head[2]
         # self.Uage = self.cosmology.age(1. / self.currenta - 1)
