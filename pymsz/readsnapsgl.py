@@ -707,13 +707,13 @@ def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
         for i,fbase in enumerate(filename):
             if i == 0:
                 if fbase[-4:].lower() == 'hdf5':
-                    data = readhdf5data(filename[0], block, quiet=quiet, ptype=ptype)
+                    data = readhdf5data(fbase, block, quiet=quiet, ptype=ptype)
                 else:
                     data = readsnapsgl(fbase, block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
                                        fullmass=fullmass, mu=mu, fmt=fmt, ptype=ptype, rawdata=rawdata)
             else:
                 if fbase[-4:].lower() == 'hdf5':
-                    tmp = readhdf5data(filename[0], block, quiet=quiet, ptype=ptype)
+                    tmp = readhdf5data(fbase, block, quiet=quiet, ptype=ptype)
                 else:
                     tmp = readsnapsgl(fbase, block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
                                       fullmass=fullmass, mu=mu, fmt=fmt, ptype=ptype, rawdata=rawdata)
