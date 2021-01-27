@@ -202,7 +202,7 @@ class load_data(object):
                 if self.center[i]+self.radius > self.cosmology["boxsize"]:
                     ids=spos[:,i] <= self.center[i]+self.radius - self.cosmology["boxsize"]
                     spos[ids,i] += self.cosmology["boxsize"]
-                if self.center[i] - self.radius > 0:
+                if self.center[i] - self.radius < 0:
                     ids = spos[:,i] >= self.center[i] - self.radius + self.cosmology["boxsize"]
                     spos[ids,i] -= self.cosmology["boxsize"]
             if self.restrict_r:
@@ -355,7 +355,7 @@ class load_data(object):
                 if self.center[i]+self.radius > self.cosmology["boxsize"]:
                     ids=spos[:,i] <= self.center[i]+self.radius - self.cosmology["boxsize"]
                     spos[ids,i] += self.cosmology["boxsize"]
-                if self.center[i] - self.radius > 0:
+                if self.center[i] - self.radius < 0:
                     ids = spos[:,i] >= self.center[i] - self.radius + self.cosmology["boxsize"]
                     spos[ids,i] -= self.cosmology["boxsize"]
             if self.restrict_r:
