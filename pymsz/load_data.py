@@ -182,6 +182,7 @@ class load_data(object):
         self.cosmology["omega_matter"] = head.Omega0
         self.cosmology["omega_lambda"] = head.OmegaLambda
         self.cosmology["h"] = head.HubbleParam
+        self.cosmology["boxsize"] = head.Boxsize
         
         # check wind particles and remove them if possible
         iddt = readsnap(self.filename, "DelayTime", quiet=True, ptype=0)
@@ -196,6 +197,14 @@ class load_data(object):
         # spos = sn['/PartType0/Coordinates'][:]
         spos = readsnap(self.filename, "Coordinates", quiet=True, ptype=0)
         if (self.center is not None) and (self.radius is not None):
+            # periodic bound condition
+            for i in range(3):
+                if self.center[i]+self.radius > self.cosmology["boxsize"]:
+                    ids=spos[:,i] <= self.center[i]+self.radius - self.cosmology["boxsize"]
+                    spos[ids,i] += self.cosmology["boxsize"]
+                if self.center[i] - self.radius > 0:
+                    ids = spos[:,i] >= self.center[i] - self.radius + self.cosmology["boxsize"]
+                    spos[ids,i] -= self.cosmology["boxsize"]
             if self.restrict_r:
                 r = np.sqrt(np.sum((spos - self.center)**2, axis=1))
                 ids = r <= self.radius  
@@ -333,6 +342,7 @@ class load_data(object):
         self.cosmology["omega_matter"] = head.Omega0
         self.cosmology["omega_lambda"] = head.OmegaLambda
         self.cosmology["h"] = head.HubbleParam
+        self.cosmology["boxsize"] = head.Boxsize
         # self.cosmology = FlatLambdaCDM(head[-1] * 100, head[-3])
         # self.currenta = head[2]
         # self.Uage = self.cosmology.age(1. / self.currenta - 1)
@@ -341,6 +351,13 @@ class load_data(object):
         # positions # only gas particles
         spos = readsnap(self.filename, "POS ", ptype=0, quiet=True)
         if (self.center is not None) and (self.radius is not None):
+            for i in range(3):
+                if self.center[i]+self.radius > self.cosmology["boxsize"]:
+                    ids=spos[:,i] <= self.center[i]+self.radius - self.cosmology["boxsize"]
+                    spos[ids,i] += self.cosmology["boxsize"]
+                if self.center[i] - self.radius > 0:
+                    ids = spos[:,i] >= self.center[i] - self.radius + self.cosmology["boxsize"]
+                    spos[ids,i] -= self.cosmology["boxsize"]
             if self.restrict_r:
                 r = np.sqrt(np.sum((spos - self.center)**2, axis=1))
                 ids = r <= self.radius  
