@@ -157,7 +157,7 @@ class load_data(object):
             # self.z = 0.0
             # self.Uage = 0.0  # university age in Gyrs
             # self.nx = self.grid_mass = self.grid_age = self.grid_metal = None
-            if self.filename[-4:].upper() == 'HDF5' or self.filename[-3:].upper() == 'HDF' or snapshot.lower()=='hdf5':
+            if self.filename[-4:].upper() == 'HDF5' or self.filename[-3:].upper() == 'HDF' or self.filename[-3:].lower()=='hdf5':
                 # import h5py
                 # sn = h5py.File(self.filename, 'r')
                 self._load_snap_hdf()  #current desgin for GIZMO, may need tricks for other simulations
