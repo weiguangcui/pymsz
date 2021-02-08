@@ -677,6 +677,7 @@ def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
     if len(filename) == 1:
         filenum=1
     elif len(filename) > 1:
+        filename = [ x for x in filename if x[-4:].lower() == 'hdf5']  #exclude the other files
         filenum=len(filename)          
     else:
         raise ValueError("Can not find file: %s or %s" % (filename,filename+"*"))
