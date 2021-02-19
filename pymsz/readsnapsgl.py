@@ -675,6 +675,7 @@ def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
 
     if path.isfile(filename): ## only one simulation file
         filenum=1
+        filename=[filename]
     else:
         filename=glob(filename+'*')
         filenum=len(filename) 
