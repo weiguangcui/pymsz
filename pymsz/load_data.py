@@ -261,33 +261,39 @@ class load_data(object):
                 self.X = 1 - self.metal[ids,0] - self.metal[ids,1] # Now self.X is hydrogen mass fraction, electron number = M*X/m_H*NE
                 self.metal = self.metal[ids,0]
                 
-        # Temperature
-        U = readsnap(self.filename, "InternalEnergy", quiet=True, ptype=0)
-        if U is None:
-            raise ValueError('InternalEnergy for calculating temperature can not be read from simulation!')
-        else:
-            U = U[ids]
-            # U = sn['/PartType0/InternalEnergy'][ids]
-            v_unit = 1.0e5 * np.sqrt(self.cosmology["a"])       # (e.g. 1.0 km/sec)
-            prtn = 1.67373522381e-24  # (proton mass in g)
-            bk = 1.3806488e-16        # (Boltzman constant in CGS)
-            # xH = 0.76  # hydrogen mass-fraction
-            yhelium = (1. - self.X) / (4 * self.X)
-            self.ne = readsnap(self.filename, "ElectronAbundance", quiet=True, ptype=0)
+        # ne 
+        yhelium = (1. - self.X) / (4 * self.X)
+        self.ne = readsnap(self.filename, "ElectronAbundance", quiet=True, ptype=0)
+        if self.ne is not None:
+            self.ne = self.ne[ids]
+        if self.mu is None:
             if self.ne is not None:
-                self.ne = self.ne[ids]
+                self.mu = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
+            else:
+                self.mu = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
+                self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
+        else:  #Everything will be set by mu
+            if self.ne is None:
+                self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
                 
-            if self.mu is None:
-                if self.ne is not None:
-                    self.mu = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
-                else:
-                    self.mu = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
-                    self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
-            else:  #Everything will be set by mu
-                if self.ne is None:
-                    self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
-            self.temp = U * (5. / 3 - 1) * v_unit**2 * prtn * self.mu / bk
-            U = 0
+        # Temperature
+        temp = readsnap(self.filename, "Temperature", mu=self.mu, quiet=True, ptype=0)
+        if temp is not None:
+            self.temp = temp
+            temp = 0
+        else:
+            U = readsnap(self.filename, "InternalEnergy", quiet=True, ptype=0)
+            if U is None:
+                raise ValueError('InternalEnergy for calculating temperature can not be read from simulation!')
+            else:
+                U = U[ids]
+                # U = sn['/PartType0/InternalEnergy'][ids]
+                v_unit = 1.0e5      # (e.g. 1.0 km/sec)
+                prtn = 1.67373522381e-24  # (proton mass in g)
+                bk = 1.3806488e-16        # (Boltzman constant in CGS)
+                # xH = 0.76  # hydrogen mass-fraction
+                self.temp = U * (5. / 3 - 1) * v_unit**2 * prtn * self.mu / bk
+                U = 0
         
         # density
         self.rho = readsnap(self.filename, "Density", quiet=True, ptype=0)
@@ -395,9 +401,47 @@ class load_data(object):
                 self.bulkvel = np.mean(self.vel[r < self.hmrad], axis=0)
                 self.vel -= self.bulkvel
 
+        # gas metal if there are
+        if self.metal is None:
+            self.metal = readsnap(self.filename, "Z   ", ptype=0, nmet=self.Nmets,
+                                     quiet=True)  # auto calculate Z
+            if self.metal is not None:
+                self.metal = self.metal[ids]
+            else:
+                raise ValueError("No metallicity! please give me a value as I can't find in snapshot!")
+
+        Zs = readsnap(self.filename, "Zs  ", ptype=0, quiet=True)
+        if Zs is not None:
+            self.X = 1 - self.metal - Zs[:, 0][ids]/self.mass  # hydrogen mass fraction assume Tornatore et al. 2007.
+        else:
+            self.X = 1 - self.metal - 0.24  # simply assume He=0.24
+            # Now self.X is hydrogen mass fraction, electron number = M*X/m_H*NE
+        # else:  # for no matalicity!
+        #     # Change NE (electron number fraction respected to H number density in simulation)
+        #     # M/mmw/mp gives the total nH+nHe+ne! To get the ne, which = self.ne*nH, we reexpress this as ne*Q_NE.
+        #     # Q_NE is given in self.ne in below.
+        #     self.ne = (1. + yhelium + self.ne) / self.ne
+        
+        # Electron fraction
+        self.ne = readsnap(self.filename, "NE  ", quiet=True)
+        # ( 1. - xH ) / ( 4 * xH )hydrogen mass-fraction (xH) = n_He/n_H
+        # yhelium = 0.07894736842105263
+        yhelium = (1. - self.X) / (4 * self.X)
+        if self.ne is not None:
+            self.ne = self.ne[ids]
+            self.mmw = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
+        else:  # calculate NE from mean mol weight
+            self.mmw = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
+            if self.mu is None:
+                # full ionized without taking metal into account. What about metal?
+                self.ne = np.ones(self.rho.size) * (4.0 / self.mmw - 3.28) / 3.04
+                # (4.0 / self.mmw - 3.0 * 0.76 - 1.0) / 4.0 / 0.76
+            else:
+                self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
+
         # Temperature
         if self.mu is None:
-            self.temp = readsnap(self.filename, "TEMP", quiet=True)
+            self.temp = readsnap(self.filename, "TEMP", my=self.mmw, quiet=True)
         else:
             self.temp = readsnap(self.filename, "TEMP", mu=self.mu, quiet=True)
         if self.temp is not None:
@@ -421,41 +465,6 @@ class load_data(object):
         self.mass = readsnap(self.filename, "MASS", ptype=0, quiet=True)
         if not isinstance(self.mass, type(0.0)):
             self.mass = self.mass[ids]
-
-        # gas metal if there are
-        if self.metal is None:
-            self.metal = readsnap(self.filename, "Z   ", ptype=0, nmet=self.Nmets,
-                                     quiet=True)  # auto calculate Z
-            if self.metal is not None:
-                self.metal = self.metal[ids]
-
-        # Electron fraction
-        self.ne = readsnap(self.filename, "NE  ", quiet=True)
-        # ( 1. - xH ) / ( 4 * xH )hydrogen mass-fraction (xH) = n_He/n_H
-        yhelium = 0.07894736842105263
-        if self.ne is not None:
-            self.ne = self.ne[ids]
-            self.mmw = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
-        else:  # calculate NE from mean mol weight
-            self.mmw = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
-            if self.mu is None:
-                # full ionized without taking metal into account. What about metal?
-                self.ne = np.ones(self.rho.size) * (4.0 / self.mmw - 3.28) / 3.04
-                # (4.0 / self.mmw - 3.0 * 0.76 - 1.0) / 4.0 / 0.76
-            else:
-                self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
-
-        Zs = readsnap(self.filename, "Zs  ", ptype=0, quiet=True)
-        if Zs is not None:
-            self.X = 1 - self.metal - Zs[:, 0][ids]/self.mass  # hydrogen mass fraction assume Tornatore et al. 2007.
-        else:
-            self.X = 1 - self.metal - 0.24  # simply assume He=0.24
-            # Now self.X is hydrogen mass fraction, electron number = M*X/m_H*NE
-        # else:  # for no matalicity!
-        #     # Change NE (electron number fraction respected to H number density in simulation)
-        #     # M/mmw/mp gives the total nH+nHe+ne! To get the ne, which = self.ne*nH, we reexpress this as ne*Q_NE.
-        #     # Q_NE is given in self.ne in below.
-        #     self.ne = (1. + yhelium + self.ne) / self.ne
 
         # we need to remove some spurious particles.... if there is a MHI or SRF block
         # see Klaus's doc or Borgani et al. 2003 for detials.

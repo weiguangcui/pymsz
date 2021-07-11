@@ -216,7 +216,7 @@ def readsnapsgl(filename, block, endian=None, quiet=False, longid=False, nmet=11
                             mean_mol_weight = mu
                     else:
                         mean_mol_weight = (1. + 4. * yhelium) / (1. + yhelium + NE)
-                    v_unit = 1.0e5 * np.sqrt(hd.Time)       # (e.g. 1.0 km/sec)
+                    v_unit = 1.0e5      # (e.g. 1.0 km/sec)
                     prtn = 1.67373522381e-24  # (proton mass in g)
                     bk = 1.3806488e-16        # (Boltzman constant in CGS)
                     npf.close()
@@ -591,10 +591,37 @@ def readhdf5head(filename, quiet=False):
     fo.close()
     return hd
 
-def readhdf5data(filename, block, quiet=False, ptype=None):
+def readhdf5data(filename, block, mu=mu, quiet=False, ptype=None):
     if not quiet:
         print('Reading file ', filename, ' with data block ', block,' for type ', ptype)
     fo = h5py.File(filename, 'r')
+    
+    if (block.lower() == 'temperature') & ('temperature' not in [k.lower() for k in fo['PartType0'].keys()]):
+        if 'InternalEnergy' not in fo['PartType0'].keys():
+            print("Can't read gas Temperature and internal energy as both are not in gas properties: !!", fo['PartType0'].keys())
+            fo.close()
+            return None
+        else:
+            temp = fo['PartType0/InternalEnergy'][:]
+            if 'Metallicity' not in fo['PartType0'].keys(): 
+                xH = 0.76  # hydrogen mass-fraction
+            else:
+                Metals=fo['PartType0/Metallicity'][:]
+                xH = 1-Metals[:,0]-Metals[:,1]
+            yhelium = (1. - xH) / (4 * xH)
+            if mu is not None:
+                mean_mol_weight = mu
+            else:
+                if 'ElectronAbundance' not in fo['PartType0'].keys(): # we assume it is NR run with full ionized gas n_e/nH = 1 + 2*nHe/nH
+                    mean_mol_weight = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)
+                else:
+                    NE = fo['PartType0/ElectronAbundance'][:]
+                    mean_mol_weight = (1. + 4. * yhelium) / (1. + yhelium + NE)
+            v_unit = 1.0e5      # (e.g. 1.0 km/sec)
+            prtn = 1.67373522381e-24  # (proton mass in g)
+            bk = 1.3806488e-16        # (Boltzman constant in CGS)
+            fo.close()
+            return(temp * (5. / 3 - 1) * v_unit**2 * prtn * mean_mol_weight / bk)
     
     if isinstance(ptype, type(0)):
         if 'PartType'+str(ptype) in fo.keys():
@@ -679,7 +706,7 @@ def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
     else:
         filename=glob(filename+'*')
         filenum=len(filename) 
-        if (len(filename) > 1) and ('hdf5' in ','.join(filename).lower()):
+        if (len(filename) > 1) and ('.hdf5' in ','.join(filename).lower()):
             filename = [ x for x in filename if x[-4:].lower() == 'hdf5']  #exclude the other files      
             filenum=len(filename)        
         else:
@@ -692,6 +719,13 @@ def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
         head = readhdf5head(filename[0], quiet=quiet)
         if block == 'Header':
             return head
+        elif (block == 'IDTP') or (block == 'IDTypes'):
+            data=np.zeros(head.npart[0],dtype=np.int32)
+            for i in np.arange(1,6):
+                if head.npart[i]>0:
+                    data = np.append(data, np.ones(head.npart[i],dtype=np.int32)*i, axis=0)
+            return data
+            
     else:
         head=readsnapsgl(filename[0], 'HEAD', endian=endian, quiet=quiet, longid=longid, nmet=nmet,
                          fullmass=fullmass, mu=mu, fmt=fmt, ptype=ptype, rawdata=rawdata)
@@ -703,7 +737,7 @@ def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
         
     if head.Numfiles == 1: # only one file
         if filename[0][-4:].lower() == 'hdf5':
-            return readhdf5data(filename[0], block, quiet=quiet, ptype=ptype)
+            return readhdf5data(filename[0], block, mu=mu, quiet=quiet, ptype=ptype)
         else:
             return readsnapsgl(filename[0], block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
                                fullmass=fullmass, mu=mu, fmt=fmt, ptype=ptype, rawdata=rawdata)
@@ -711,13 +745,13 @@ def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
         for i,fbase in enumerate(filename):
             if i == 0:
                 if fbase[-4:].lower() == 'hdf5':
-                    data = readhdf5data(fbase, block, quiet=quiet, ptype=ptype)
+                    data = readhdf5data(fbase, block, mu=mu, quiet=quiet, ptype=ptype)
                 else:
                     data = readsnapsgl(fbase, block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
                                        fullmass=fullmass, mu=mu, fmt=fmt, ptype=ptype, rawdata=rawdata)
             else:
                 if fbase[-4:].lower() == 'hdf5':
-                    tmp = readhdf5data(fbase, block, quiet=quiet, ptype=ptype)
+                    tmp = readhdf5data(fbase, block, mu=mu, quiet=quiet, ptype=ptype)
                 else:
                     tmp = readsnapsgl(fbase, block, endian=endian, quiet=quiet, longid=longid, nmet=nmet,
                                       fullmass=fullmass, mu=mu, fmt=fmt, ptype=ptype, rawdata=rawdata)
