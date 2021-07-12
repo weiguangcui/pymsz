@@ -591,7 +591,7 @@ def readhdf5head(filename, quiet=False):
     fo.close()
     return hd
 
-def readhdf5data(filename, block, mu=mu, quiet=False, ptype=None):
+def readhdf5data(filename, block, mu=None, quiet=False, ptype=None):
     if not quiet:
         print('Reading file ', filename, ' with data block ', block,' for type ', ptype)
     fo = h5py.File(filename, 'r')
