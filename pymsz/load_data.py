@@ -152,7 +152,7 @@ class load_data(object):
             self.sigma = np.array([])
             self.kappa = np.array([])
             self.bperp = np.array([])
-            self.mmw = None  # mean_molecular_weight
+            self.mmw = None  # mean_molecular_weight for internal calculation
             # self.currenta = 1.0  # z = 0
             # self.z = 0.0
             # self.Uage = 0.0  # university age in Gyrs
@@ -254,33 +254,43 @@ class load_data(object):
                 if self.metal is None:
                     raise ValueError('Metallicity can not be read from simulation!')
                 else:
-                    self.metal=self.metal[ids]
+                    # self.metal=self.metal[ids]
                     self.X = readsnap(self.filename, "GFM_Metals", quiet=True, ptype=0) 
-                    self.X = self.X[ids, 0]
+                    self.X = self.X[:, 0]
             else:
-                self.X = 1 - self.metal[ids,0] - self.metal[ids,1] # Now self.X is hydrogen mass fraction, electron number = M*X/m_H*NE
-                self.metal = self.metal[ids,0]
-                
-        # ne 
+                self.X = 1 - self.metal[:,0] - self.metal[:,1] # Now self.X is hydrogen mass fraction, electron number = M*X/m_H*NE
+                # self.metal = self.metal[ids,0]
+        
         yhelium = (1. - self.X) / (4 * self.X)
-        self.ne = readsnap(self.filename, "ElectronAbundance", quiet=True, ptype=0)
+        if isinstance(self.X, np.array([0])):
+            self.X = self.X[ids]
+        if isinstance(self.metal, np.array([0])):
+            self.metal = self.metal[ids]
+        
+        # Electron fraction
+        self.ne = readsnap(self.filename, "ElectronAbundance", quiet=True, ptype=0)   
         if self.ne is not None:
+            self.mmw = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
             self.ne = self.ne[ids]
-        if self.mu is None:
-            if self.ne is not None:
-                self.mu = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
+        else:  # calculate NE from mean mol weight
+            if self.mu is not None:
+                self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
             else:
-                self.mu = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
-                self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
-        else:  #Everything will be set by mu
-            if self.ne is None:
-                self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
-                
+                self.mmw = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
+                if isinstance(self.mmw, np.array([0])):
+                    self.ne = np.ones(self.rho.size) * (4.0 / self.mmw[ids] - 3.28) / 3.04
+                else:
+                    self.ne = np.ones(self.rho.size) * (4.0 / self.mmw - 3.28) / 3.04                
+
         # Temperature
-        temp = readsnap(self.filename, "Temperature", mu=self.mu, quiet=True, ptype=0)
-        if temp is not None:
-            self.temp = temp
-            temp = 0
+        if self.mu is not None:
+            self.temp = readsnap(self.filename, "Temperature", my=self.mu, quiet=True)
+        elif self.mmw is not None:
+            self.temp = readsnap(self.filename, "Temperature", mu=self.mmw, quiet=True)
+            if isinstance(self.mmw, np.array([0])):
+                self.mmw = self.mmw[ids]
+        if self.temp is not None:
+            self.temp = self.temp[ids]
         else:
             U = readsnap(self.filename, "InternalEnergy", quiet=True, ptype=0)
             if U is None:
@@ -291,10 +301,14 @@ class load_data(object):
                 v_unit = 1.0e5      # (e.g. 1.0 km/sec)
                 prtn = 1.67373522381e-24  # (proton mass in g)
                 bk = 1.3806488e-16        # (Boltzman constant in CGS)
-                # xH = 0.76  # hydrogen mass-fraction
-                self.temp = U * (5. / 3 - 1) * v_unit**2 * prtn * self.mu / bk
+                if self.mu is not None:
+                    self.temp = U * (5. / 3 - 1) * v_unit**2 * prtn * self.mu / bk
+                elif self.mmw is not None:
+                    self.temp = U * (5. / 3 - 1) * v_unit**2 * prtn * self.mmw / bk
+                else:
+                    raise ValueError('mean_molecular_weight mu need to be set!')
                 U = 0
-        
+
         # density
         self.rho = readsnap(self.filename, "Density", quiet=True, ptype=0)
         if self.rho is not None:
@@ -403,16 +417,13 @@ class load_data(object):
 
         # gas metal if there are
         if self.metal is None:
-            self.metal = readsnap(self.filename, "Z   ", ptype=0, nmet=self.Nmets,
-                                     quiet=True)  # auto calculate Z
-            if self.metal is not None:
-                self.metal = self.metal[ids]
-            else:
+            self.metal = readsnap(self.filename, "Z   ", ptype=0, nmet=self.Nmets, quiet=True)  # auto calculate Z
+            if self.metal is None:
                 raise ValueError("No metallicity! please give me a value as I can't find in snapshot!")
 
         Zs = readsnap(self.filename, "Zs  ", ptype=0, quiet=True)
         if Zs is not None:
-            self.X = 1 - self.metal - Zs[:, 0][ids]/self.mass  # hydrogen mass fraction assume Tornatore et al. 2007.
+            self.X = 1 - self.metal - Zs[:, 0]/self.mass  # hydrogen mass fraction assume Tornatore et al. 2007.
         else:
             self.X = 1 - self.metal - 0.24  # simply assume He=0.24
             # Now self.X is hydrogen mass fraction, electron number = M*X/m_H*NE
@@ -421,29 +432,38 @@ class load_data(object):
         #     # M/mmw/mp gives the total nH+nHe+ne! To get the ne, which = self.ne*nH, we reexpress this as ne*Q_NE.
         #     # Q_NE is given in self.ne in below.
         #     self.ne = (1. + yhelium + self.ne) / self.ne
+        # yhelium = 0.07894736842105263
+        yhelium = (1. - self.X) / (4 * self.X)
+        if isinstance(self.X, np.array([0])):
+            self.X = self.X[ids]
+        if isinstance(self.metal, np.array([0])):
+            self.metal = self.metal[ids]  
         
         # Electron fraction
         self.ne = readsnap(self.filename, "NE  ", quiet=True)
-        # ( 1. - xH ) / ( 4 * xH )hydrogen mass-fraction (xH) = n_He/n_H
-        # yhelium = 0.07894736842105263
-        yhelium = (1. - self.X) / (4 * self.X)
+        # ( 1. - xH ) / ( 4 * xH )hydrogen mass-fraction (xH) = n_He/n_H      
         if self.ne is not None:
-            self.ne = self.ne[ids]
             self.mmw = (1. + 4. * yhelium) / (1. + yhelium + self.ne)
+            self.ne = self.ne[ids]
         else:  # calculate NE from mean mol weight
-            self.mmw = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
-            if self.mu is None:
-                # full ionized without taking metal into account. What about metal?
-                self.ne = np.ones(self.rho.size) * (4.0 / self.mmw - 3.28) / 3.04
-                # (4.0 / self.mmw - 3.0 * 0.76 - 1.0) / 4.0 / 0.76
-            else:
+            if self.mu is not None:
                 self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
+            else:
+                self.mmw = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
+                # full ionized without taking metal into account. What about metal?
+                if isinstance(self.mmw, np.array([0])):
+                    self.ne = np.ones(self.rho.size) * (4.0 / self.mmw[ids] - 3.28) / 3.04
+                else:
+                    self.ne = np.ones(self.rho.size) * (4.0 / self.mmw - 3.28) / 3.04
+                # (4.0 / self.mmw - 3.0 * 0.76 - 1.0) / 4.0 / 0.76
 
         # Temperature
-        if self.mu is None:
-            self.temp = readsnap(self.filename, "TEMP", my=self.mmw, quiet=True)
-        else:
+        if self.mu is not None:
             self.temp = readsnap(self.filename, "TEMP", mu=self.mu, quiet=True)
+        elif self.mmw is not None:
+            self.temp = readsnap(self.filename, "TEMP", my=self.mmw, quiet=True)
+            if isinstance(self.mmw, np.array([0])):
+                self.mmw = self.mmw[ids]
         if self.temp is not None:
             self.temp = self.temp[ids]
         else:
