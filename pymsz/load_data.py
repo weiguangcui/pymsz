@@ -262,9 +262,9 @@ class load_data(object):
                 # self.metal = self.metal[ids,0]
         
         yhelium = (1. - self.X) / (4 * self.X)
-        if isinstance(self.X, np.array([0])):
+        if isinstance(self.X, type(np.array([0.0]))):
             self.X = self.X[ids]
-        if isinstance(self.metal, np.array([0])):
+        if isinstance(self.metal, type(np.array([0.0]))):
             self.metal = self.metal[ids]
         
         # Electron fraction
@@ -277,7 +277,7 @@ class load_data(object):
                 self.ne = np.ones(self.rho.size) * (4.0 / self.mu - 3.28) / 3.04
             else:
                 self.mmw = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
-                if isinstance(self.mmw, np.array([0])):
+                if isinstance(self.mmw, type(np.array([0.0]))):
                     self.ne = np.ones(self.rho.size) * (4.0 / self.mmw[ids] - 3.28) / 3.04
                 else:
                     self.ne = np.ones(self.rho.size) * (4.0 / self.mmw - 3.28) / 3.04                
@@ -287,7 +287,7 @@ class load_data(object):
             self.temp = readsnap(self.filename, "Temperature", my=self.mu, quiet=True)
         elif self.mmw is not None:
             self.temp = readsnap(self.filename, "Temperature", mu=self.mmw, quiet=True)
-            if isinstance(self.mmw, np.array([0])):
+            if isinstance(self.mmw, type(np.array([0.0]))):
                 self.mmw = self.mmw[ids]
         if self.temp is not None:
             self.temp = self.temp[ids]
@@ -434,9 +434,9 @@ class load_data(object):
         #     self.ne = (1. + yhelium + self.ne) / self.ne
         # yhelium = 0.07894736842105263
         yhelium = (1. - self.X) / (4 * self.X)
-        if isinstance(self.X, np.array([0])):
+        if isinstance(self.X, type(np.array([0.0]))):
             self.X = self.X[ids]
-        if isinstance(self.metal, np.array([0])):
+        if isinstance(self.metal, type(np.array([0.0]))):
             self.metal = self.metal[ids]  
         
         # Electron fraction
@@ -451,7 +451,7 @@ class load_data(object):
             else:
                 self.mmw = (1. + 4. * yhelium) / (1. + 3 * yhelium + 1)  # assume full ionized
                 # full ionized without taking metal into account. What about metal?
-                if isinstance(self.mmw, np.array([0])):
+                if isinstance(self.mmw, type(np.array([0.0]))):
                     self.ne = np.ones(self.rho.size) * (4.0 / self.mmw[ids] - 3.28) / 3.04
                 else:
                     self.ne = np.ones(self.rho.size) * (4.0 / self.mmw - 3.28) / 3.04
@@ -462,7 +462,7 @@ class load_data(object):
             self.temp = readsnap(self.filename, "TEMP", mu=self.mu, quiet=True)
         elif self.mmw is not None:
             self.temp = readsnap(self.filename, "TEMP", my=self.mmw, quiet=True)
-            if isinstance(self.mmw, np.array([0])):
+            if isinstance(self.mmw, type(np.array([0.0]))):
                 self.mmw = self.mmw[ids]
         if self.temp is not None:
             self.temp = self.temp[ids]
