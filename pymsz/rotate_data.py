@@ -797,7 +797,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Memreduce=F
 
     freeze_support()
     if Ncpu is None:
-        NUMBER_OF_PROCESSES = cpu_count()
+        NUMBER_OF_PROCESSES = 1 # cpu_count()
     else:
         NUMBER_OF_PROCESSES = Ncpu
     if Ntasks is None:
