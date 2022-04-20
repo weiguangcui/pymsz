@@ -461,7 +461,7 @@ class load_data(object):
         if self.mu is not None:
             self.temp = readsnap(self.filename, "TEMP", mu=self.mu, quiet=True)
         elif self.mmw is not None:
-            self.temp = readsnap(self.filename, "TEMP", my=self.mmw, quiet=True)
+            self.temp = readsnap(self.filename, "TEMP", mu=self.mmw, quiet=True)
             if isinstance(self.mmw, type(np.array([0.0]))):
                 self.mmw = self.mmw[ids]
         if self.temp is not None:
