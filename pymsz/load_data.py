@@ -224,7 +224,7 @@ class load_data(object):
             if iddt is not None:
                 ids = ~iddt
             else:
-                ids = np.ones(self.pos.shape[0], dtype=np.bool)
+                ids = np.ones(self.pos.shape[0], dtype=bool)
             self.pos = spos[ids] - self.center
             self.radius = (self.pos.max()-self.pos.min())/2.
         
@@ -335,7 +335,7 @@ class load_data(object):
             sfr = sfr[ids]
             ids_ex = sfr < self.cut_sfr
         else:
-            ids_ex = np.ones(self.pos.shape[0], dtype=np.bool)
+            ids_ex = np.ones(self.pos.shape[0], dtype=bool)
         if (self.cut_rhoT[0] is not None) and (self.cut_rhoT[1] is not None):
             ids_ex = ((self.temp > self.cut_rhoT[1]) | (self.rho < self.rhoT[0])) & ids_ex
 
@@ -395,7 +395,7 @@ class load_data(object):
             # ids = np.ones(head[0][0], dtype=bool)
             self.center = np.median(spos, axis=0)
             self.pos = spos - self.center
-            ids = np.ones(self.pos.shape[0], dtype=np.bool)
+            ids = np.ones(self.pos.shape[0], dtype=bool)
             self.radius = (self.pos.max()-self.pos.min())/2.
 
         # velocity
@@ -497,7 +497,7 @@ class load_data(object):
                 sfr = sfr[ids]
                 ids_ex = sfr < self.cut_sfr
             else:
-                ids_ex = np.ones(self.rho.size, dtype=np.bool)
+                ids_ex = np.ones(self.rho.size, dtype=bool)
             if (self.cut_rhoT[0] is not None) and (self.cut_rhoT[1] is not None):
                 ids_ex = ids_ex & ((self.temp > self.cut_rhoT[1]) | (self.rho < self.rhoT[0]))
         else:
