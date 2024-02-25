@@ -577,13 +577,13 @@ def cal_sph_hsml_v3(ctree, centp, hsml, posd, pxln, sphkernel, wdata):
     return ydata, [imin, jmin, kmin, imax, jmax, kmax]
 
 
-def cal_sph_neib_v3(ctree, centp, neighbors, pxln, sphkernel, wdata):
+def cal_sph_neib_v3(ctree, centp, neighbors, posd, pxln, sphkernel, wdata):
     imin, jmin, kmin, imax, jmax, kmax = pxln,pxln,pxln,0,0,0
     if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
         if posd == 2:
             ydata = np.zeros((pxln, pxln), dtype=np.float64)  # need to think about reducing this return array later
             for i in range(centp.shape[0]):
-                dist, idst = mtree.query(centp[i], neighbors)
+                dist, idst = ctree.query(centp[i], neighbors)
                 ids = np.array(idst)
                 wsph = sphkernel(np.array(dist) / dist.max())
                 px, py = np.int32(ids/pxln), ids%pxln
@@ -598,7 +598,7 @@ def cal_sph_neib_v3(ctree, centp, neighbors, pxln, sphkernel, wdata):
         elif posd == 3:
             ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in range(centp.shape[0]):
-                dist, idst = mtree.query(centp[i], neighbors)
+                dist, idst = ctree.query(centp[i], neighbors)
                 ids = np.array(idst)
                 wsph = sphkernel(np.array(dist) / dist.max())
                 px, py, pz = np.int32(ids/pxln/pxln), np.int32(ids%(pxln*pxln)/pxln), ids%(pxln*pxln)%pxln
@@ -617,7 +617,7 @@ def cal_sph_neib_v3(ctree, centp, neighbors, pxln, sphkernel, wdata):
             for i in wdata.keys():
                 ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
             for i in range(centp.shape[0]):
-                dist, idst = mtree.query(centp[i], neighbors)
+                dist, idst = ctree.query(centp[i], neighbors)
                 ids = np.array(idst)
                 wsph = sphkernel(np.array(dist) / dist.max())
                 px, py = np.int32(ids/pxln), ids%pxln
@@ -635,7 +635,7 @@ def cal_sph_neib_v3(ctree, centp, neighbors, pxln, sphkernel, wdata):
             for i in wdata.keys():
                 ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in range(centp.shape[0]):
-                dist, idst = mtree.query(centp[i], neighbors)
+                dist, idst = ctree.query(centp[i], neighbors)
                 ids = np.array(idst)
                 wsph = sphkernel(np.array(dist) / dist.max())
                 px, py, pz = np.int32(ids/pxln/pxln), np.int32(ids%(pxln*pxln)/pxln), ids%(pxln*pxln)%pxln
