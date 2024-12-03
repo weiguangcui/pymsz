@@ -281,7 +281,7 @@ class TT_model(object):
             fname = fname + ".fits"
 
         hdu = pf.PrimaryHDU(self.ydata)
-        hdu.header["SIMPLE"] = 'T'
+        hdu.header["SIMPLE"] = True
         hdu.header.comments["SIMPLE"] = 'conforms to FITS standard'
         hdu.header["BITPIX"] = int(-32)
         hdu.header.comments["BITPIX"] = '32 bit floating point'
