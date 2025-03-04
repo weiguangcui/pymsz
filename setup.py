@@ -79,8 +79,8 @@ setup(
     description="A Package for Mock SZ Observations",
     long_description=read('README.md'),
     packages=find_packages(),
-    cmdclass={'install': InstallSZpack},
-    requires=['numpy', 'pyfits', 'scipy', 'astropy'],
+    # cmdclass={'install': InstallSZpack},
+    requires=['numpy', 'pyfits', 'scipy', 'astropy', 'psutil'],
     package_data={
         '': ['*.fits',
              '*README*',
@@ -88,7 +88,7 @@ setup(
              #  'filters/*',
              # 'SZpacklib/__init__.py',
              # 'SZpacklib/SZpack.py',
-             'SZpacklib/_SZpack*.so'
+            #  'SZpacklib/_SZpack*.so'
              ]},
     license="BSD",
     include_package_data=True,
