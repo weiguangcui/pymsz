@@ -6,3 +6,4 @@ pymsz/SZpacklib/*/*.o
 pymsz/SZpacklib/*/*/*.o
 pymsz/*.pyc
 *.pyc
+pymsz/version.py
