@@ -147,6 +147,8 @@ class load_data(object):
 
             self.tau = np.array([])  # prep_ss_SZT
             self.Te = np.array([])
+            self.electron_number = np.array([])
+            self.electron_temperature    = np.array([])
             self.bpar = np.array([])
             self.omega = np.array([])
             self.sigma = np.array([])
@@ -602,6 +604,11 @@ class load_data(object):
         if len(self.Tszdata) == 0 or force_redo:  # only need to prepare once
             constTsz = 1.0e10 * M_sun / self.cosmology["h"] * Kb * cs / me / Mp / c**2 / Kpc**2
             self.Tszdata = constTsz * self.mass * self.temp * self.X * self.ne
+            self.electron_number = 1.0e10 * M_sun / self.cosmology["h"] * self.ne * self.X * self.mass / Mp # in case we want to save n_e column density maps
+            
+            # only for explorations in 3D
+            self.electron_temperature = self.temp # in case we want to look at this in 3D - don't use to project!
+            self.electron_number_density = 1.0e10 * M_sun * self.cosmology["h"]**2 / Kpc**3 * self.ne * self.X * self.rho * (1+self.cosmology["z"])**3 / Mp # per particle, already SPH-smoothed, shouldn't project this!
             # if self.mu is None:
             #     # self.Tszdata = constTsz * self.mass * self.temp / self.mmw / self.ne
             # else:
@@ -616,6 +623,8 @@ class load_data(object):
         #     self.Kszdata = constKsz * self.mass * vel / self.mmw / self.ne
         # else:
         #     self.Kszdata = constKsz * self.mass * vel / self.mu / self.ne
+
+
 
     # prepare for mock observation model calculations
     def prep_ss_SZ(self, force_redo=False):

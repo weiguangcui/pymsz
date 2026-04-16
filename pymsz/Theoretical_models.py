@@ -90,7 +90,7 @@ class TT_model(object):
     mm=pymsz.TT_models(simudata, npixel=1024, "z")
     """
 
-    def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=None, SD=2, SP=[194.95, 27.98], 
+    def __init__(self, simudata, label='tSZ', npixel=500, neighbours=None, axis='z', AR=None, SD=2, SP=[194.95, 27.98], 
                 Memreduce=False, Ncpu=None, Ntasks=None, redshift=None, zthick=None, sph_kernel='cubic'):
         if isinstance(npixel, type("")) or isinstance(npixel, type('')):
             self.npl = npixel.lower()
@@ -123,7 +123,7 @@ class TT_model(object):
             raise ValueError("smoothing dimension must be 2 or 3" % SD)
 
         if simudata.data_type == "snapshot":
-            self._cal_snap(simudata)
+            self._cal_snap(simudata, label=label)
         elif simudata.data_type == "yt_data":
             self._cal_yt(simudata)
         else:
@@ -132,7 +132,7 @@ class TT_model(object):
 
     # def TH_ymap(simd, npixel=500, neighbours=None, axis='z', AR=None, redshift=None):
 
-    def _cal_snap(self, simd):
+    def _cal_snap(self, simd, label='tSZ'):
         # Kpc = 3.0856775809623245e+21  # cm
         simd.prep_ss_TT()
 
@@ -147,9 +147,16 @@ class TT_model(object):
             self.zthick = self.zthick/simd.cosmology['h']/(1+simd.cosmology['z'])
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
             pos = pos[idc]
-            Tszdata = simd.Tszdata[idc]
+            if label=='tSZ':
+                Tszdata = simd.Tszdata[idc]
+            elif label=='ne':
+                Tszdata = simd.electron_number[idc] # hacky way to get options for electron numdens or temp
         else:
-            Tszdata = np.copy(simd.Tszdata)
+            if label=='tSZ':
+                Tszdata = np.copy(simd.Tszdata)
+            elif label=='ne':
+                Tszdata = np.copy(simd.electron_number)
+            
 
         if isinstance(simd.hsml, type(0)):
             # self.ngb = 64
@@ -280,6 +287,7 @@ class TT_model(object):
         if fname[-5:] != ".fits":
             fname = fname + ".fits"
 
+        
         hdu = pf.PrimaryHDU(self.ydata)
         hdu.header["SIMPLE"] = True
         hdu.header.comments["SIMPLE"] = 'conforms to FITS standard'
