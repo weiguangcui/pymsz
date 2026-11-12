@@ -7,8 +7,8 @@ pip install "pymsz[yaml]"
 ```
 
 This is all most users need. Ready-made packages (*wheels*) exist for Linux (x86_64 and aarch64) and
-macOS (Apple silicon) with Python 3.10 to 3.14. They include the compiled SZpack extension and GSL,
-so nothing else is needed. On other systems (e.g. Intel Macs), pip downloads the source package and
+macOS (Apple silicon and Intel) with Python 3.10 to 3.14. They include the compiled SZpack extension and GSL,
+so nothing else is needed. On other systems (e.g. Windows), pip downloads the source package and
 compiles it, which needs a C++ compiler and GSL: see [the requirements](#requirements) below.
 
 pymsz contains a C++ extension (`pymsz.szpack.SZpack`), compiled from the

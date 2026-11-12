@@ -3,8 +3,9 @@
 #   Actions tab -> "release" -> "Run workflow"   builds everything and uploads it to TestPyPI (a trial)
 #   git tag v1.0 && git push origin v1.0          builds everything and publishes it on PyPI
 #
-# It builds the source distribution and binary wheels (Linux x86_64 and aarch64, macOS arm64; Python
-# 3.10-3.14, configured in pyproject.toml [tool.cibuildwheel]); every wheel is tested before upload.
+# It builds the source distribution and binary wheels (Linux x86_64 and aarch64, macOS arm64 and
+# x86_64; Python 3.10-3.14; configured in pyproject.toml [tool.cibuildwheel]); every wheel is tested
+# before upload.
 # Publishing uses PyPI "trusted publishing": no password or token is stored in GitHub. Set it up once
 # on pypi.org and test.pypi.org (see docs/contributing.md, "Releasing a new version").
 name: release
@@ -36,7 +37,7 @@ jobs:
       - run: python -m pip install build twine
       - run: python -m build --sdist
       - run: python -m twine check --strict dist/*
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sdist
           path: dist/*.tar.gz
@@ -48,7 +49,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-14]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-15-intel]   # macos-latest: Apple silicon
     steps:
       - uses: actions/checkout@v7
         with:
@@ -58,7 +59,7 @@ jobs:
           python-version: "3.13"
       - run: python -m pip install cibuildwheel
       - run: python -m cibuildwheel --output-dir wheelhouse
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
@@ -72,7 +73,7 @@ jobs:
     permissions:
       id-token: write         # trusted publishing
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
@@ -90,7 +91,7 @@ jobs:
     permissions:
       id-token: write         # trusted publishing
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true

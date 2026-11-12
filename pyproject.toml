@@ -14,7 +14,9 @@ test-requires = ["pytest", "pyyaml"]
 test-command = "PYMSZ_REQUIRE_SZPACK=1 pytest {project}/test -q -p no:cacheprovider"
 
 [tool.cibuildwheel.macos]
+# wheels for macOS >= 11; the static GSL is compiled for the same target
 environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
+before-all = "MACOSX_DEPLOYMENT_TARGET=11.0 bash {project}/build_szpack.sh --gsl-only"
 
 [tool.pytest.ini_options]
 # run from the repository root: pytest   (see test/conftest.py)

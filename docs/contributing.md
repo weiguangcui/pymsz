@@ -45,7 +45,7 @@ extension and the test snapshot) and save it with its outputs.
 
 pymsz is published on [PyPI](https://pypi.org/project/pymsz/) by the GitHub workflow
 `.github/workflows/release.yml`. It builds the source package and the binary wheels (Linux x86_64 and
-aarch64, macOS arm64; Python 3.10-3.14; settings in `pyproject.toml`, `[tool.cibuildwheel]`), tests
+aarch64, macOS arm64 and x86_64; Python 3.10-3.14; settings in `pyproject.toml`, `[tool.cibuildwheel]`), tests
 every wheel, and uploads them. No password or token is stored: PyPI trusts this workflow
 (*trusted publishing*).
 

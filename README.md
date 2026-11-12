@@ -34,7 +34,7 @@ pip install "pymsz[yaml]"
 ```
 
 This installs pymsz with numpy, scipy, astropy, h5py, psutil and PyYAML. Ready-made packages
-(wheels) exist for Linux (x86_64, aarch64) and macOS (Apple silicon) with Python 3.10-3.14. On other
+(wheels) exist for Linux (x86_64, aarch64) and macOS (Apple silicon, Intel) with Python 3.10-3.14. On other
 systems pip compiles pymsz, which needs a C++ compiler and [GSL](https://www.gnu.org/software/gsl/)
 (e.g. `sudo apt install libgsl-dev`, `brew install gsl` or `conda install -c conda-forge gsl`).
 
