@@ -1,0 +1,22 @@
+[build-system]
+# pybind11 is needed to compile the SZpack extension (pymsz.szpack.SZpack); see setup.py.
+requires = ["setuptools>=61", "wheel", "pybind11>=2.10"]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+# Binary wheels for PyPI, built by .github/workflows/release.yml (or locally: pipx run cibuildwheel,
+# needs docker on Linux). GSL is first compiled as a static library (build_szpack.sh --gsl-only), so
+# the wheels contain everything and users need neither a compiler nor GSL. Every wheel is tested.
+build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
+skip = "*-musllinux_*"
+before-all = "bash {project}/build_szpack.sh --gsl-only"
+test-requires = ["pytest", "pyyaml"]
+test-command = "PYMSZ_REQUIRE_SZPACK=1 pytest {project}/test -q -p no:cacheprovider"
+
+[tool.cibuildwheel.macos]
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
+
+[tool.pytest.ini_options]
+# run from the repository root: pytest   (see test/conftest.py)
+testpaths = ["test"]
+addopts = "-ra"

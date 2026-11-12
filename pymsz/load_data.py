@@ -1,125 +1,123 @@
 import numpy as np
 from pymsz.readsnapsgl import readsnap
-# from astropy.cosmology import FlatLambdaCDM
-try:
-    from yt.utilities.physical_constants import mp, kb, cross_section_thompson_cgs, \
-        solar_mass, mass_electron_cgs, speed_of_light_cgs, Tcmb, hcgs
-    from yt.utilities.physical_ratios import cm_per_kpc as Kpc
-except ImportError:
-    Mp = 1.672621777e-24  # proton mass in g
-    Kb = 1.38064852e-16      # Boltzman constants in erg/K
-    cs = 6.65245854533e-25  # cross_section_thompson in cm**2
-    M_sun = 1.9891e+33  # g
-    Kpc = 3.0856775809623245e+21  # cm
-    me = 9.10938291e-28     # g
-    c = 29979245800.0       # cm/s
-    tcmb = 2.726            # K
-    Hcgs = 6.62606957e-27   # erg*s
-    I0 = 270.211495296      # MJy/steradian
-else:
-    Mp = mp.v
-    Kb = kb.v
-    cs = cross_section_thompson_cgs.v
-    M_sun = solar_mass.v
-    me = mass_electron_cgs.v
-    c = speed_of_light_cgs.v
-    tcmb = Tcmb.v
-    Hcgs = hcgs.v
-    from yt.units import sr
-    I0 = (2 * (kb * Tcmb)**3 / ((hcgs * speed_of_light_cgs)**2) / sr).in_units("MJy/steradian")
-    I0 = I0.v
+# Physical constants: one set (pymsz.sz_spectra, CODATA 2018) for all models, so that the y / tau / b
+# maps of TT_model, TK_model and SZpack_model agree exactly. They no longer depend on whether yt is
+# installed.
+from pymsz.sz_spectra import SIGMA_T, KB, KB_KEV, ME_KEV, C, C_KMS, KPC, MP
+
+M_sun = 1.9891e+33  # g; simulation masses are in units of 1e10 M_sun/h
+Mp = MP             # proton mass in g: number of electrons = M X n_e / m_p
+Kpc = KPC           # cm
+Kb = KB * 1.0e7     # Boltzmann constant in erg/K
 
 
 class load_data(object):
-    r"""load analysing data from simulation snapshots (gadget format only),
-    yt, or raw data. Currently only works with snapshot=True. Will work more
-    on other data sets.
+    r"""Gas particles of a simulation snapshot, the input of all pymsz models.
+
+    Reads Gadget binary snapshots (formats 1 and 2, single or multiple files) and Gadget/GIZMO HDF5
+    snapshots (``snapshot=True``), or loads the data with yt (``yt_load=True``, experimental).
 
     Parameters
     ----------
-    filename    : The filename of simulation snapshot, or data. For multiple file, should just put the file base name here!
-                    Type: str. Default : ''
-    metal       : Gas metallicity.
-                    Type: float or array. Default: None, will try to read from simulation.
-                    Otherwise, will use this give metallicity.
-                    It must be the same number of gas particles if it is an array.
-    Nmets       : Number of metal elements in the simulation metallicity data block. Defualt : 11
-                    set to 0 for no metals.
-    mu          : mean_molecular_weight.
-                    Type: float. Default: None.
-                    It is used for calculating gas temperature, when there is no NE block
-                    from the simulation snapshot.
-                    with snapshot=True, it assumes full ionized gas with mu ~ 0.588.
-                    with yt_load=True, it assumes zero ionization with mu ~ 1.22.
-    snapshot    : Is loading snapshot or not? 
-                    Type: bool. Default : False. If loading HDF5 files, specify it with snapshot='hdf5'
-    yt_load     : Do you want to use yt to load the data?
-                    Type: bool. Default : False.
-                    It requries yt models.
+    filename : str
+        File name of the snapshot. For a snapshot in several files give the base name
+        (``snap_128`` for ``snap_128.0``, ``snap_128.1``, ...). Files ending in ``.hdf5`` or ``.hdf``
+        are read as HDF5.
+    metal : float or array, optional
+        Gas metallicity. Default None: read it from the snapshot. An array must have one value per gas
+        particle.
+    Nmets : int, optional
+        Number of metal elements in the metallicity block of Gadget binary snapshots. Default 11; 0 for
+        no metals.
+    mu : float, optional
+        Mean molecular weight, used for the gas temperature when the snapshot has no electron
+        abundance block. Default None: with ``snapshot=True`` fully ionised gas is assumed
+        (mu ~ 0.588); with ``yt_load=True`` no ionisation (mu ~ 1.22).
+    snapshot : bool or str, optional
+        Read a simulation snapshot. Default False. ``'hdf5'`` is accepted as well; HDF5 files are
+        recognised from their extension.
+    yt_load : bool, optional
+        Load the data with yt. Default False. Experimental: only `TT_model` accepts yt data. yt is an
+        optional dependency: ``pip install yt`` (or ``pip install "pymsz[yt]"``).
+    specified_field : tuple, optional
+        Field specification of Gadget snapshots for ``yt.load``, only with ``yt_load=True``, e.g.::
 
-    specified_field: If you want to specify the data fields (for Gadget snapshots) for yt.load.
-                    Default: None. This only works with yt_load = True.
-                    For example:
-                    My_def = ("Coordinates", "Velocities", "ParticleIDs", "Mass",
-                              ("InternalEnergy", "Gas"),
-                              ("Density", "Gas"),
-                              ("ElectronAbundance", "Gas"),
-                              ("NeutralHydrogenAbundance", "Gas"),
-                              ("SmoothingLength", "Gas"),
-                              ("StarFomationRate", "Gas"),
-                              ("Age", ("Stars", "Bndry")),
-                              ("Z", ("Gas","Stars")),
-                             )
-                    specified_field=My_def
-    n_ref       : It governs how many particles in an oct results in that oct being
-                    refined into eight child octs. Only for yt_load = True
-                  Type: int. Default: None (use yt setup 64).
-                  It is recommended that if you want higher resolution, try reducing the
-                    value of n_ref to 32 or 16.
+            My_def = ("Coordinates", "Velocities", "ParticleIDs", "Mass",
+                      ("InternalEnergy", "Gas"), ("Density", "Gas"),
+                      ("ElectronAbundance", "Gas"), ("NeutralHydrogenAbundance", "Gas"),
+                      ("SmoothingLength", "Gas"), ("StarFomationRate", "Gas"),
+                      ("Age", ("Stars", "Bndry")), ("Z", ("Gas", "Stars")))
+            load_data(..., yt_load=True, specified_field=My_def)
 
-    rawdata     : Is it raw data? Default : False
-                  Please look at/change the reading function in this file to load the raw data.
+    n_ref : int, optional
+        yt only: the number of particles in an oct above which it is refined. Default None (yt's
+        default, 64). Use 32 or 16 for higher resolution.
+    datafile : bool, optional
+        Not used.
+    center : array_like, optional
+        Centre ``[x, y, z]`` of the region to load, in simulation units (comoving kpc/h). Give it
+        together with `radius`. Default None: the whole snapshot, centred on the median gas position.
+    radius : float, optional
+        Radius of the region (comoving kpc/h). Default None: the whole snapshot.
+    restrict_r : bool, optional
+        True (default): keep a sphere of `radius`. False: keep a cube of side ``2 radius``, which fills
+        a square image.
+    hmrad : float, optional
+        Radius (comoving kpc/h) within which the bulk velocity of the object is computed and removed
+        from the gas velocities (for the kinetic SZ effect). Default None: the mean velocity of all
+        loaded gas. 0 or negative: the bulk velocity is not removed.
+    cut_sfr : float, optional
+        Exclude gas with a star formation rate at or above this value (Msun/yr). Default None.
+    cut_rhoT : list of 2 floats, optional
+        ``[rho, T]``: exclude the cold dense gas, with density above ``rho`` (simulation units) and
+        temperature below ``T`` (K). Default ``[None, None]``.
 
-    ---------- If you only need parts of loaded data. Specify center and radius
-    center      : The center of a sphere for the data you want to get.
-                  Default : None, whole data will load.
-    radius      : The radius of a sphere for the data you want to get.
-                  Default : None, whole data will be used.
-    restrict_r  : Using the exact radius to cut out simulation data.
-                  Default : True. Otherwise, a cubic (2 *radius) data is cut out to fill the output fits image.
-    hmrad       : Radius for calculation halo motion, which is used for calculating the kSZ effect.
-                  Default : None, the halo motion are given by the mean of all particles.
-                  0 or nagative value for not removing halo motion.
-    ---------- additional data cut to exclude spurious gas particles.
-    cut_sfr     : All the data higher than this star formation rate are excluded in the calc. Default None.
-                  NUnit [Msun/yr].
-    cut_rhoT    : You can also do density and temperature cut simultaneously. Default None, setting to [6.e-7, 3.0e4] 
-                  will exlcude particles rho < 6.e-7 and T > 3.0e4.
+    Attributes
+    ----------
+    pos : ndarray
+        Positions relative to `center`, comoving kpc/h, shape (N, 3).
+    vel : ndarray
+        Peculiar velocities (km/s), with the bulk velocity removed.
+    bulkvel : ndarray
+        The removed bulk velocity (km/s).
+    temp : ndarray
+        Temperature (K).
+    rho, mass, hsml : ndarray
+        Density, mass (1e10 Msun/h) and smoothing length (simulation units). Missing smoothing lengths
+        are estimated as ``(3 mass / (4 pi rho))**(1/3)``.
+    ne, X, metal : ndarray
+        Electron abundance (per hydrogen atom), hydrogen mass fraction, metallicity.
+    cosmology : dict
+        From the snapshot header: ``z``, ``a``, ``h``, ``omega_matter``, ``omega_lambda``,
+        ``boxsize``.
+    center, radius
+        The loaded region.
 
     Notes
     -----
-    Please be extremly careful about the units!!! Currently only assume in simulation units:
-        kpc/h and 10^10 M_sun
-    Raw data set needs to provide the cosmology, Otherwise WMAP7 is used for later calculation...
-    center and radius need to set together in the simulation units!
-    No periodical boundery effect is considered yet!
+    The units are the usual Gadget units: lengths in comoving kpc/h and masses in 1e10 Msun/h.
+    `center` and `radius` must be given together, in these units. If the region crosses a face of
+    the periodic box, the particle positions are wrapped. Gas with a cold-gas fraction >= 0.1 is
+    removed if the Gadget binary snapshot has an ``MHI`` block, and HDF5 wind particles
+    (``DelayTime > 0``) are always removed.
 
-    Example
-    -------
-    simd = load_data(snapfilename="/home/weiguang/Downloads/snap_127",
-                     snapshot=True, center=[500000,500000,500000], radius=800)
+    Examples
+    --------
+    >>> simd = load_data('snap_128.hdf5', snapshot=True, center=np.array([500000., 500000., 500000.]),
+    ...                  radius=2000., restrict_r=False, cut_sfr=0.1)
     """
 
     def __init__(self, filename='', metal=None, Nmets=11, mu=None, snapshot=False, yt_load=False,
                  specified_field=None, n_ref=None, datafile=False, center=None, radius=None,
                  restrict_r=True, hmrad=None, cut_sfr=None, cut_rhoT=[None, None]):
-        self.center = center
+        # an array also if a list is given: the models compute e.g. center * scale
+        self.center = None if center is None else np.asarray(center, dtype=np.float64)
         self.radius = radius
         self.filename = filename
 
         self.metal = metal
-        if (metal is not None) and (not isinstance(metal, type(0.1)) or not isinstance(metal, type(np.ones(1)))):
-            raise ValueError("Do not accept this metal %f." % metal)
+        if (metal is not None) and not isinstance(metal, (int, float, np.ndarray)):
+            raise ValueError("Do not accept this metal %r." % (metal,))
             
         self.Nmets = Nmets
         self.mu = mu
@@ -129,7 +127,7 @@ class load_data(object):
         self.cut_rhoT = cut_rhoT
         self.restrict_r = restrict_r
 
-        if (snapshot) or (snapshot.lower()=='hdf5'):
+        if snapshot:  # True, or 'hdf5' (HDF5 files are recognised from their extension anyway)
             self.data_type = "snapshot"
             self.temp = np.array([])
             self.mass = None
@@ -167,6 +165,9 @@ class load_data(object):
             else:
                 self._load_snap()
         elif yt_load:
+            import warnings
+            warnings.warn("Loading the data with yt is experimental and not maintained: only TT_model "
+                          "accepts yt data. Use snapshot=True for the full functionality.")
             self.data_type = "yt_data"
             self.yt_sp = None
             self.yt_ds = self._load_yt(specified_field)
@@ -226,7 +227,7 @@ class load_data(object):
             if iddt is not None:
                 ids = ~iddt
             else:
-                ids = np.ones(self.pos.shape[0], dtype=bool)
+                ids = np.ones(spos.shape[0], dtype=bool)
             self.pos = spos[ids] - self.center
             self.radius = (self.pos.max()-self.pos.min())/2.
         
@@ -286,11 +287,15 @@ class load_data(object):
 
         # Temperature
         if self.mu is not None:
-            self.temp = readsnap(self.filename, "Temperature", my=self.mu, quiet=True)
+            self.temp = readsnap(self.filename, "Temperature", mu=self.mu, quiet=True)
         elif self.mmw is not None:
             self.temp = readsnap(self.filename, "Temperature", mu=self.mmw, quiet=True)
             if isinstance(self.mmw, type(np.array([0.0]))):
                 self.mmw = self.mmw[ids]
+        else:
+            # self.temp = readsnap(self.filename, "Temperature", mu=self.mu, quiet=True)
+            pass
+            
         if self.temp is not None:
             self.temp = self.temp[ids]
         else:
@@ -302,7 +307,7 @@ class load_data(object):
                 # U = sn['/PartType0/InternalEnergy'][ids]
                 v_unit = 1.0e5      # (e.g. 1.0 km/sec)
                 prtn = 1.67373522381e-24  # (proton mass in g)
-                bk = 1.3806488e-16        # (Boltzman constant in CGS)
+                bk = Kb                   # (Boltzman constant in CGS)
                 if self.mu is not None:
                     self.temp = U * (5. / 3 - 1) * v_unit**2 * prtn * self.mu / bk
                 elif self.mmw is not None:
@@ -339,7 +344,7 @@ class load_data(object):
         else:
             ids_ex = np.ones(self.pos.shape[0], dtype=bool)
         if (self.cut_rhoT[0] is not None) and (self.cut_rhoT[1] is not None):
-            ids_ex = ((self.temp > self.cut_rhoT[1]) | (self.rho < self.rhoT[0])) & ids_ex
+            ids_ex = ((self.temp > self.cut_rhoT[1]) | (self.rho < self.cut_rhoT[0])) & ids_ex
 
         self.temp = self.temp[ids_ex]     # cgs
         if not isinstance(self.mass, type(0.0)):
@@ -501,11 +506,11 @@ class load_data(object):
             else:
                 ids_ex = np.ones(self.rho.size, dtype=bool)
             if (self.cut_rhoT[0] is not None) and (self.cut_rhoT[1] is not None):
-                ids_ex = ids_ex & ((self.temp > self.cut_rhoT[1]) | (self.rho < self.rhoT[0]))
+                ids_ex = ids_ex & ((self.temp > self.cut_rhoT[1]) | (self.rho < self.cut_rhoT[0]))
         else:
             mhi = mhi[ids] / 0.76 / self.mass
             if (self.cut_rhoT[0] is not None) and (self.cut_rhoT[1] is not None):
-                ids_ex = (self.temp < self.cut_rhoT[1]) & (self.rho > self.rhoT[0])
+                ids_ex = (self.temp < self.cut_rhoT[1]) & (self.rho > self.cut_rhoT[0])
                 ids_ex = (mhi < 0.1) & (~ids_ex)
             else:
                 ids_ex = (mhi < 0.1)
@@ -535,7 +540,8 @@ class load_data(object):
             import yt
             from yt.utilities.physical_constants import mp, kb
         except ImportError:
-            raise ImportError("Can not find yt package, which is required to use this function!")
+            raise ImportError("load_data(yt_load=True) needs the yt package, which is optional: install it "
+                              "with  pip install yt  (or  pip install \"pymsz[yt]\").")
 
         def _add_GTP(field, data):
             if ("Gas", "ElectronAbundance") in data.ds.field_info:
@@ -600,12 +606,20 @@ class load_data(object):
     #     self.metal = self.filename['metal'][ids]
 
     # prepare for Theoretical model calculations
+    def _electron_number(self):
+        """Number of electrons of every gas particle (masses in 1e10 M_sun/h)."""
+        f8 = np.float64  # snapshot fields are often float32: compute the SZ weights in double precision
+        return 1.0e10 * M_sun / float(self.cosmology["h"]) / Mp * np.asarray(self.ne, dtype=f8) * \
+            np.asarray(self.X, dtype=f8) * np.asarray(self.mass, dtype=f8)
+
     def prep_ss_TT(self, force_redo=False):  # Now everything need to be in physical
         if len(self.Tszdata) == 0 or force_redo:  # only need to prepare once
-            constTsz = 1.0e10 * M_sun / self.cosmology["h"] * Kb * cs / me / Mp / c**2 / Kpc**2
-            self.Tszdata = constTsz * self.mass * self.temp * self.X * self.ne
-            self.electron_number = 1.0e10 * M_sun / self.cosmology["h"] * self.ne * self.X * self.mass / Mp # in case we want to save n_e column density maps
-            
+            self.electron_number = self._electron_number()  # also used for n_e column density maps
+            # y_i = sigma_T N_e k T / (m_e c^2) per kpc^2, divided by the pixel area (kpc^2) later.
+            # Same constants and expression as SZpack_model (tau Te / m_e c^2).
+            self.Tszdata = SIGMA_T / KPC**2 * self.electron_number * \
+                (np.asarray(self.temp, dtype=np.float64) * KB_KEV / ME_KEV)
+
             # only for explorations in 3D
             self.electron_temperature = self.temp # in case we want to look at this in 3D - don't use to project!
             self.electron_number_density = 1.0e10 * M_sun * self.cosmology["h"]**2 / Kpc**3 * self.ne * self.X * self.rho * (1+self.cosmology["z"])**3 / Mp # per particle, already SPH-smoothed, shouldn't project this!
@@ -617,8 +631,8 @@ class load_data(object):
 
     def prep_ss_KT(self, vel):
         # need to calculate Kszdata for each projection, because vel chagnes!!
-        constKsz = 1.0e15 * M_sun / self.cosmology["h"] * cs / Mp / c / Kpc**2  # velocity in km/s -> cm/s
-        self.Kszdata = constKsz * self.mass * vel * self.X * self.ne
+        # b_i = sigma_T N_e v_los / c per kpc^2 (vel in km/s), as tau beta_par in SZpack_model
+        self.Kszdata = SIGMA_T / KPC**2 * self._electron_number() * np.asarray(vel, dtype=np.float64) / C_KMS
         # if self.mu is None:
         #     self.Kszdata = constKsz * self.mass * vel / self.mmw / self.ne
         # else:
@@ -629,7 +643,7 @@ class load_data(object):
     # prepare for mock observation model calculations
     def prep_ss_SZ(self, force_redo=False):
         if len(self.tau) == 0 or force_redo:
-            self.tau = cs * self.rho * self.mueinv / Mp
+            self.tau = SIGMA_T * self.rho * self.mueinv / Mp
 
     def prep_yt_TT(self, conserved_smooth=False, force_redo=False):
         if 'PGas' in self.yt_ds.particle_types:
@@ -651,8 +665,9 @@ class load_data(object):
             #     # "Z"] - 0.24) / mp
 
             def Temp_SZ(field, data):
-                const = kb * cross_section_thompson_cgs / mass_electron_cgs / speed_of_light_cgs**2 / mp
-                end = data[field.name[0], "Mass"] * data[field.name[0], "ElectronAbundance"] * \
+                # sigma_T k / (m_e c^2 m_p), with the constants of pymsz.sz_spectra
+                const = data.ds.quan(SIGMA_T * KB_KEV / ME_KEV / Mp, 'cm**2/(g*K)')
+                end =data[field.name[0], "Mass"] * data[field.name[0], "ElectronAbundance"] * \
                     (1 - data[field.name[0], "Z"] - 0.24)
                 return end * data[field.name[0], 'Temperature'] * const
 
@@ -711,8 +726,9 @@ class load_data(object):
                              units="g/cm**3")
 
         def _beta_perp_squared(field, data):
+            c = data.ds.quan(C * 100., 'cm/s')
             return data["gas", "density"] * data["gas", "velocity_magnitude"]**2 \
-                / speed_of_light_cgs / speed_of_light_cgs - data["gas", "beta_par_squared"]
+                / c / c - data["gas", "beta_par_squared"]
         self.yt_ds.add_field(("gas", "beta_perp_squared"), function=_beta_perp_squared,
                              units="g/cm**3")
 

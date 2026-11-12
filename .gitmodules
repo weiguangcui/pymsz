@@ -1,0 +1,3 @@
+[submodule "SZpack"]
+	path = SZpack
+	url = https://github.com/CMBSPEC/SZpack.git

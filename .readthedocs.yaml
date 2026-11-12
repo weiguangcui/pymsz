@@ -1,0 +1,17 @@
+# Read the Docs configuration: https://docs.readthedocs.io/en/stable/config-file/v2.html
+# The documentation imports pymsz from the source tree (see docs/conf.py); the package and its
+# SZpack extension are not built, so neither the SZpack submodule nor GSL is needed here.
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.12"
+
+sphinx:
+  configuration: docs/conf.py
+  fail_on_warning: false
+
+python:
+  install:
+    - requirements: docs/requirements.txt

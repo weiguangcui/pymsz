@@ -7,3 +7,16 @@ pymsz/SZpacklib/*/*/*.o
 pymsz/*.pyc
 *.pyc
 pymsz/version.py
+# SZpack v2 extension build products / local GSL / virtualenv
+third_party/
+.venv/
+pymsz/szpack/*.so
+
+# Sphinx documentation build products
+docs/_build/
+docs/api/generated/
+docs/reference/_generated/
+
+# test and example outputs (removed by ./clean.sh)
+.pytest_cache/
+test/mock_CL288/

@@ -1,0 +1,13 @@
+# Packages needed to build the documentation (pip install -r docs/requirements.txt).
+# Sphinx and extensions
+sphinx>=7.2
+myst-nb>=1.0
+furo
+sphinx-copybutton
+# pymsz is imported by autodoc: its run-time dependencies
+numpy
+scipy
+astropy
+psutil
+h5py
+pyyaml

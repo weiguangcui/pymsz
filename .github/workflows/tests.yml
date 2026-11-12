@@ -1,0 +1,69 @@
+# Automatic checks of every push and pull request.
+#
+# GitHub runs this on its own machines: it installs pymsz from scratch (compiling the SZpack extension)
+# and runs the test suite in test/ with several Python versions. The result appears as a green tick or a
+# red cross next to the commit (and on pull requests); details are in the "Actions" tab of the repository.
+# Run the same tests locally with:   pip install -e ".[test]"  &&  pytest
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:          # "Run workflow" button in the Actions tab
+
+# a newer push to the same branch cancels the checks of the older one still running
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: syntax errors and undefined names
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: python -m pip install ruff
+      - run: ruff check --select E9,F63,F7,F82 --output-format github pymsz test setup.py
+
+  test:
+    name: tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false        # finish all versions even if one fails
+      matrix:
+        python-version: ["3.11", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true    # the SZpack sources (git submodule ./SZpack)
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            setup.py
+            pyproject.toml
+
+      - name: Install GSL (needed by the SZpack extension)
+        run: sudo apt-get update -q && sudo apt-get install -y -q libgsl-dev
+
+      - name: Build and install pymsz
+        run: python -m pip install ".[test]"
+
+      - name: Check that the SZpack extension was built
+        working-directory: ${{ runner.temp }}   # import the installed package, not ./pymsz
+        run: python -c "from pymsz.szpack import require; print('SZpack extension:', require().__file__)"
+
+      - name: Run the tests
+        env:
+          PYMSZ_REQUIRE_SZPACK: "1"             # fail (not skip) the SZpack tests if it is missing
+        run: pytest -v --durations=10           # 'pytest', not 'python -m pytest': test the installed package

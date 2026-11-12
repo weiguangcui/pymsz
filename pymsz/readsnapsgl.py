@@ -668,36 +668,54 @@ def readhdf5data(filename, block, mu=None, quiet=False, ptype=None):
 # read all snapshots
 def readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
              fullmass=False, mu=None, fmt=None, ptype=None, rawdata=False):
-    """
-    readsnap(filename, block, endian=None, quiet=False, longid=False, nmet=11,
-             fullmass=False, mu=None, fmt=None, ptype=None, rawdata=False
-        read multiple snapshot files and new subfind files, return any block data in whole simulation.
+    """Read one block of a snapshot (single or multiple files, Gadget binary or HDF5) or of new
+    subfind files, for the whole simulation.
 
-    Parameters:
-    ---------------
-        filename: path plus full file name. e.g.  /your/dir/snap_009.0
-        block: The block you want to read, e.g. "HEAD". Look for more info with block == "INFO"
-        little endian: ">", big endian : "<", other/default : "=" or "@"
-        longid: Is the particle ID saved in long long (uint64)? Default : False
-        nmet: Specify how many different matels are produced in the simulation, default: 11
-        fullmass: return all mass of particles inorder of saved particle position
-                  False(default): return only mass block
-        mu: mean_molecular_weight. Specify this value for gas temperature.
-                  It will be ignored when you have NE block in your simulatin data.
-        fmt: default or 1: G3 format with blocks; 0: G2 format; -1: new subfind results.
-        ptype: read only specified particle type: 0: gas, 1: DM, 2: , 3: , 4: star, 5: bh
-        rawdata: default False. If True, retrun the binary data in str, which need unpack yourself.
+    Parameters
+    ----------
+    filename : str
+        Path of the snapshot, e.g. ``/your/dir/snap_009.0``. For multiple files the base name
+        (``/your/dir/snap_009``) reads all of them.
+    block : str
+        The block to read, e.g. 'HEAD', 'POS ', 'MASS' (Gadget binary) or 'Header', 'Coordinates'
+        (HDF5). Use block='INFO' to list the blocks.
+    endian : str, optional
+        Byte order of a binary file, as for :mod:`struct`: '<' (little endian), '>' (big endian),
+        '=' or '@' (native). Default None: detected from the file.
+    quiet : bool, optional
+        Do not print information. Default False.
+    longid : bool, optional
+        The particle IDs are stored as long long (uint64). Default False.
+    nmet : int, optional
+        Number of metal elements in the simulation. Default 11.
+    fullmass : bool, optional
+        True: return the masses of all particles, in the order of the positions (including the
+        masses from the header table). False (default): return only the mass block.
+    mu : float, optional
+        Mean molecular weight for the gas temperature. Ignored if the snapshot has an NE block.
+    fmt : int, optional
+        File format: 1 or None (default; Gadget-3 files with block names), 0 (Gadget-2 format),
+        -1 (new subfind results).
+    ptype : int, optional
+        Read only this particle type: 0 gas, 1 dark matter, 4 stars, 5 black holes.
+    rawdata : bool, optional
+        Return the raw binary data as a string, to be unpacked by yourself. Default False.
 
-    Notes:
-    ------------
-    The old parameter met "z", is deprecated. If you need metal in z instead of elements,
-    simply put 'Z   ' for the block.
+    Returns
+    -------
+    ndarray, header object or None
+        The block data (None if the block is not found).
 
-    For these snapshots which are more than 4 Gb, i.e. the data size (bytes) indicator,
-    which is just ahead of the data block, is negative, you can use `ptype=1` to overcome
-    the error in reading the data.
+    Notes
+    -----
+    The old parameter met='z' is deprecated: to read the total metallicity instead of the elements,
+    use block='Z   '.
 
-    For the gadget2 snapshots files, please check the order of the reading is correct or not (line 296-324) for you data.
+    For snapshots larger than 4 GB, the size indicator ahead of a data block can be negative; use
+    ``ptype=1`` to work around the resulting read error.
+
+    For Gadget-2 snapshot files, check that the order of the blocks in the reader (in
+    ``read_block``) matches your data.
     """
 
     if path.isfile(filename): ## only one simulation file

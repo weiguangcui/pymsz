@@ -1,97 +1,115 @@
+import warnings
 import numpy as np
 from pymsz.rotate_data import rotate_data, SPH_smoothing
 from astropy.cosmology import FlatLambdaCDM, WMAP7
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from pymsz import version
+from pymsz import sz_spectra
+from pymsz.sz_spectra import TCMB, KB_KEV
 # scipy must >= 0.17 to properly use this!
 # from scipy.stats import binned_statistic_2d
 
 
 class TT_model(object):
-    r""" Theoretical calculation of y and T_sz -map for the thermal SZ effect.
-    model = TT_model(model_file, npixel, axis)
+    r"""Compton-y map of the thermal SZ effect (and the y-weighted electron temperature).
+
+    Every gas particle contributes :math:`\sigma_T N_e k T_e / m_e c^2`, with :math:`N_e` its
+    number of electrons. The contributions are SPH-smoothed onto the image and divided by the pixel
+    area (physical kpc^2), which gives the dimensionless Compton y.
 
     Parameters
     ----------
-    simudata : the simulation data from load_data
-    npixel   : number of pixels for your image, int.
-                Assume that x-y always have the same number of pixels.
-                It can be set to 'AUTO', then it will be decided by the halo radius and AR.
-                So, npixel='AUTO' and AR=None can not be set at the same time!
-    axis     : can be 'x', 'y', 'z', or a list of degrees [alpha, beta, gamma],
-               which will rotate the data points by $\alpha$ around the x-axis,
-               $\beta$ around the y-axis, and $\gamma$ around the z-axis
-    neighbours: this parameter only works with simulation data (not yt data).
-                If this is set, it will force the SPH particles smoothed into nearby N
-                neighbours, HSML from the simulation will be ignored.
-                If no HSML provided in the simulation, neighbours = 27
-    AR       : angular resolution in arcsec. Default : None.
-                Cluster's redshift with AR decides the image pixel size.
-                If None, the whole cluster will be projected to the image with npixel resolution.
-                The AR will be recalculated if z > 0.
-                If z = 0, AR is set to 1. Note this makes no sense to the ICRS coordinates.
-    SD       : dimensions for SPH smoothing. Type: int. Default: 2.
-                Must be 2 or 3!
-    SP       : Faked sky positions in [RA (longitude), DEC (latitude)] in degrees.
-                Default: [194.95, 27.98], Coma' position.
-    #            Need to find sometime to add lower functions
-    #            If [x,y,z] (len(SP) == 3) of the Earth position in the simulation coordinate (in the same units) is given,
-    #            The pos - [x,y,z] are taken as the J2000 3D coordinates and converted into RA, DEC.
-    # pxsize   : physical/proper pixel size of the image. Type: float, unit: kpc.
-    #             Default: None
-    #             If set, this will invaided the calculation from AR.
-    Memreduce: Try to reduce the memory in parallel calculation by passing the cKDTree class in SPH_smoothing. This overcomes the 
-                memory cost in the cKDTree query, but should require Python>3.8 to pass the class > 4Gb.
-                Default: False.
-    Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
-                computer will be used.
-                Note, this parallel calculation is only for the SPH smoothing.
-    Ntasks   : number of tasks for separating the calculation. Type: int. Default: None,
-                the same number of Ncpu will be used. Ideally, it should be larger than or equal to the number of Ncpu.
-                Set this to a much larger value if you encounter an 'IO Error: bad message length'
-    # periodic : periodic condition applied for the SPH smoothing region. Tyep: bool. Default: False.
-    #             periodic condition works for the too fine mesh (which means oversmoothing),
-    #             you can turn this on to avoid small boundary effects. So, this is only for SPH.
-    redshift : The redshift where we put the cluster for observation,.
-                Default : None, we will look it from simulation data.
-                Note : If redshift = 0, the returning results will be y_int, i.e. y*d^2_A,
-                which takes out the angular diameter distance.
-                This will also ingore the set of AR. The image pixel size =
-                2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
-                Highly recommended to *NOT* put the cluster at z = 0.
-                Note the physical positions of particles are always at the simulation time.
-    zthick  : The thickness in projection direction. Default: None.
-                If None, use all data from cutting region.
-                Otherwise set a value in simulation length unit kpc/h normally,
-                then a slice of data [center-zthick, center+zthick] will be used to make the y-map.
-    sph_kernel : The kernel used to smoothing the y values. Default : "cubic"
-                Choose from 'cubic': cubic spline; 'quartic': quartic spline;
-                'quintic': quintic spline; 'wendland2': Wendland C2; 'wendland4': Wendland C4;
-                'wendland6': Wendland C6;
+    simudata : load_data
+        The simulation data.
+    label : {'tSZ', 'ne'}, optional
+        'tSZ' (default): the Compton-y map. 'ne': the electron column density (electrons per
+        physical kpc^2) in `ydata` instead.
+    npixel : int or 'auto', optional
+        Pixels per side of the (square) image. Default 500. 'auto': enough pixels to cover the loaded
+        region (``2 radius``) at the pixel size `AR`; this needs `AR` and ``redshift > 0``,
+        otherwise npixel is reset to 500.
+    neighbours : int, optional
+        Smooth every particle over this many neighbours, ignoring the smoothing lengths of the
+        snapshot (snapshot data only). Default None: use the smoothing lengths.
+    axis : str, list or ndarray, optional
+        Line of sight: 'x', 'y', 'z' (default), the angles ``[alpha, beta, gamma]`` (degrees) of the
+        rotations around the x, y and z axes, or a 3x3 rotation matrix. See
+        :func:`pymsz.rotate_data.rotate_data`.
+    AR : float, optional
+        Pixel size (angular resolution) in arcsec. With `redshift` it sets the physical pixel size.
+        Default None: the region is projected onto `npixel` pixels and AR is computed from the
+        resulting pixel size. At redshift 0, AR is set to a nominal 1 arcsec.
+    SD : {2, 3}, optional
+        Dimensions of the SPH smoothing. Default 2 (on the image plane). 3: on a 3D grid, then summed
+        along the line of sight (slow, needs much memory).
+    SP : list of 2 floats, optional
+        Sky position ``[RA, Dec]`` (degrees) of the image centre, for the FITS WCS. Default
+        ``[194.95, 27.98]`` (Coma).
+    Memreduce : bool, optional
+        Reduce the memory of the parallel smoothing by passing the cKDTree to the workers instead of
+        the neighbour lists. Default False.
+    Ncpu : int, optional
+        Number of processes for the SPH smoothing. Default None: all CPUs.
+    Ntasks : int, optional
+        Number of tasks the smoothing is split into. Default None: `Ncpu`. Increase it if you get
+        ``IO Error: bad message length``.
+    redshift : float, optional
+        Redshift at which the object is observed. Default None: the snapshot redshift. Place the
+        object at redshift > 0: at redshift 0 the angular units are not defined. The physical
+        positions of the particles are always those at the snapshot time.
+    zthick : float, optional
+        Use only the gas within +-zthick (comoving kpc/h) of the centre along the line of sight.
+        Default None: all loaded gas.
+    sph_kernel : str, optional
+        SPH kernel: 'cubic' (default), 'quartic', 'quintic', 'wendland2', 'wendland4' or
+        'wendland6'.
+    yweighted_Te : bool, optional
+        Also project the y-weighted electron temperature `Tydata`, which ``to_sz(...,
+        relativistic=True)`` uses. Default True (only for ``label='tSZ'`` and snapshot data).
 
-    Returns
-    -------
-    Theoretical projected y-map in a given direction. 2D mesh data right now.
+    Attributes
+    ----------
+    ydata : ndarray
+        The Compton-y map (or the electron column density for ``label='ne'``), shape
+        (npixel, npixel), indexed [y, x].
+    Tydata : ndarray or None
+        y-weighted electron temperature (keV), if `yweighted_Te`.
+    pxs : float
+        Pixel size in physical kpc (at the snapshot redshift).
+    ar : float
+        Pixel size in arcsec.
+    npl : int
+        Number of pixels per side.
+    red : float
+        Redshift of the observation.
+    szdata, freqs, unit
+        The SZ images computed by :meth:`to_sz`, their frequencies (GHz) and unit.
 
-    See also
+    See Also
     --------
-    SZ_models for the mock SZ signal at different frequencies.
+    TK_model : the kinetic SZ map.
+    SZpack_model : relativistic thermal and kinetic SZ, summed particle by particle.
+    pymsz.Telescope : mock observations.
 
     Notes
     -----
-    This program does not accpte redshift=0 or AR == None with npixel = "AUTO", the npixel is reset to 500.
-    If npixel is "AUTO" and AR != None, then the whole cluster will project to the image with
-    npixel = 2*radius/pixelsize, where pxielsize is given by AR.
-    If z = 0 and AR == None, AR will be reset to 1. Note this makes no sense to the ICRS coordinates.
+    The pixel size is set by `AR` and `redshift` if `AR` is given, else by the size of the region
+    divided by `npixel`. Distances use a flat LCDM cosmology with the h and Omega_m of the snapshot
+    (WMAP7 if there is none). ``npixel='auto'`` with ``AR=None`` or at redshift 0 is not possible:
+    npixel is then reset to 500.
 
-    Example
-    -------
-    mm=pymsz.TT_models(simudata, npixel=1024, "z")
+    Examples
+    --------
+    >>> tt = pymsz.TT_model(simd, npixel=512, AR=5, redshift=0.1)
+    >>> tt.ydata                                  # Compton-y map
+    >>> tt.to_sz([90., 150., 220.], unit='uK')    # thermal SZ images, non-relativistic
+    >>> tt.to_sz([90., 150., 220.], relativistic=True, method='combo')   # with SZpack corrections
     """
 
-    def __init__(self, simudata, label='tSZ', npixel=500, neighbours=None, axis='z', AR=None, SD=2, SP=[194.95, 27.98], 
-                Memreduce=False, Ncpu=None, Ntasks=None, redshift=None, zthick=None, sph_kernel='cubic'):
+    def __init__(self, simudata, label='tSZ', npixel=500, neighbours=None, axis='z', AR=None, SD=2, SP=[194.95, 27.98],
+                Memreduce=False, Ncpu=None, Ntasks=None, redshift=None, zthick=None, sph_kernel='cubic',
+                yweighted_Te=True):
         if isinstance(npixel, type("")) or isinstance(npixel, type('')):
             self.npl = npixel.lower()
         else:
@@ -115,6 +133,15 @@ class TT_model(object):
         # self.ad = 1.  # angular diameter distance normalized to 1 kpc
 
         self.sp = SP
+        self.label = label
+        self.yweighted_Te = yweighted_Te and label == 'tSZ'
+        self.Tydata = None
+        # frequency maps, filled by to_sz
+        self.Tcmb = TCMB
+        self.freqs = np.array([])
+        self.unit = None
+        self.szdata = np.array([])
+        self.sz_settings = {'relativistic': False, 'Te': None, 'method': 'combo', 'szpack_options': None}
 
         if self.ar is None and self.npl == 'auto':
             print("Do not accept AR == None and npixel=='AUTO' !! \n The npixel is reset to 500.!")
@@ -143,6 +170,8 @@ class TT_model(object):
         self.cc = simd.center/simd.cosmology['h']/(1+simd.cosmology['z'])
         self.rr = simd.radius/simd.cosmology['h']/(1+simd.cosmology['z'])
         pos = rotate_data(simd.pos/simd.cosmology['h']/(1+simd.cosmology['z']), self.ax)[0]  # to proper distance
+        # electron temperature in keV, for the y-weighted temperature map
+        Tkev = np.asarray(simd.temp, dtype=np.float64) * KB_KEV if self.yweighted_Te else None
         if self.zthick is not None:
             self.zthick = self.zthick/simd.cosmology['h']/(1+simd.cosmology['z'])
             idc = (pos[:, 2] > -self.zthick) & (pos[:, 2] < self.zthick)
@@ -151,12 +180,14 @@ class TT_model(object):
                 Tszdata = simd.Tszdata[idc]
             elif label=='ne':
                 Tszdata = simd.electron_number[idc] # hacky way to get options for electron numdens or temp
+            if Tkev is not None:
+                Tkev = Tkev[idc]
         else:
             if label=='tSZ':
                 Tszdata = np.copy(simd.Tszdata)
             elif label=='ne':
                 Tszdata = np.copy(simd.electron_number)
-            
+
 
         if isinstance(simd.hsml, type(0)):
             # self.ngb = 64
@@ -216,6 +247,8 @@ class TT_model(object):
                 (pos[:, 1] >= -self.npl*self.pxs/2.) & (pos[:, 1] <= self.npl*self.pxs/2.)
             pos = pos[idc]
             Tszdata = Tszdata[idc]
+            if Tkev is not None:
+                Tkev = Tkev[idc]
             if hsml is not None:
                 hsml = hsml[idc]
             if self.npl != np.int32(self.rr*2/self.pxs)+1:
@@ -231,18 +264,28 @@ class TT_model(object):
         else:
             ngbinp=self.ngb
 
+        # with yweighted_Te, y and y*Te are smoothed together (same kernel weights)
+        wdata = Tszdata if Tkev is None else {'y': Tszdata, 'yT': Tszdata * Tkev}
         if self.SD == 2:
-            self.ydata = SPH_smoothing(Tszdata, pos[:, :2], self.pxs, ngbinp, hsml=hsml,
-                                       pxln=self.npl, Memreduce=self.Memreduce, Ncpu=self.ncpu,
-                                       Ntasks=self.ntask, kernel_name=self.sph_kn)
+            res = SPH_smoothing(wdata, pos[:, :2], self.pxs, ngbinp, hsml=hsml,
+                                pxln=self.npl, Memreduce=self.Memreduce, Ncpu=self.ncpu,
+                                Ntasks=self.ntask, kernel_name=self.sph_kn)
         else:
             # be ware that zthick could cause some problems if it is larger than pxs*npl!!
             # This has been taken in care in the rotate_data function.
-            self.ydata = SPH_smoothing(Tszdata, pos, self.pxs, ngbinp, hsml=hsml,
-                                       pxln=self.npl, Memreduce=self.Memreduce, Ncpu=self.ncpu,
-                                       Ntasks=self.ntask, kernel_name=self.sph_kn)
-            self.ydata = np.sum(self.ydata, axis=2)
-        self.ydata = self.ydata.T / self.pxs**2
+            res = SPH_smoothing(wdata, pos, self.pxs, ngbinp, hsml=hsml,
+                                pxln=self.npl, Memreduce=self.Memreduce, Ncpu=self.ncpu,
+                                Ntasks=self.ntask, kernel_name=self.sph_kn)
+            if isinstance(res, dict):
+                res = {k: np.sum(v, axis=2) for k, v in res.items()}
+            else:
+                res = np.sum(res, axis=2)
+        if isinstance(res, dict):
+            self.ydata = res['y'].T / self.pxs**2
+            yT = res['yT'].T / self.pxs**2
+            self.Tydata = np.where(self.ydata > 0, yT / np.where(self.ydata > 0, self.ydata, 1.), 0.)
+        else:
+            self.ydata = res.T / self.pxs**2
 
     def _cal_yt(self, simd):  # Not work properly right now
         # from yt.units import cm
@@ -268,18 +311,142 @@ class TT_model(object):
             FRB = projection.to_frb(rr, self.npl)
             self.ydata = FRB[('deposit', Ptype + '_smoothed_Tsz')]
 
-    def write_fits_image(self, fname, comments="None", overwrite=False):
-        r"""
-        Generate a image by binning X-ray counts and write it to a FITS file.
+    # ------------------------------------------------------------------------------------------
+    # y-map -> SZ images at given frequencies
+    # ------------------------------------------------------------------------------------------
+    def to_sz(self, freqs, unit='MJy/sr', relativistic=False, Te=None, method='combo',
+              szpack_options=None, Tcmb=TCMB):
+        r"""Thermal SZ images at the observed frequencies `freqs`, from the Compton-y map.
+
+        The images have the same form as those of `SZpack_model`. The settings are kept, so that
+        :meth:`sz_maps` (used by :meth:`pymsz.Telescope.observe`) gives the same spectrum.
 
         Parameters
         ----------
-        imagefile : string
-            The name of the image file to write.
-        comments : The comments in str will be put into the fit file header. Defualt: 'None'
-                    It accepts str or list of str or tuple of str
-        overwrite : boolean, optional
-            Set to True to overwrite a previous file.
+        freqs : float or array_like
+            Observed frequencies in GHz.
+        unit : str, optional
+            'MJy/sr' (Delta I_nu, default), 'Jy/pixel', 'K' or 'uK' (Delta T_CMB, linearised
+            thermodynamic temperature), or 'Dn' (photon occupation number Delta n).
+        relativistic : bool, optional
+            False (default): the non-relativistic spectrum, :math:`\Delta n = y\,G(x)\,(x
+            \coth(x/2) - 4)`. True: the relativistic thermal SZ spectrum per unit y from SZpack
+            (`method`), evaluated in every pixel at the y-weighted electron temperature,
+            :math:`\Delta n = y\,g(x, T_y)`. This is correct to first order in the temperature
+            spread along the line of sight. For the exact line-of-sight sum (and relativistic kSZ)
+            use `SZpack_model`.
+        Te : float or ndarray, optional
+            Temperature (keV) for ``relativistic=True``. Default None: the y-weighted temperature map
+            `Tydata`. A number (isothermal) or a map of shape (npixel, npixel).
+        method : str, optional
+            SZpack method for ``relativistic=True``: 'combo' (default), 'asymptotic', 'CNSN',
+            'CNSN_opt', '3D', ... (see `SZpack_model`). Needs the compiled SZpack extension.
+        szpack_options : dict, optional
+            SZpack accuracy settings, see `SZpack_model`.
+        Tcmb : float, optional
+            CMB temperature in K. Default 2.7255.
+
+        Returns
+        -------
+        ndarray
+            The SZ images, shape (len(freqs), npixel, npixel). They are also kept in `szdata`, with
+            `freqs` and `unit`.
+        """
+        if self.label != 'tSZ':
+            raise ValueError("to_sz needs a Compton-y map (label='tSZ'), not label='%s'" % self.label)
+        self.unit = sz_spectra.check_unit(unit)
+        self.Tcmb = Tcmb
+        self.sz_settings = {'relativistic': bool(relativistic), 'Te': Te, 'method': method,
+                            'szpack_options': szpack_options}
+        self.freqs = np.atleast_1d(np.asarray(freqs, dtype=np.float64))
+        self.x = sz_spectra.freq_to_x(self.freqs, self.Tcmb)
+        self.szdata = self.sz_maps(self.freqs, unit)
+        return self.szdata
+
+    def sz_maps(self, freqs, unit='Dn'):
+        r"""Thermal SZ images at `freqs` (GHz) in `unit`, shape (len(freqs), npixel, npixel).
+
+        Uses the spectrum chosen in :meth:`to_sz` (non-relativistic by default). This is the interface
+        used by :meth:`pymsz.Telescope.observe`."""
+        if self.label != 'tSZ':
+            raise ValueError("sz_maps needs a Compton-y map (label='tSZ'), not label='%s'" % self.label)
+        freqs = np.atleast_1d(np.asarray(freqs, dtype=np.float64))
+        if self.sz_settings['relativistic']:
+            dn = self._rsz_dn(freqs)
+        else:
+            x = sz_spectra.freq_to_x(freqs, self.Tcmb)
+            dn = sz_spectra.tsz_nonrel(x)[:, None, None] * np.asarray(self.ydata)[None]
+        return sz_spectra.dn_to_unit(dn, freqs, unit, self.Tcmb, self.ar)
+
+    def _rsz_dn(self, freqs, nnodes=48):
+        """Relativistic Delta n = y g(x, T) per pixel, g tabulated with SZpack on log T nodes."""
+        from scipy.interpolate import CubicSpline
+        from pymsz.SZpack_models import thermal_table, _METHODS, _canonical_method, _TE_TABLE_MIN
+        s = self.sz_settings
+        y = np.asarray(self.ydata, dtype=np.float64)
+        Te = s['Te']
+        if Te is None:
+            if self.Tydata is None:
+                raise ValueError("No y-weighted temperature map: construct TT_model with yweighted_Te=True "
+                                 "(snapshot data) or give Te (keV) to to_sz.")
+            Te = self.Tydata
+        Te = np.broadcast_to(np.asarray(Te, dtype=np.float64), y.shape)
+        m = _canonical_method(s['method'])
+        tmin, tmax = _METHODS[m][1:]
+        lo = max(_TE_TABLE_MIN, tmin)
+        good = (y != 0) & (Te > 0)
+        Tmax = Te[good].max() if good.any() else lo
+        hi = max(min(Tmax, tmax), lo * 1.1)
+        if Tmax > tmax:
+            frac = np.sum(np.abs(y[good & (Te > tmax)])) / np.sum(np.abs(y[good]))
+            warnings.warn("%.2g%% of y is in pixels with T_y > %.3g keV, the limit of SZpack method '%s'; the "
+                          "spectrum at %.3g keV is used there." % (100 * frac, tmax, m, tmax))
+        if tmin > _TE_TABLE_MIN and np.any(good & (Te < tmin)):
+            frac = np.sum(np.abs(y[good & (Te < tmin)])) / np.sum(np.abs(y[good]))
+            warnings.warn("'%s' is only valid for Te > %g keV; %.2g%% of y is colder and uses the %g keV "
+                          "spectrum. Use method='combo' to avoid this." % (m, tmin, 100 * frac, tmin))
+        nodes = np.geomspace(lo, hi, nnodes)
+        table = thermal_table(freqs, nodes, m, s['szpack_options'], self.Tcmb)  # (nnodes, nfreq)
+        g = CubicSpline(np.log(nodes), table, axis=0)(np.log(np.clip(Te, lo, hi)))  # (..., nfreq)
+        return np.moveaxis(g, -1, 0) * y[None]
+
+    def write_sz_fits(self, fname, comments="None", overwrite=False):
+        r"""Write the SZ images of :meth:`to_sz` and the y map to a FITS file.
+
+        The images are the primary HDU, shape [nfreq, npixel, npixel], with the frequencies in the
+        FREQn keywords. The y map (extension YSZ) and the y-weighted temperature (TEY) are image
+        extensions. This is the layout of :meth:`SZpack_model.write_fits_image`.
+
+        Parameters
+        ----------
+        fname : str
+            File name; '.fits' is added if missing.
+        comments : str or list of str, optional
+            Comments for the primary header. Default 'None'.
+        overwrite : bool, optional
+            Replace an existing file. Default False.
+        """
+        aux = [('YSZ', self.ydata, 'y', 'Compton y parameter')]
+        if self.Tydata is not None:
+            aux.append(('TEY', self.Tydata, 'keV', 'Compton-y weighted electron temperature'))
+        s = self.sz_settings
+        extra = [("SZMODEL", 'TT_model', 'thermal SZ from the y map'),
+                 ("RELATIV", bool(s['relativistic']), 'relativistic tSZ corrections (SZpack)')]
+        if s['relativistic']:
+            extra.append(("SZMETHOD", str(s['method']), 'SZpack method'))
+        sz_spectra.write_sz_cube(self, fname, aux=aux, extra=extra, comments=comments, overwrite=overwrite)
+
+    def write_fits_image(self, fname, comments="None", overwrite=False):
+        r"""Write the y map (2D) to a FITS file, with a WCS header.
+
+        Parameters
+        ----------
+        fname : str
+            File name; '.fits' is added if missing.
+        comments : str or list of str, optional
+            Comments for the header. Default 'None'.
+        overwrite : bool, optional
+            Replace an existing file. Default False.
         """
         # import pyfits as pf
         import astropy.io.fits as pf
@@ -361,85 +528,74 @@ class TT_model(object):
 
 
 class TK_model(object):
-    r""" Theoretical calculation of sz-map for the kinetic SZ effect.
-    model = TK_model(model_file, npixel, axis)
+    r"""Map of :math:`b = \tau\,v_\mathrm{los}/c` for the kinetic SZ effect.
+
+    Every gas particle contributes :math:`\sigma_T N_e v_\mathrm{los} / c`. The contributions are
+    SPH-smoothed onto the image and divided by the pixel area. The kinetic SZ temperature change is
+    :math:`\Delta T = T_\mathrm{CMB}\, b`. The velocities are relative to the bulk motion removed by
+    `load_data` (see its `hmrad`).
 
     Parameters
     ----------
-    simudata : the simulation data from load_data
-    npixel   : number of pixels for your image, int.
-                Assume that x-y always have the same number of pixels.
-                It can be set to 'AUTO', then it will be decided by the halo radius and AR.
-                So, npixel='AUTO' and AR=None can not be set at the same time!
-    axis     : can be 'x', 'y', 'z', or a list of degrees [alpha, beta, gamma],
-               which will rotate the data points by $\alpha$ around the x-axis,
-               $\beta$ around the y-axis, and $\gamma$ around the z-axis
-    SP       : Faked sky positions in [RA (longitude), DEC (latitude)] in degrees.
-                Default: [194.95, 27.98], Coma' position.
-    #            Need to find sometime to add lower functions
-    #            If [x,y,z] (len(SP) == 3) of the Earth position in the simulation coordinate (in the same units) is given,
-    #            The pos - [x,y,z] are taken as the J2000 3D coordinates and converted into RA, DEC.
-    neighbours: this parameter only works with simulation data (not yt data).
-                If this is set, it will force the SPH particles smoothed into nearby N
-                neighbours, HSML from the simulation will be ignored.
-                If no HSML provided in the simulation, neighbours = 27
-    AR       : angular resolution in arcsec. Default : None.
-                Cluster's redshift with AR decides the image pixel size.
-                If None, the whole cluster will be projected to the image with npixel resolution.
-                The AR will be recalculated if z != 0.
-                If z = 0, AR is set to 1. Note this makes no sense to the ICRS coordinates.
-    SD       : dimensions for SPH smoothing. Type: int. Default: 2.
-                Must be 2 or 3!
-    # pxsize   : pixel size of the image. Type: float, unit: kpc. Default: None
-    #             If set, this will invaided the calculation from AR.
-    Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
-                computer will be used.
-                This parallel calculation is only for the SPH smoothing.
-    # periodic : periodic condition for the SPH smoothing region. Tyep: bool. Default: False.
-    #             periodic condition works for the too fine mesh (which means oversmoothing),
-    #             you can consider turn this on to avoid boundary effects. So, this is also for SPH.
-    redshift : The redshift where we put the cluster for observation.
-                Default : None, we will look it from simulation data.
-                Note : If redshift = 0, the returning results will be y_int, i.e. y*d^2_A,
-                which takes out the angular diameter distance.
-                This will also ingore the set of AR. The image pixel size =
-                2 * cluster radius/npixel, so the npixel MUST NOT be 'AUTO' at redshift = 0.
-                Highly recommended to put the cluster *NOT* at z = 0.
-                Note the physical positions of particles are always at the simulation time.
-    zthick  : The thickness in projection direction. Default: None.
-                If None, use all data from cutting region. Otherwise set a value in simulation
-                length unit (kpc/h normally), then a slice of data [center-zthick, center+zthick]
-                will be used to make the y-map.
-    sph_kernel : The kernel used to smoothing the y values. Default : "cubic"
-                Choose from 'cubic': cubic spline; 'quartic': quartic spline;
-                'quintic': quintic spline; 'wendland2': Wendland C2; 'wendland4': Wendland C4;
-                'wendland6': Wendland C6;
+    simudata : load_data
+        The simulation data.
+    npixel : int or 'auto', optional
+        Pixels per side of the image. Default 500. See `TT_model`.
+    neighbours : int, optional
+        Smooth every particle over this many neighbours, ignoring the smoothing lengths of the
+        snapshot. Default None: use the smoothing lengths (27 neighbours if there are none).
+    axis : str, list or ndarray, optional
+        Line of sight: 'x', 'y', 'z' (default), rotation angles ``[alpha, beta, gamma]`` (degrees)
+        or a 3x3 rotation matrix. See `TT_model`.
+    AR : float, optional
+        Pixel size in arcsec. Default None. See `TT_model`.
+    SD : {2, 3}, optional
+        Dimensions of the SPH smoothing. Default 2.
+    SP : list of 2 floats, optional
+        Sky position ``[RA, Dec]`` (degrees) of the image centre. Default ``[194.95, 27.98]``.
+    Memreduce : bool, optional
+        Lower-memory parallel smoothing. Default False. See `TT_model`.
+    Ncpu : int, optional
+        Number of processes for the SPH smoothing. Default None: all CPUs.
+    Ntasks : int, optional
+        Number of tasks for the SPH smoothing. Default None: `Ncpu`.
+    redshift : float, optional
+        Redshift at which the object is observed. Default None: the snapshot redshift. Use
+        redshift > 0.
+    zthick : float, optional
+        Use only the gas within +-zthick (comoving kpc/h) of the centre along the line of sight.
+        Default None: all loaded gas.
+    sph_kernel : str, optional
+        SPH kernel: 'cubic' (default), 'quartic', 'quintic', 'wendland2', 'wendland4' or
+        'wendland6'.
 
-    Returns
-    -------
-    Theoretical projected omega-map in a given direction. 2D mesh data right now.
+    Attributes
+    ----------
+    bdata : ndarray
+        The map of :math:`\tau\,v_\mathrm{los}/c`, shape (npixel, npixel), indexed [y, x]. Positive
+        for gas moving towards the observer (a kSZ increment).
+    bvel : float
+        Line-of-sight component of the bulk velocity removed by `load_data` (km/s).
+    pxs, ar, npl, red
+        Pixel size (physical kpc and arcsec), number of pixels per side, redshift.
+    szdata, freqs, unit
+        The SZ images computed by :meth:`to_sz`, their frequencies (GHz) and unit.
 
-    See also
+    See Also
     --------
-    SZ_models for the mock SZ signal at different frequencies.
+    TT_model : the thermal SZ map; it uses the same pixel grid, so the maps can be added.
+    SZpack_model : kinetic SZ with relativistic corrections.
 
-    Notes
-    -----
-    The retrun is omega map, not the delta T_{kSZ}!, which equals omega*T_{cmb} ~ 2.73 k
-    This program does not accpte redshift=0 or AR == None with npixel = "AUTO",
-    the npixel will be reset to 500 for output.
-    If npixel is "AUTO" and AR != None, then the whole cluster will project to the image with
-    npixel = 2*radius/pixelsize, where pxielsize is given by AR.
-    If redshift=0 and AR == None, AR will be reset to 1, but this does not make a sense to the ICRS system!
-
-    Example
-    -------
-    mm=pymsz.TK_models(simudata, npixel=1024, "z")
-    mm.bdata  # this contains the b-map
+    Examples
+    --------
+    >>> tk = pymsz.TK_model(simd, npixel=512, AR=5, redshift=0.1)
+    >>> tk.bdata                                  # tau v_los / c
+    >>> tk.to_sz([90., 150., 220.], unit='uK')    # kinetic SZ images, Delta T = Tcmb * bdata
     """
 
     def __init__(self, simudata, npixel=500, neighbours=None, axis='z', AR=None, SD=2,
-                 SP=[194.95, 27.98], Ncpu=None, redshift=None, zthick=None, sph_kernel='cubic'):
+                 SP=[194.95, 27.98], Memreduce=False, Ncpu=None, Ntasks=None, redshift=None, zthick=None,
+                 sph_kernel='cubic'):
         if isinstance(npixel, type("")) or isinstance(npixel, type('')):
             self.npl = npixel.lower()
         else:
@@ -447,7 +603,14 @@ class TK_model(object):
         self.ngb = neighbours
         self.ax = axis
         self.ar = AR
+        self.Memreduce = Memreduce
         self.ncpu = Ncpu
+        self.ntask = Ntasks
+        # frequency maps, filled by to_sz
+        self.Tcmb = TCMB
+        self.freqs = np.array([])
+        self.unit = None
+        self.szdata = np.array([])
         self.bvel = 0  # bulk velocity after rotation
         if redshift is None:
             self.red = simudata.cosmology['z']
@@ -478,7 +641,8 @@ class TK_model(object):
         if simudata.data_type == "snapshot":
             self._cal_snap(simudata)
         elif simudata.data_type == "yt_data":
-            self._cal_yt(simudata)
+            raise NotImplementedError("TK_model does not support yt data yet: load the snapshot with "
+                                      "load_data(..., snapshot=True)")
         else:
             raise ValueError("Do not accept this data type %s"
                              "Please try to use load_data to get the data" % simudata.data_type)
@@ -531,9 +695,8 @@ class TK_model(object):
             maxx = pos[:, 0].max()
             miny = pos[:, 1].min()
             maxy = pos[:, 1].max()
-            minz = pos[:, 2].min()
-            maxz = pos[:, 2].max()
-            self.pxs = np.min([maxx - minx, maxy - miny, maxz - minz]) / self.npl
+            # same pixel size as TT_model (projected plane only), so tSZ and kSZ maps can be added
+            self.pxs = np.min([maxx - minx, maxy - miny]) / self.npl
         if self.red > 0.:
             if simd.cosmology['omega_matter'] != 0:
                 cosmo = FlatLambdaCDM(H0=simd.cosmology['h'] * 100,
@@ -567,28 +730,83 @@ class TK_model(object):
         if self.SD == 2:
             self.bdata = SPH_smoothing(Kszdata, pos[:, :2], self.pxs, self.ngb, hsml=hsml,
                                        pxln=self.npl, Memreduce=self.Memreduce, Ncpu=self.ncpu,
-                                       kernel_name=self.sph_kn)
+                                       Ntasks=self.ntask, kernel_name=self.sph_kn)
         else:
             self.bdata = SPH_smoothing(Kszdata, pos, self.pxs, self.ngb, hsml=hsml,
-                                       pxln=self.npl, Memreduce=self.Memreduce, Ncpu=self.ncpu, 
-                                       kernel_name=self.sph_kn)
+                                       pxln=self.npl, Memreduce=self.Memreduce, Ncpu=self.ncpu,
+                                       Ntasks=self.ntask, kernel_name=self.sph_kn)
             self.bdata = np.sum(self.bdata, axis=2)
         self.bdata = self.bdata.T / self.pxs**2
 
-    def write_fits_image(self, fname, comments='None', overwrite=False):
-        r"""
-        Generate a image by binning X-ray counts and write it to a FITS file.
+    # ------------------------------------------------------------------------------------------
+    # b-map -> SZ images at given frequencies
+    # ------------------------------------------------------------------------------------------
+    def to_sz(self, freqs, unit='MJy/sr', Tcmb=TCMB):
+        r"""Kinetic SZ images at the observed frequencies `freqs`, from the b map.
+
+        Non-relativistic: :math:`\Delta n = G(x)\, b`, i.e. :math:`\Delta T = T_\mathrm{CMB}\, b`.
+        The relativistic kSZ corrections are included in `SZpack_model`.
 
         Parameters
         ----------
-        imagefile : string
-            The name of the image file to write.
-        radius : float, in unit of kpc
-            The virial radius of the cluster. Default is the physical size of the image.
-        comments : The comments in str will be put into the fit file header. Defualt: 'None'
-                    It accepts str or list of str or tuple of str
-        overwrite : boolean, optional
-            Set to True to overwrite a previous file.
+        freqs : float or array_like
+            Observed frequencies in GHz.
+        unit : str, optional
+            'MJy/sr' (default), 'Jy/pixel', 'K', 'uK' or 'Dn', see :meth:`TT_model.to_sz`.
+        Tcmb : float, optional
+            CMB temperature in K. Default 2.7255.
+
+        Returns
+        -------
+        ndarray
+            The SZ images, shape (len(freqs), npixel, npixel), also kept in `szdata`.
+        """
+        self.unit = sz_spectra.check_unit(unit)
+        self.Tcmb = Tcmb
+        self.freqs = np.atleast_1d(np.asarray(freqs, dtype=np.float64))
+        self.x = sz_spectra.freq_to_x(self.freqs, self.Tcmb)
+        self.szdata = self.sz_maps(self.freqs, unit)
+        return self.szdata
+
+    def sz_maps(self, freqs, unit='Dn'):
+        r"""Kinetic SZ images at `freqs` (GHz) in `unit`, shape (len(freqs), npixel, npixel).
+
+        This is the interface used by :meth:`pymsz.Telescope.observe`."""
+        freqs = np.atleast_1d(np.asarray(freqs, dtype=np.float64))
+        x = sz_spectra.freq_to_x(freqs, self.Tcmb)
+        dn = sz_spectra.ksz_nonrel(x)[:, None, None] * np.asarray(self.bdata)[None]
+        return sz_spectra.dn_to_unit(dn, freqs, unit, self.Tcmb, self.ar)
+
+    def write_sz_fits(self, fname, comments="None", overwrite=False):
+        r"""Write the kinetic SZ images of :meth:`to_sz` and the b map to a FITS file.
+
+        The images are the primary HDU, shape [nfreq, npixel, npixel]; the b map is the extension
+        BSZ. This is the layout of :meth:`SZpack_model.write_fits_image`.
+
+        Parameters
+        ----------
+        fname : str
+            File name; '.fits' is added if missing.
+        comments : str or list of str, optional
+            Comments for the primary header. Default 'None'.
+        overwrite : bool, optional
+            Replace an existing file. Default False.
+        """
+        aux = [('BSZ', self.bdata, 'tau*v/c', 'tau v_los/c, >0 towards observer')]
+        extra = [("SZMODEL", 'TK_model', 'kinematic SZ from the b map')]
+        sz_spectra.write_sz_cube(self, fname, aux=aux, extra=extra, comments=comments, overwrite=overwrite)
+
+    def write_fits_image(self, fname, comments='None', overwrite=False):
+        r"""Write the b map (2D) to a FITS file, with a WCS header.
+
+        Parameters
+        ----------
+        fname : str
+            File name; '.fits' is added if missing.
+        comments : str or list of str, optional
+            Comments for the header. Default 'None'.
+        overwrite : bool, optional
+            Replace an existing file. Default False.
         """
         import astropy.io.fits as pf
 

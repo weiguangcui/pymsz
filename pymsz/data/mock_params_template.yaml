@@ -1,0 +1,139 @@
+# =================================================================================================
+# pymsz: mock SZ observation of simulated objects
+#
+#   snapshot --load_data--> gas around each object
+#            --SZ model---> SZ images for every redshift and line of sight
+#            --telescope--> bandpass, CMB, beam, filtering, pixels, calibration, noise
+#            --> FITS files
+#
+# Check:     pymsz-mock this_file.yaml --dry-run       (or: python -m pymsz this_file.yaml --dry-run)
+# Run:       pymsz-mock this_file.yaml
+# Override:  pymsz-mock this_file.yaml --set image.npixel=256 --set observation.seed=7
+# Python:    pymsz.pipeline.run('this_file.yaml')
+#
+# Relative paths are relative to the directory of this file. null = not used / default.
+# Lengths in simulation units: comoving kpc/h. Any parameter left out takes its default value.
+# =================================================================================================
+
+simulation:
+  snapshot: snap_128.hdf5         # Gadget binary (multi-file: give the base name, e.g. snap_128) or
+                                  # Gadget/GIZMO HDF5 snapshot
+  name: CL0001                    # object name in the output files. Default: the snapshot name
+  center: [500000., 500000., 500000.]   # kpc/h. null (with radius null): the whole snapshot
+  radius: 2000.                   # kpc/h: half the side of the region that is projected
+  restrict_r: false               # false: a cube of side 2 radius (fills the square image);
+                                  # true: a sphere of this radius
+  cut_sfr: 0.1                    # exclude star-forming gas, SFR > cut_sfr (Msun/yr). null: keep all
+  cut_rhoT: null                  # [rho, T]: also exclude cold dense gas, density > rho (sim. units)
+                                  # and T < T (K)
+  hmrad: null                     # radius (kpc/h) for the halo bulk velocity removed from the kSZ.
+                                  # null: mean of all particles; 0 or negative: not removed
+  metal: null                     # gas metallicity, if there is none in the snapshot
+  Nmets: 11                       # number of elements in the metallicity block (0: no metals)
+  mu: null                        # mean molecular weight, if there is no electron abundance block
+
+  # Several objects: a list of objects (each may set its own snapshot and any 'image' parameter) ...
+  # objects:
+  #   - {name: CL0001, snapshot: NewMDCLUSTER_0001/snap_128, center: [500000., 500000., 500000.], radius: 1500.}
+  #   - {name: CL0002, snapshot: NewMDCLUSTER_0002/snap_128, center: [500100., 499800., 500050.], radius: 1400.,
+  #      redshift: 0.3, axis: [x, y, z]}
+  # ... or a text catalogue. Its first line names the columns: x y z radius (required); name,
+  # snapshot, redshift (optional; snapshot paths relative to the catalogue). Other columns are ignored.
+  # catalogue: clusters.txt
+  #     # name    snapshot                     x          y          z          radius
+  #     CL0001    NewMDCLUSTER_0001/snap_128   500000.0   500000.0   500000.0   1500.0
+
+image:                            # the SZ images of the model (the sky seen by the telescopes)
+  redshift: 0.1                   # where the object is placed. A list ([0.1, 0.3, 0.5]) makes the images
+                                  # at every redshift. null: the snapshot redshift (must be > 0)
+  AR: 5.                          # pixel size in arcsec. Use pixels several times smaller than the beams
+  npixel: 512                     # pixels per side. 'auto': the region (2 radius) at AR
+  axis: [x, y, z]                 # lines of sight, one set of maps each:
+                                  #   x, y, z               along a simulation axis
+                                  #   [0., 45., 30.]        rotation angles (deg) around x, y, z
+                                  #   {angles: [0., 45., 30.], label: view1}
+                                  #   {random: 10, seed: 0} 10 random orientations (rand000 ...)
+                                  #   a list of these, e.g. [x, z, {random: 4}]
+  SP: [194.95, 27.98]             # [RA, Dec] (deg) of the image centre, for the FITS WCS
+  sph_kernel: cubic               # cubic, quartic, quintic, wendland2, wendland4, wendland6
+  SD: 2                           # SPH smoothing in 2 or 3 dimensions
+  neighbours: null                # smooth every particle over this many neighbours (null: its HSML)
+  zthick: null                    # use only gas within +-zthick (kpc/h) of the centre along the LOS
+  Ncpu: null                      # CPUs for the SPH smoothing (null: all)
+  Ntasks: null
+  Memreduce: false
+
+sz:
+  model: szpack                   # szpack : SZpack_model, relativistic tSZ + kSZ summed particle by
+                                  #          particle (exact; needs the compiled SZpack extension)
+                                  # tt+tk  : TT_model (y map) + TK_model (b = tau v/c map)
+                                  # tt, tk : only one of them
+  method: combo                   # SZpack method: combo (recommended), asymptotic, CNSN, CNSN_opt, nonrel,
+                                  # means (projection: pixel), 3D, 5D, precise
+  projection: particle            # szpack: particle (exact LOS sum) or pixel (SZpack per pixel on the
+                                  # tau-weighted moments)
+  kinetic: true                   # include the kSZ (false: tSZ only)
+  relativistic: true              # tt: relativistic tSZ at the y-weighted Te of each pixel (needs SZpack);
+                                  # false: non-relativistic y G(x)(x coth(x/2) - 4)
+  bulk_velocity: null             # szpack: velocity added to the gas: null (relative to the halo, as
+                                  # TK_model), true (add back the halo motion) or [vx, vy, vz] km/s
+  szpack_options: null            # e.g. {T_order: 20, beta_order: 2}
+  Te_grid: null                   # szpack: temperature nodes (keV) of the spectral table
+  frequencies: null               # extra frequencies (GHz) for the saved model cube. The model is always
+                                  # computed at the band-integration frequencies of all telescopes
+  unit: MJy/sr                    # unit of the saved model cube: MJy/sr, Jy/pixel, K, uK, Dn
+
+telescopes:                       # one mock observation per telescope. pymsz-mock --list presets
+  - SPT-3G                        # a preset by name: SPT-SZ, SPT-3G, ACT-DR6, Planck, SO-LAT,
+                                  # SO-LAT-goal, CMB-S4, FYST (= CCAT)
+  - preset: ACT-DR6               # a preset with changes
+    measured_bandpass: true       # false: top-hat bands instead of the measured ones
+    # bands: [f090, f150]         # keep only these bands (names or nominal GHz)
+    # band_options:               # Band parameters for all bands ({nnodes: 13}) or per band:
+    #   f150: {bandpass: ACT-DR6/pa5_f150}           # one array (pymsz-mock --list bandpasses)
+    #   f090: {beam: beams/act_f090_bl.txt}          # measured beam: text file with ell, B_ell
+    #   f220: {shift: 1.5}                           # bandpass shifted by +1.5 GHz
+    # transfer: [scan, 300]       # map filtering: [scan, ell], [highpass, ell], [lowpass, ell],
+                                  # {kind: scan, ell: 300, order: 4}, a list of these, or a file (ell, F_ell)
+    # pixel: 0.5                  # map pixel (arcmin). Default: the preset's; null keeps the image pixels
+    # red_noise_corr: 0.5         # correlation of the 1/f noise between bands
+    # pointing_rms: 3.            # pointing jitter (arcsec)
+    # label: ACT-DR6_measured     # name in the output files (needed if a telescope appears twice)
+    # cmb: camb                   # any 'observation' parameter except seed can be set per telescope
+  # - preset: Planck              # 9 bands; the wide HFI bands need about 100 SZ frequencies
+  #   bands: [HFI100, HFI143, HFI217, HFI353]
+  # - name: MyCamera              # your own instrument: a list of Band parameters
+  #   pixel: 0.25
+  #   transfer: [scan, 300]
+  #   red_noise_corr: 0.5
+  #   bands:
+  #     - {name: f150, freq: 150., fwhm: 1.0, noise: 3., frac_bandwidth: 0.25, ell_knee: 2000.}
+  #     - {name: f220, freq: 220., fwhm: 0.8, noise: 10., bandpass: my_220GHz_band.txt, aperture: flat,
+  #        calib_error: 0.01}
+  #   # Band parameters: freq (GHz), fwhm (arcmin), noise, noise_unit (uK-arcmin, uK-deg, MJy/sr-arcmin,
+  #   # kJy/sr-deg), name, bandwidth (GHz) or frac_bandwidth (top-hat), bandpass (shipped name or
+  #   # file nu_GHz response), aperture (flat: response per unit I_nu; RJ: response to a Rayleigh-Jeans
+  #   # source), shift (GHz), ell_knee, alpha_knee, calib_error, beam (file ell B_ell), nnodes, node_cut
+
+observation:
+  unit: uK_CMB                    # uK_CMB, K_CMB or MJy/sr (IRAS convention)
+  noise: true                     # instrument + atmospheric noise
+  cmb: null                       # primary CMB: null (none), camb (needs camb), or a CAMB-style file
+                                  # (ell, D_ell [uK^2]). All telescopes see the same CMB sky of an image
+  foregrounds: null               # FITS cube (nband, ny, nx) or {band: FITS file}, in 'unit', already
+                                  # band-averaged, at the model resolution
+  calibration: true               # random gain errors of the bands (Band calib_error)
+  seed: 1                         # random seed. Each map gets its own seed derived from this one and the
+                                  # object, redshift, line of sight and telescope (FITS keyword SEED).
+                                  # null: a random seed (written to the saved parameters)
+  pad: null                       # zero padding for the convolutions (fraction of the image size)
+
+output:
+  directory: mock_maps
+  name_format: '{object}_z{redshift}_{projection}_{telescope}'   # mock maps (.fits added)
+  model_format: '{object}_z{redshift}_{projection}_{model}'      # model cubes; model: SZpack, tSZ, kSZ
+  save_model: true                # also write the SZ model cubes (with the y, tau, Te, b maps)
+  components: true                # also write the SZ, CMB, foreground and noise maps (FITS extensions)
+  overwrite: false                # replace existing files
+  skip_existing: false            # skip the maps whose files exist (to resume an interrupted run)
+  save_params: true               # write the parameters actually used to <directory>/<this file>.resolved.yaml

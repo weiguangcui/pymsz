@@ -9,23 +9,35 @@ def memlog(msg):
     print('%s, RAM=%.4g GB'%(msg,process.memory_info()[0]/2.**30))
 
 def rotate_data(pos, axis, vel=None, bvel=None):
-    r""" rotate the data points (3d) to a given direction. Returns data points (2d) at line of sight.
+    r"""Rotate the particle positions so that the line of sight is the third axis.
 
-    Parameter:
+    Parameters
     ----------
-    pos     : input data points in 3D.
-    axis    : can be 'x', 'y', 'z' (must be 2D), or a list or numpy array of degrees
-              [alpha, beta, gamma], which will rotate the data points by $\alpha$ around
-              the x-axis, $\beta$ around the y-axis, and $\gamma$ around the z-axis.
-              or a numpy array with the rotation matrix directly, must be 3x3 matrix.
-    vel     : 3D velocity of the input data points. Default: None, will return an empty list.
-                Otherwise, rotate_data will also return the velocity in the axis direction.
-    bvel    : bulk velocity of the cluster in 3D, defualt None, resturn 0 for the bulk velocity
-              along line of sight. If it is not None, bulk velocity along line of sight will be return.
-    Notes:
-    --------
-    When you have vel is not None, the function will return two arrays: pos, vel in axis direction.
-    This function does not work with yt data currrently.
+    pos : ndarray
+        Positions, shape (N, 3).
+    axis : str, list or ndarray
+        'x', 'y' or 'z': project along this axis. The image plane is (y, z) for 'x', (x, z) for
+        'y' and (x, y) for 'z'. Or the angles ``[alpha, beta, gamma]`` in degrees (a list or a 1D
+        array): the positions are rotated by :math:`\alpha` around the x axis, :math:`\beta` around
+        the y axis and :math:`\gamma` around the z axis, ``new_pos = pos @ R``. Or a 3x3 rotation
+        matrix ``R``, used directly.
+    vel : ndarray, optional
+        Velocities, shape (N, 3). Default None.
+    bvel : array_like, optional
+        Bulk velocity of the object, shape (3,). Default None.
+
+    Returns
+    -------
+    npos : ndarray
+        Rotated positions, shape (N, 3); the line of sight is the third column.
+    nvel : ndarray or list
+        Line-of-sight velocities if `vel` is given, else an empty list.
+    nbvel : float
+        Line-of-sight bulk velocity if `bvel` is given, else 0.
+
+    Notes
+    -----
+    This function does not work with yt data.
     """
 
     nvel = []; nbvel = 0;
@@ -263,7 +275,7 @@ def cal_sph_hsml(idst, centp, hsml, posd, pxln, sphkernel, wdata):
             ydata = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in range(hsml.size):
                 if len(idst[i]) <= 0:
-                    px, py, pz = np.array(np.int32(np.round(centp[i,0]))), np.array(np.int32(np.round(centp[i,1]))), np.array(np.int32(np.round(centp[i,2])))
+                    px, py, pz = np.array([np.int32(np.round(centp[i,0]))]), np.array([np.int32(np.round(centp[i,1]))]), np.array([np.int32(np.round(centp[i,2]))])
                     if px[0]>=pxln: px[0]=pxln-1
                     if py[0]>=pxln: py[0]=pxln-1
                     if pz[0]>=pxln: pz[0]=pxln-1
@@ -294,7 +306,7 @@ def cal_sph_hsml(idst, centp, hsml, posd, pxln, sphkernel, wdata):
                 ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
             for i in range(hsml.size):
                 if len(idst[i]) <= 0:
-                    px, py = np.array(np.int32(np.round(centp[i,0]))), np.array(np.int32(np.round(centp[i,1])))
+                    px, py = np.array([np.int32(np.round(centp[i,0]))]), np.array([np.int32(np.round(centp[i,1]))])
                     if px[0]>=pxln: px[0]=pxln-1
                     if py[0]>=pxln: py[0]=pxln-1
                 else:
@@ -325,7 +337,7 @@ def cal_sph_hsml(idst, centp, hsml, posd, pxln, sphkernel, wdata):
                 ydata[i] = np.zeros((pxln, pxln, pxln), dtype=np.float32)
             for i in range(hsml.size):
                 if len(idst[i]) <= 0:
-                    px, py, pz = np.array(np.int32(np.round(centp[i,0]))), np.array(np.int32(np.round(centp[i,1]))), np.array(np.int32(np.round(centp[i,2])))
+                    px, py, pz = np.array([np.int32(np.round(centp[i,0]))]), np.array([np.int32(np.round(centp[i,1]))]), np.array([np.int32(np.round(centp[i,2]))])
                     #check boundary
                     if px[0]>=pxln: px[0]=pxln-1
                     if py[0]>=pxln: py[0]=pxln-1
@@ -390,6 +402,7 @@ def cal_sph_neib(idst, dist, posd, pxln, sphkernel, wdata):
             imax+=1; jmax+=1; kmax+=1
             ydata=ydata[imin:imax, jmin:jmax, kmin:kmax]
     else:
+        ydata = {}
         if posd == 2:
             for i in wdata.keys():
                 ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
@@ -474,7 +487,7 @@ def cal_sph_hsml_v3(ctree, centp, hsml, posd, pxln, sphkernel, wdata):
                 # ids = idst[i][idin]
                 idst = np.array(ctree.query_ball_point(centp[i], hsml[i]))
                 if len(idst) <= 0:
-                    px, py, pz = np.array(np.int32(np.round(centp[i,0]))), np.array(np.int32(np.round(centp[i,1]))), np.array(np.int32(np.round(centp[i,2])))
+                    px, py, pz = np.array([np.int32(np.round(centp[i,0]))]), np.array([np.int32(np.round(centp[i,1]))]), np.array([np.int32(np.round(centp[i,2]))])
                     if px[0]>=pxln: px[0]=pxln-1
                     if py[0]>=pxln: py[0]=pxln-1
                     if pz[0]>=pxln: pz[0]=pxln-1
@@ -510,7 +523,7 @@ def cal_sph_hsml_v3(ctree, centp, hsml, posd, pxln, sphkernel, wdata):
                 # ids = idst[i][idin]
                 idst = np.array(ctree.query_ball_point(centp[i], hsml[i]))
                 if len(idst) <= 0:
-                    px, py = np.array(np.int32(np.round(centp[i,0]))), np.array(np.int32(np.round(centp[i,1])))
+                    px, py = np.array([np.int32(np.round(centp[i,0]))]), np.array([np.int32(np.round(centp[i,1]))])
                     if px[0]>=pxln: px[0]=pxln-1
                     if py[0]>=pxln: py[0]=pxln-1
                 else:
@@ -546,7 +559,7 @@ def cal_sph_hsml_v3(ctree, centp, hsml, posd, pxln, sphkernel, wdata):
                 # ids = idst[i][idin]
                 idst = np.array(ctree.query_ball_point(centp[i], hsml[i]))
                 if len(idst) <= 0:
-                    px, py, pz = np.array(np.int32(np.round(centp[i,0]))), np.array(np.int32(np.round(centp[i,1]))), np.array(np.int32(np.round(centp[i,2])))
+                    px, py, pz = np.array([np.int32(np.round(centp[i,0]))]), np.array([np.int32(np.round(centp[i,1]))]), np.array([np.int32(np.round(centp[i,2]))])
                     #check boundary
                     if px[0]>=pxln: px[0]=pxln-1
                     if py[0]>=pxln: py[0]=pxln-1
@@ -613,6 +626,7 @@ def cal_sph_neib_v3(ctree, centp, neighbors, posd, pxln, sphkernel, wdata):
             imax+=1; jmax+=1; kmax+=1
             ydata=ydata[imin:imax, jmin:jmax, kmin:kmax]
     else:
+        ydata = {}
         if posd == 2:
             for i in wdata.keys():
                 ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
@@ -656,50 +670,47 @@ def cal_sph_neib_v3(ctree, centp, neighbors, posd, pxln, sphkernel, wdata):
 
 def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Memreduce=False, 
                   Ncpu=None, Ntasks=None, kernel_name='cubic'):
-    r"""SPH smoothing for given data
+    r"""SPH smoothing of particle quantities onto a regular 2D or 3D grid.
+
+    The kernel weights of every particle are normalised to 1, so the sum of each quantity is
+    conserved (the constants of the kernels are therefore ignored).
 
     Parameters
     ----------
-    wdata    : the data to be smoothed. Type: array or list of arrays
-    pos      : the position of your SPH particles. Type: array.
-                It can be 3D or 2D
-    pxls     : grid pixel size of the mesh, where the data is smoothed into.
-                Type: float.
-                It must be in the same units of positions
-    neighbors: how many nearby mesh points the SPH particles smoothed into.
-                Type: int. Note this has to be rescaled to the image pixel size!
-    hsml     : smoothing length of these SPH particles. Type: array or float.
-                If it is None, then the neighbours will be used to do the smoothing.
-    pxln     : number of pixels for the mesh. Type: int. Must be set.
-                # If it is None (Default), it will calculate from the particle positions.
-                # I.E. pxln = (max(pos)-min(pos))/pxls
-    Memreduce: Try to reduce the memory in parallel calculation by passing the cKDTree class. This overcomes the 
-                memory cost in the cKDTree query, but should require Python>3.8 to pass the class > 4Gb.
-                Default: False.
-    Ncpu     : number of CPU for parallel calculation. Type: int. Default: None, all cpus from the
-                computer will be used.
-    Ntasks   : number of tasks for separating the calculation. Type: int. Default: None,
-                the same number of Ncpu will be used. Ideally, it should be larger than or equal to the number of Ncpu.
-                Set this to a much larger value if you encounter an 'IO Error: bad message length'
-    kernel_name : the SPH kernel used to make the smoothing. Type: str.
-                Default : 'cubic'. Since a normalization will applied in the
-                smoothing, the constants in the kernel are always ignored.
+    wdata : ndarray or dict
+        The quantity to smooth, one value per particle, or a dict of up to 20 such arrays, which are
+        smoothed with the same weights.
+    pos : ndarray
+        Particle positions, shape (N, 2) or (N, 3), relative to the grid centre.
+    pxls : float
+        Pixel size of the grid, in the units of `pos`.
+    neighbors : int
+        Number of neighbouring grid points over which a particle is smoothed, used if `hsml` is None.
+        It has to be rescaled to the pixel size.
+    hsml : ndarray or float, optional
+        Smoothing lengths, in the units of `pos`. Default None: use `neighbors`.
+    pxln : int
+        Number of pixels per side of the grid (required).
+    Memreduce : bool, optional
+        Reduce the memory of the parallel calculation by passing the cKDTree to the workers. Default
+        False.
+    Ncpu : int, optional
+        Number of processes. Default None: all CPUs.
+    Ntasks : int, optional
+        Number of tasks the calculation is split into, ideally >= `Ncpu`. Default None: `Ncpu`.
+        Increase it if you get ``IO Error: bad message length``.
+    kernel_name : str, optional
+        SPH kernel: 'cubic' (default), 'quartic', 'quintic', 'wendland2', 'wendland4' or
+        'wendland6'.
 
     Returns
     -------
-    (list of) Smoothed 2D or 3D mesh data.
+    ndarray or dict
+        The smoothed grid(s), shape (pxln, pxln) or (pxln, pxln, pxln), indexed [x, y(, z)].
 
-    See also
+    Examples
     --------
-
-
-    Notes
-    -----
-
-
-    Example
-    -------
-    ydata = SPH_smoothing(wdata, pos, 10, hsml=HSML)
+    >>> ydata = SPH_smoothing(wdata, pos[:, :2], 10., None, hsml=hsml, pxln=512)
     """
 
     if kernel_name.lower() == 'cubic':
@@ -751,7 +762,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Memreduce=F
                 ydata = {}
                 for i in wdata.keys():
                     wdata[i] = wdata[i][idls]
-                    ydata[i] = np.zeros((pxln, pxln), dtype=np.float32)
+                    ydata[i] = np.zeros((pxln, pxln), dtype=np.float64)
     else:
         idls= np.lexsort((pos[:,2],pos[:,1],pos[:,0]))
         pos = (pos - [minx, minx, minx]) / pxls
@@ -821,7 +832,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Memreduce=F
                 for i in range(listn.size-1):
                     tmpwd = {}
                     for j in wdata.keys():
-                        tmpwd[j] =  wdata[listn[i]:listn[i + 1]]
+                        tmpwd[j] = wdata[j][listn[i]:listn[i + 1]]
                     Tasks.append((cal_sph_neib_v3, (mtree, pos[listn[i]:listn[i + 1]], neighbors,
                                                  SD, pxln, sphkernel, tmpwd)))
         else:
@@ -833,12 +844,12 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Memreduce=F
                 for i in range(listn.size-1):
                     tmpwd = {}
                     for j in wdata.keys():
-                        tmpwd[j] =  wdata[listn[i]:listn[i + 1]]
+                        tmpwd[j] = wdata[j][listn[i]:listn[i + 1]]
                     Tasks.append((cal_sph_hsml_v3, (mtree, pos[listn[i]:listn[i + 1]], hsml[listn[i]:listn[i + 1]],
                                                  SD, pxln, sphkernel, tmpwd)))
     else: # we need do the query first as the sending data size is limited. Sometimes We can use Ntasks to overcome the memory issue.
         if hsml is None:
-            dist, idst = mtree.query(pos, neighbors, n_jobs=NUMBER_OF_PROCESSES)  # estimate the neighbors and distance
+            dist, idst = mtree.query(pos, neighbors, workers=NUMBER_OF_PROCESSES)  # estimate the neighbors and distance
             memlog('After query ')
             if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
                 Tasks = [(cal_sph_neib, (idst[listn[i]:listn[i + 1]], dist[listn[i]:listn[i + 1]], SD, pxln,
@@ -848,8 +859,8 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Memreduce=F
                 for i in range(listn.size-1):
                     tmpwd = {}
                     for j in wdata.keys():
-                        tmpwd[j] =  wdata[listn[i]:listn[i + 1]]
-                    Tasks.append((cal_sph_neib, (idst[listn[i]:lintn[i + 1]], dist[listn[i]:listn[i + 1]],
+                        tmpwd[j] = wdata[j][listn[i]:listn[i + 1]]
+                    Tasks.append((cal_sph_neib, (idst[listn[i]:listn[i + 1]], dist[listn[i]:listn[i + 1]],
                                                  SD, pxln, sphkernel, tmpwd)))
         else:
             # However, this may help with the extremly memory cost of cKDTree query
@@ -858,7 +869,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Memreduce=F
             #     tid = mtree.query_ball_point(pos[listn[i]:listn[i + 1]], hsml[listn[i]:listn[i + 1]], n_jobs=NUMBER_OF_PROCESSES)
             #     idst=np.append(idst, np.array([np.array(xi) for xi in tid]))
             # del(tid)
-            idst = mtree.query_ball_point(pos, hsml, n_jobs=NUMBER_OF_PROCESSES)
+            idst = mtree.query_ball_point(pos, hsml, workers=NUMBER_OF_PROCESSES)
             memlog('After query ')
             if isinstance(wdata, type(np.array([1]))) or isinstance(wdata, type([])):
                 Tasks = [(cal_sph_hsml, (idst[listn[i]:listn[i + 1]], pos[listn[i]:listn[i + 1]], hsml[listn[i]:listn[i + 1]],
@@ -868,7 +879,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Memreduce=F
                 for i in range(listn.size-1):
                     tmpwd = {}
                     for j in wdata.keys():
-                        tmpwd[j] =  wdata[listn[i]:listn[i + 1]]
+                        tmpwd[j] = wdata[j][listn[i]:listn[i + 1]]
                     Tasks.append((cal_sph_hsml, (idst[listn[i]:listn[i + 1]], pos[listn[i]:listn[i + 1]], hsml[listn[i]:listn[i + 1]],
                                                  SD, pxln, sphkernel, tmpwd)))
         # Tasks = [(cal_sph_hsml, (range(i * N, (i + 1) * N), mtree, pos, hsml, pxln, indxyz,
@@ -891,6 +902,7 @@ def SPH_smoothing(wdata, pos, pxls, neighbors, hsml=None, pxln=None, Memreduce=F
             elif SD == 3:
                 ydata[idx[0]:idx[3], idx[1]:idx[4], idx[2]:idx[5]] += td
         else:
+            td, idx = done_queue.get()
             for j in wdata.keys():
                 if SD == 2:
                     ydata[j][idx[0]:idx[3], idx[1]:idx[4]] += td[j]

@@ -1,0 +1,15 @@
+# Extra files of the source distribution (sdist), which pip compiles when there is no binary wheel
+# for the platform. setuptools adds the Python package and the C++ sources of the extension itself.
+
+include README.md LICENSE AUTHORS.md build_szpack.sh
+
+# SZpack v2 (git submodule): the headers needed to compile pymsz.szpack.SZpack, and its README with
+# the terms of use
+include SZpack/README.md
+recursive-include SZpack *.h
+
+# the tests that need no simulation data run from the sdist; the test snapshots are too large
+include test/conftest.py test/mock_CL288.yaml
+
+global-exclude *.so *.pyd *.o *.pyc __pycache__ .ipynb_checkpoints
+prune third_party

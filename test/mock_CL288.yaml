@@ -1,0 +1,36 @@
+# Example: mock SPT-3G and ACT DR6 observations of the test cluster CL288 (snap_CL288.hdf5 in this
+# directory) placed at z = 0.1. Run from anywhere with
+#     pymsz-mock test/mock_CL288.yaml          (or: python -m pymsz test/mock_CL288.yaml)
+# All parameters are explained in the template:  pymsz-mock --template my_mock.yaml
+
+simulation:
+  snapshot: snap_CL288.hdf5
+  name: CL288
+  center: [500095.89011853, 500286.04465527, 500481.30095660]   # kpc/h
+  radius: 1446.17                                               # kpc/h
+  restrict_r: false
+  cut_sfr: 0.1
+
+image:
+  redshift: 0.1
+  AR: 10.
+  npixel: 256
+  axis: z
+
+sz:
+  model: szpack          # relativistic tSZ + kSZ (needs the SZpack extension); or tt+tk
+  method: combo
+
+telescopes:
+  - SPT-3G
+  - ACT-DR6
+
+observation:
+  unit: uK_CMB
+  noise: true
+  cmb: null              # camb (pip install camb) or a CAMB-style file (ell, D_ell) to add the primary CMB
+  seed: 1
+
+output:
+  directory: mock_CL288
+  overwrite: true
