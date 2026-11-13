@@ -7,9 +7,12 @@ include README.md LICENSE AUTHORS.md build_szpack.sh
 # the terms of use
 include SZpack/README.md
 recursive-include SZpack *.h
+# compiled from a fixed copy in build/ (see SZPACK_FIXES in setup.py): ship the original
+include SZpack/python/PySZpack.cpp
 
 # the tests that need no simulation data run from the sdist; the test snapshots are too large
 include test/conftest.py test/mock_CL288.yaml
 
 global-exclude *.so *.pyd *.o *.pyc __pycache__ .ipynb_checkpoints
 prune third_party
+prune build

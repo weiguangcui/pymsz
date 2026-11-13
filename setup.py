@@ -98,6 +98,33 @@ def find_gsl():
     return None, None
 
 
+# Fixes of the upstream SZpack sources. They are applied to copies in build/szpack_fixed, which are
+# compiled instead of the originals; the submodule itself is not changed.
+#   python/PySZpack.cpp: `fp.xmax = xcmb[-1]` means the last element in Python, but in C++ it reads
+#   the memory just before the vector (undefined behaviour: a garbage value on Linux, a segmentation
+#   fault on macOS for long frequency arrays). xmax is not used by these functions; xcmb.back() is meant.
+SZPACK_FIXES = {os.path.join('python', 'PySZpack.cpp'): [('xcmb[-1]', 'xcmb.back()')]}
+SZPACK_FIXED_DIR = os.path.join('build', 'szpack_fixed')
+
+
+def fixed_szpack_source(sp, rel):
+    """Path of the source file `rel` of SZpack to compile: a fixed copy if SZPACK_FIXES changes it."""
+    orig = os.path.join(sp, rel)
+    with open(orig, encoding='utf-8', errors='surrogateescape', newline='') as f:
+        text = f.read()
+    new = text
+    for old, rep in SZPACK_FIXES.get(rel, []):
+        new = new.replace(old, rep)
+    if new == text:  # nothing to fix (e.g. fixed upstream)
+        return orig
+    out = os.path.join(SZPACK_FIXED_DIR, rel)  # relative path, as setuptools wants
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    if not os.path.isfile(out) or open(out, encoding='utf-8', errors='surrogateescape', newline='').read() != new:
+        with open(out, 'w', encoding='utf-8', errors='surrogateescape', newline='') as f:
+            f.write(new)
+    return out
+
+
 def szpack_extensions():
     """Build description of the SZpack extension; empty list if it cannot be built."""
     from glob import glob
@@ -130,6 +157,7 @@ def szpack_extensions():
                      glob(os.path.join(sp, 'Tools', 'Integration', '*.cpp')) +
                      glob(os.path.join(sp, 'src', '*.cpp')) +
                      [os.path.join(sp, 'SZpack.cpp')])
+    sources = [fixed_szpack_source(sp, os.path.relpath(s, sp)) for s in sources]
     include_dirs = [sp] + [os.path.join(sp, d) for d in
                            ('include', 'src', 'StartUp', 'Tools/Definitions', 'Tools/Cosmology',
                             'Tools/Integration', 'Tools/Simple_routines')] + [gsl_inc]
